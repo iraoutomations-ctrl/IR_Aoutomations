@@ -11,6 +11,7 @@ const INTEGRATION_SETTINGS = {
     // The landing page will automatically POST the data to n8n in JSON format.
     n8nContactWebhook: "", // e.g. "https://n8n.yourdomain.com/webhook/contact"
     n8nSurveyWebhook: "",  // e.g. "https://n8n.yourdomain.com/webhook/survey"
+    n8nChatbotWebhook: "", // e.g. "https://n8n.yourdomain.com/webhook/chatbot"
 
     // 2. Free Email Fallback (Web3Forms):
     // If you don't use n8n for email yet, you can get a free access key from https://web3forms.com/
@@ -1162,21 +1163,11 @@ function initAIChatbot() {
         return re.test(phone) && phone.replace(/[^\d]/g, '').length >= 9;
     }
 
-    // Submit lead details to Web3Forms
+    // Submit lead details to Web3Forms or n8n
     function submitChatbotLead(data) {
-        if (!INTEGRATION_SETTINGS.web3FormsAccessKey) {
-            console.log("Chatbot lead data (simulation - no key):", data);
-            return;
-        }
-
         const payload = {
-            access_key: INTEGRATION_SETTINGS.web3FormsAccessKey,
-            subject: `[ליד סוכן AI] ${data.name} - ${data.company}`,
-            from_name: "סוכן AI - IR_Aoutomations",
-            "סוג הפנייה": "ליד מוסמך מסוכן ה-AI בצ'אט",
             "שם מלא": data.name,
             "חברה / עסק": data.company,
-            "תפקיד": data.role,
             "אתגר תפעולי / צוואר בקבוק": data.challenge,
             "לוח זמנים מתוכנן": data.timeline,
             "מסלול פנייה": data.wantsCall ? "תיאום שיחת אפיון 📞" : "משאב חינמי / טיפוח 📧",
@@ -1186,25 +1177,55 @@ function initAIChatbot() {
             "תאריך פנייה": new Date().toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem' })
         };
 
-        fetch("https://api.web3forms.com/submit", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "Accept": "application/json"
-            },
-            body: JSON.stringify(payload)
-        })
-        .then(res => res.json())
-        .then(resData => {
-            if (resData.success) {
-                console.log("Chatbot lead sent successfully via Web3Forms JSON");
-            } else {
-                console.error("Failed to send chatbot lead via Web3Forms:", resData.message);
-            }
-        })
-        .catch(err => {
-            console.error("Error sending chatbot lead via Web3Forms:", err);
-        });
+        // Scenario 1: n8n Integration webhook if provided
+        if (INTEGRATION_SETTINGS.n8nChatbotWebhook) {
+            fetch(INTEGRATION_SETTINGS.n8nChatbotWebhook, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify(payload)
+            })
+            .then(response => {
+                console.log("Chatbot lead sent to n8n successfully:", response);
+            })
+            .catch(err => {
+                console.error("Failed to send chatbot lead to n8n:", err);
+            });
+        }
+        // Scenario 2: Web3Forms fallback (sends to iraoutomations@gmail.com)
+        else if (INTEGRATION_SETTINGS.web3FormsAccessKey) {
+            const emailPayload = {
+                access_key: INTEGRATION_SETTINGS.web3FormsAccessKey,
+                subject: `[ליד סוכן AI] ${data.name} - ${data.company}`,
+                from_name: "סוכן AI - IR_Aoutomations",
+                "סוג הפנייה": "ליד מוסמך מסוכן ה-AI בצ'אט",
+                ...payload
+            };
+
+            fetch("https://api.web3forms.com/submit", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Accept": "application/json"
+                },
+                body: JSON.stringify(emailPayload)
+            })
+            .then(res => res.json())
+            .then(resData => {
+                if (resData.success) {
+                    console.log("Chatbot lead sent successfully via Web3Forms JSON");
+                } else {
+                    console.error("Failed to send chatbot lead via Web3Forms:", resData.message);
+                }
+            })
+            .catch(err => {
+                console.error("Error sending chatbot lead via Web3Forms:", err);
+            });
+        }
+        else {
+            print("Chatbot Lead (Simulation - no integration key):", payload);
+        }
     }
 
     // Start Chat/Reset
