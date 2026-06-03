@@ -449,12 +449,14 @@
           var v = d.createElement(t), s = d.getElementsByTagName(t)[0];
           v.onload = function() {
             window.voiceflow.chat.load({
-              verify: { projectID: '6a209db2e6b458fc9ead6ac' },
+              verify: { projectID: '6a209db2e6b458fc9ead6ab' },
               url: 'https://general-runtime.voiceflow.com',
-              versionID: 'production'
+              voice: {
+                url: "https://runtime-api.voiceflow.com"
+              }
             });
           }
-          v.src = "https://cdn.voiceflow.com/widget/bundle.mjs"; v.type = "text/javascript"; s.parentNode.insertBefore(v, s);
+          v.src = "https://cdn.voiceflow.com/widget-next/bundle.mjs"; v.type = "text/javascript"; s.parentNode.insertBefore(v, s);
       })(document, 'script');
     </script>
 
