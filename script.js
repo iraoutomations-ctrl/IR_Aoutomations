@@ -27,6 +27,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initAIChatbot();
     initScrollAnimations();
     initMouseGlow();
+    initParticleTrail();
 });
 
 /* ==========================================================================
@@ -1464,5 +1465,97 @@ function initMouseGlow() {
 
     document.addEventListener('mouseleave', () => {
         glow.style.opacity = '0';
+    });
+}
+
+/* ==========================================================================
+   Interactive Canvas Neon Particle Trail
+   ========================================================================== */
+function initParticleTrail() {
+    const canvas = document.getElementById('particleCanvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    
+    let particles = [];
+    let animationFrameId = null;
+
+    function resizeCanvas() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+    }
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+
+    // Site theme neon colors: violet, cyan, bright blue
+    const colors = ['#8b5cf6', '#06b6d4', '#3b82f6'];
+
+    function createParticles(x, y) {
+        // Spawn 2 particles per mouse movement tick
+        for (let i = 0; i < 2; i++) {
+            particles.push({
+                x: x,
+                y: y,
+                vx: (Math.random() - 0.5) * 2,
+                vy: (Math.random() - 0.5) * 2 - 0.6, // upward drift
+                size: Math.random() * 3 + 1, // small clean particles
+                color: colors[Math.floor(Math.random() * colors.length)],
+                alpha: 1,
+                decay: Math.random() * 0.02 + 0.015 // fade speed
+            });
+        }
+    }
+
+    function animate() {
+        // Clear canvas with transparent color to preserve performance
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        for (let i = particles.length - 1; i >= 0; i--) {
+            const p = particles[i];
+            p.x += p.vx;
+            p.y += p.vy;
+            p.alpha -= p.decay;
+
+            if (p.alpha <= 0) {
+                particles.splice(i, 1);
+                continue;
+            }
+
+            ctx.save();
+            ctx.globalAlpha = p.alpha;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+            ctx.fillStyle = p.color;
+            
+            // Subtle neon glow styling
+            ctx.shadowBlur = 8;
+            ctx.shadowColor = p.color;
+            
+            ctx.fill();
+            ctx.restore();
+        }
+
+        if (particles.length > 0) {
+            animationFrameId = requestAnimationFrame(animate);
+        } else {
+            animationFrameId = null; // Pause animation loop to save CPU when idle
+        }
+    }
+
+    window.addEventListener('mousemove', (e) => {
+        createParticles(e.clientX, e.clientY);
+        
+        // Restart the frame drawer if paused
+        if (!animationFrameId) {
+            animate();
+        }
+    });
+
+    window.addEventListener('touchmove', (e) => {
+        if (e.touches.length > 0) {
+            createParticles(e.touches[0].clientX, e.touches[0].clientY);
+            if (!animationFrameId) {
+                animate();
+            }
+        }
     });
 }
