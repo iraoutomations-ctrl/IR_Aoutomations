@@ -133,6 +133,122 @@
         </div>
     </section>
 
+    <!-- Tech Stack / Integrations Section -->
+    <section class="tech-stack-section">
+        <div class="container">
+            <h3 class="tech-stack-title text-center">אנחנו מחברים וממחשבים את המערכות המובילות בעולם</h3>
+            <div class="logo-carousel-wrapper">
+                <div class="logo-carousel-track">
+                    <!-- Carousel items (duplicated for infinite scroll loop) -->
+                    <div class="carousel-item"><i class="fa-brands fa-whatsapp clinics-color"></i> <span>WhatsApp</span></div>
+                    <div class="carousel-item"><i class="fa-solid fa-file-excel general-color"></i> <span>Google Sheets</span></div>
+                    <div class="carousel-item"><i class="fa-solid fa-envelope realtors-color"></i> <span>Gmail</span></div>
+                    <div class="carousel-item"><i class="fa-brands fa-wordpress-simple clinics-color"></i> <span>WooCommerce</span></div>
+                    <div class="carousel-item"><i class="fa-brands fa-hubspot lawyers-color"></i> <span>HubSpot</span></div>
+                    <div class="carousel-item"><i class="fa-brands fa-salesforce realtors-color"></i> <span>Salesforce</span></div>
+                    <div class="carousel-item"><i class="fa-solid fa-robot general-color"></i> <span>Make.com</span></div>
+                    <div class="carousel-item"><i class="fa-solid fa-bolt lawyers-color"></i> <span>Zapier</span></div>
+                    <div class="carousel-item"><i class="fa-solid fa-square-poll-vertical clinics-color"></i> <span>Monday.com</span></div>
+                    <!-- Duplicate items for loop -->
+                    <div class="carousel-item"><i class="fa-brands fa-whatsapp clinics-color"></i> <span>WhatsApp</span></div>
+                    <div class="carousel-item"><i class="fa-solid fa-file-excel general-color"></i> <span>Google Sheets</span></div>
+                    <div class="carousel-item"><i class="fa-solid fa-envelope realtors-color"></i> <span>Gmail</span></div>
+                    <div class="carousel-item"><i class="fa-brands fa-wordpress-simple clinics-color"></i> <span>WooCommerce</span></div>
+                    <div class="carousel-item"><i class="fa-brands fa-hubspot lawyers-color"></i> <span>HubSpot</span></div>
+                    <div class="carousel-item"><i class="fa-brands fa-salesforce realtors-color"></i> <span>Salesforce</span></div>
+                    <div class="carousel-item"><i class="fa-solid fa-robot general-color"></i> <span>Make.com</span></div>
+                    <div class="carousel-item"><i class="fa-solid fa-bolt lawyers-color"></i> <span>Zapier</span></div>
+                    <div class="carousel-item"><i class="fa-solid fa-square-poll-vertical clinics-color"></i> <span>Monday.com</span></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ROI Calculator Section -->
+    <section class="calculator-section" id="roi-calculator">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-tagline">מחשבון חיסכון וזמן</span>
+                <h2 class="section-title">כמה זמן וכסף תוכל לחסוך בעסק?</h2>
+                <p class="section-desc">הזן את נתוני העסק שלך וראה את הפוטנציאל המיידי לחיסכון חודשי ושנתי באמצעות אוטומציה.</p>
+            </div>
+            
+            <div class="calculator-card-wrapper glow-border">
+                <div class="calculator-grid">
+                    <!-- Sliders Side -->
+                    <div class="calculator-controls">
+                        <div class="slider-group">
+                            <div class="slider-info">
+                                <span class="slider-label">מספר עובדים בעסק:</span>
+                                <span class="slider-val" id="valEmployees">5</span>
+                            </div>
+                            <input type="range" class="calculator-slider" id="inputEmployees" min="1" max="50" value="5">
+                            <div class="slider-limits">
+                                <span>1</span>
+                                <span>50</span>
+                            </div>
+                        </div>
+
+                        <div class="slider-group">
+                            <div class="slider-info">
+                                <span class="slider-label">שעות מבוזבזות לעובד בשבוע (משימות ידניות):</span>
+                                <span class="slider-val" id="valHours">8</span>
+                            </div>
+                            <input type="range" class="calculator-slider" id="inputHours" min="1" max="25" value="8">
+                            <div class="slider-limits">
+                                <span>1 שעה</span>
+                                <span>25 שעות</span>
+                            </div>
+                        </div>
+
+                        <div class="slider-group">
+                            <div class="slider-info">
+                                <span class="slider-label">עלות ממוצעת לשעת עבודה לעסק:</span>
+                                <span class="slider-val" id="valCost">₪60</span>
+                            </div>
+                            <input type="range" class="calculator-slider" id="inputCost" min="40" max="250" step="5" value="60">
+                            <div class="slider-limits">
+                                <span>₪40</span>
+                                <span>₪250</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Results Side -->
+                    <div class="calculator-results glass-card">
+                        <h4 class="results-title">החיסכון הפוטנציאלי שלך:</h4>
+                        
+                        <div class="result-metric">
+                            <span class="metric-label">זמן שנחסך בחודש:</span>
+                            <div class="metric-value-wrapper">
+                                <span class="metric-val" id="resultHours">173</span>
+                                <span class="metric-unit">שעות עבודה</span>
+                            </div>
+                        </div>
+
+                        <div class="result-metric">
+                            <span class="metric-label">חיסכון כספי חודשי:</span>
+                            <div class="metric-value-wrapper highlight-cyan">
+                                <span class="metric-val" id="resultMonthly">₪10,380</span>
+                            </div>
+                        </div>
+
+                        <div class="result-metric">
+                            <span class="metric-label">חיסכון כספי שנתי מוערך:</span>
+                            <div class="metric-value-wrapper highlight-violet">
+                                <span class="metric-val" id="resultYearly">₪124,560</span>
+                            </div>
+                        </div>
+
+                        <div class="calculator-cta">
+                            <a href="#survey" class="btn btn-primary btn-full">התחל אפיון לזיהוי ההזדמנויות <i class="fa-solid fa-arrow-left"></i></a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
     <!-- Interactive Survey Section -->
     <section class="survey-section" id="survey">
         <div class="container">
@@ -324,6 +440,48 @@
             <p>&copy; 2026 IR_Aoutomations. כל הזכויות שמורות. תוכנן עבור אוטומציה עסקית מתקדמת.</p>
         </div>
     </footer>
+
+    <!-- Floating AI Chatbot Widget -->
+    <div class="ai-chat-container">
+        <!-- Floating Toggle Button -->
+        <button class="ai-chat-toggle" id="aiChatToggle" aria-label="פתח סוכן AI">
+            <span class="toggle-badge">1</span>
+            <i class="fa-solid fa-robot"></i>
+        </button>
+
+        <!-- Chat Window -->
+        <div class="ai-chat-window glass-card" id="aiChatWindow">
+            <!-- Header -->
+            <div class="chat-header">
+                <div class="bot-info">
+                    <div class="bot-avatar"><i class="fa-solid fa-robot"></i></div>
+                    <div class="bot-status">
+                        <span class="bot-name">סוכן ה-AI של IR</span>
+                        <span class="bot-online-indicator">פעיל כעת</span>
+                    </div>
+                </div>
+                <button class="chat-close-btn" id="aiChatClose" aria-label="סגור צ'אט"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <!-- Messages Body -->
+            <div class="chat-messages" id="aiChatMessages">
+                <!-- Messages will be injected via JS -->
+            </div>
+
+            <!-- Predefined Option Chips (Dynamic targets) -->
+            <div class="chat-options-chips" id="aiChatOptions">
+                <!-- Option chips injected via JS -->
+            </div>
+
+            <!-- Footer / Input Form -->
+            <form class="chat-input-form" id="aiChatInputForm">
+                <input type="text" class="chat-input-field" id="aiChatInputField" placeholder="הקלד הודעה..." autocomplete="off">
+                <button type="submit" class="chat-send-btn" id="aiChatSendBtn" aria-label="שלח הודעה">
+                    <i class="fa-solid fa-paper-plane"></i>
+                </button>
+            </form>
+        </div>
+    </div>
 
     <!-- Main JS script -->
     <script src="script.js"></script>
