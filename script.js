@@ -1246,10 +1246,6 @@ function initAIChatbot() {
             botReply(`נעים להכיר, **${userData.name}**! מאיזו חברה או עסק אתה עובד?`);
         } else if (currentState === 'ask_company') {
             userData.company = text;
-            currentState = 'ask_role';
-            askRoleQuestion();
-        } else if (currentState === 'ask_role') {
-            userData.role = text;
             currentState = 'ask_challenge';
             askChallengeQuestion();
         } else if (currentState === 'ask_challenge') {
@@ -1283,23 +1279,16 @@ function initAIChatbot() {
         }
     }
 
-    // Ask role question with chips
-    function askRoleQuestion() {
-        botReply(`מעולה! ומה התפקיד שלך ב-**${userData.company}**?`, [
-            { text: 'מנכ"ל / בעלים 👑', value: 'CEO' },
-            { text: 'מנהל תפעול / פרויקטים ⚙️', value: 'COO' },
-            { text: 'מנהל שיווק / מכירות 📈', value: 'Sales' },
-            { text: 'אחר (הקלד חופשי) ✍️', value: 'Other' }
-        ]);
-    }
-
     // Ask challenge question with chips
     function askChallengeQuestion() {
-        botReply(`הבנתי לגמרי.\nכ-${userData.role} ב-${userData.company}, מהו אתגר התפעול או צוואר הבקבוק המרכזי שבו אתם נתקלים ביומיום ושואב לכם הכי הרבה זמן?`, [
-            { text: 'העתקת נתונים ידנית וניירת 📂', value: 'data_entry' },
+        botReply(`הבנתי לגמרי.\nמהו צוואר הבקבוק או האתגר התפעולי המרכזי ב-**${userData.company}** ששואב מכם הכי הרבה זמן ועבודה ידנית?`, [
+            { text: 'העתקת נתונים ידנית וקלדנות 📂', value: 'data_entry' },
             { text: 'סינון ומעקב אחר לידים (פולו-אפ) 📞', value: 'leads' },
             { text: 'סנכרון בין מערכות (CRM, וואטסאפ, מייל) 🔗', value: 'sync' },
-            { text: 'מענה ללקוחות ושירות 💬', value: 'support' },
+            { text: 'מענה אוטומטי בוואטסאפ ושירות לקוחות 💬', value: 'whatsapp_support' },
+            { text: 'ניהול משימות ופרויקטים (Monday, ClickUp) 🗓️', value: 'pm' },
+            { text: 'הפקת מסמכים, חשבוניות ודוחות 💳', value: 'billing' },
+            { text: 'תהליכי קליטה (Onboarding) של לקוחות/עובדים 👥', value: 'onboarding' },
             { text: 'אחר (הקלד חופשי) ✍️', value: 'other' }
         ]);
     }
@@ -1349,11 +1338,7 @@ function initAIChatbot() {
     function handleOptionClick(opt) {
         addMessage(opt.text, 'user');
 
-        if (currentState === 'ask_role') {
-            userData.role = opt.text;
-            currentState = 'ask_challenge';
-            askChallengeQuestion();
-        } else if (currentState === 'ask_challenge') {
+        if (currentState === 'ask_challenge') {
             userData.challenge = opt.text;
             currentState = 'ask_timeline';
             askTimelineQuestion();
