@@ -1283,16 +1283,6 @@ function initAIChatbot() {
             } else {
                 botReply(`נראה שמספר הטלפון שהזנת אינו תקין. אנא הזן מספר טלפון תקין (לדוגמה: 054-1234567 או 09-1234567).`);
             }
-        } else if (currentState === 'collect_email') {
-            if (validateEmail(text)) {
-                userData.email = text;
-                userData.wantsCall = false;
-                currentState = 'completed';
-                submitChatbotLead(userData);
-                showFinalResourceThanks();
-            } else {
-                botReply(`נראה שכתובת המייל שהזנת אינה תקינה. אנא הזן כתובת מייל תקינה (לדוגמה: name@example.com).`);
-            }
         } else {
             botReply(`תודה רבה! אם ברצונך להתחיל שיחה חדשה, לחץ על הכפתור למטה.`, [
                 { text: 'התחל שיחה מחדש 🔄', value: 'reset' }
@@ -1331,26 +1321,10 @@ function initAIChatbot() {
         ]);
     }
 
-    // Ask to select resource (nurture path)
-    function askOfferResource() {
-        botReply(`הבנתי לגמרי, הכל בסדר ואין שום לחץ! כדי שתוכל להתרשם בקצב שלך, הכנו כמה מדריכים מקצועיים שיעזרו לך להבין איך לייעל את העסק.\n\nמה הכי יעזור לקבל כעת?`, [
-            { text: 'מדריך תמחור ועלויות אוטומציה 💰', value: 'pricing' },
-            { text: 'מקרה בוחן (חיסכון של 120 שעות חודשיות) 📄', value: 'casestudy' },
-            { text: 'דוח מגמות אוטומציה לעסקים 📈', value: 'report' }
-        ]);
-    }
-
     // Show call path success
     function showFinalCallThanks() {
         botReply(`תודה רבה, **${userData.name}**! 🎉\n\nפרטייך התקבלו בהצלחה. סוכן מ-**IR_Aoutomations** ייצור איתך קשר בהקדם לתיאום שיחת האפיון.\n\nלזירוז המענה ותיאום מיידי, תוכל לשלוח לנו הודעה ישירה בוואטסאפ!`, [
             { text: 'מעבר לשיחה בוואטסאפ 💬', value: 'whatsapp' },
-            { text: 'התחל שיחה מחדש 🔄', value: 'reset' }
-        ]);
-    }
-
-    // Show resource path success
-    function showFinalResourceThanks() {
-        botReply(`מעולה, **${userData.name}**!\n\nהמשאב **"${userData.resource}"** נשלח כעת לכתובת המייל שלך: **${userData.email}** 📧\n\nנשמח לעמוד לרשותך בעתיד כשתרצה להתקדם. שיהיה יום נפלא ומוצלח! 🚀`, [
             { text: 'התחל שיחה מחדש 🔄', value: 'reset' }
         ]);
     }
@@ -1367,8 +1341,12 @@ function initAIChatbot() {
             userData.timeline = opt.text;
             if (opt.value === 'browsing') {
                 userData.qualified = false;
-                currentState = 'offer_resource';
-                askOfferResource();
+                userData.wantsCall = false;
+                currentState = 'completed';
+                submitChatbotLead(userData);
+                botReply(`הבנתי לגמרי, הכל בסדר ואין שום לחץ!\n\nנשמח לעמוד לרשותך בעתיד כשתרצה לבחון פתרונות אוטומציה לעסק שלכם. שיהיה יום נפלא ומוצלח! 🚀`, [
+                    { text: 'התחל שיחה מחדש 🔄', value: 'reset' }
+                ]);
             } else {
                 userData.qualified = true;
                 currentState = 'offer_call';
@@ -1379,13 +1357,14 @@ function initAIChatbot() {
                 currentState = 'collect_phone';
                 botReply(`מעולה! מהו מספר הטלפון שלך ליצירת קשר ותיאום השיחה?`);
             } else {
-                currentState = 'offer_resource';
-                askOfferResource();
+                userData.qualified = false;
+                userData.wantsCall = false;
+                currentState = 'completed';
+                submitChatbotLead(userData);
+                botReply(`הבנתי לגמרי, הכל בסדר ואין שום לחץ!\n\nנשמח לעמוד לרשותך בעתיד כשתהיה מוכן. שיהיה יום נפלא ומוצלח! 🚀`, [
+                    { text: 'התחל שיחה מחדש 🔄', value: 'reset' }
+                ]);
             }
-        } else if (currentState === 'offer_resource') {
-            userData.resource = opt.text;
-            currentState = 'collect_email';
-            botReply(`בחירה מצוינת! לאיזה כתובת אימייל לשלוח לך את ה-**${userData.resource}**?`);
         } else if (currentState === 'completed') {
             if (opt.value === 'whatsapp') {
                 const phone = "972547171828";
