@@ -23,6 +23,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initSurveySystem();
     initContactForm();
     initROICalculator();
+    initAIChatbot();
 });
 
 /* ==========================================================================
@@ -1045,4 +1046,369 @@ function initROICalculator() {
 
     // Initial calculation
     calculateSavings();
+}
+
+/* ==========================================================================
+   AI Chatbot Widget Logic
+   ========================================================================== */
+function initAIChatbot() {
+    const chatToggle = document.getElementById('aiChatToggle');
+    const chatWindow = document.getElementById('aiChatWindow');
+    const chatClose = document.getElementById('aiChatClose');
+    const chatMessages = document.getElementById('aiChatMessages');
+    const chatOptions = document.getElementById('aiChatOptions');
+    const chatForm = document.getElementById('aiChatInputForm');
+    const chatInput = document.getElementById('aiChatInputField');
+    const badge = chatToggle ? chatToggle.querySelector('.toggle-badge') : null;
+
+    if (!chatToggle || !chatWindow || !chatMessages || !chatForm) return;
+
+    let currentState = 'welcome';
+    let userData = {
+        name: '',
+        company: '',
+        role: '',
+        challenge: '',
+        timeline: '',
+        qualified: false,
+        wantsCall: false,
+        phone: '',
+        resource: '',
+        email: ''
+    };
+
+    // Helper: Formats bold and linebreaks nicely
+    function formatMessageText(text) {
+        // Escape HTML to prevent injection but allow basic bolding and linebreaks
+        let formatted = text
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;");
+        
+        // Parse markdown-style bold: **text** -> <strong>text</strong>
+        formatted = formatted.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+        // Parse linebreaks: \n -> <br>
+        formatted = formatted.replace(/\n/g, '<br>');
+        return formatted;
+    }
+
+    // Helper: Add message bubble
+    function addMessage(text, sender = 'bot') {
+        const msgDiv = document.createElement('div');
+        msgDiv.className = `chat-msg ${sender}`;
+        msgDiv.innerHTML = formatMessageText(text);
+        chatMessages.appendChild(msgDiv);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    // Helper: Add typing indicator
+    function addTypingIndicator() {
+        const indicator = document.createElement('div');
+        indicator.className = 'chat-msg bot typing-indicator';
+        indicator.id = 'chatTypingIndicator';
+        indicator.innerHTML = `
+            <div class="typing-dots">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        `;
+        chatMessages.appendChild(indicator);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    function removeTypingIndicator() {
+        const indicator = document.getElementById('chatTypingIndicator');
+        if (indicator) indicator.remove();
+    }
+
+    // Helper: Render option chips
+    function renderChips(options) {
+        chatOptions.innerHTML = '';
+        if (!options || options.length === 0) return;
+
+        options.forEach(opt => {
+            const chip = document.createElement('div');
+            chip.className = 'chat-chip';
+            chip.textContent = opt.text;
+            chip.addEventListener('click', () => handleOptionClick(opt));
+            chatOptions.appendChild(chip);
+        });
+    }
+
+    // Bot response helper with typing simulation
+    function botReply(text, chips = [], delay = 1000) {
+        addTypingIndicator();
+        chatInput.disabled = true; // Disable input while typing to keep focus clean
+        if (chatOptions) chatOptions.innerHTML = ''; // Clear options while typing
+        
+        setTimeout(() => {
+            removeTypingIndicator();
+            addMessage(text, 'bot');
+            renderChips(chips);
+            chatInput.disabled = false;
+            chatInput.focus();
+        }, delay);
+    }
+
+    // Email and Phone validators
+    function validateEmail(email) {
+        const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        return re.test(String(email).toLowerCase());
+    }
+
+    function validatePhone(phone) {
+        const re = /^\+?[\d\s-]{9,15}$/;
+        return re.test(phone) && phone.replace(/[^\d]/g, '').length >= 9;
+    }
+
+    // Submit lead details to Web3Forms
+    function submitChatbotLead(data) {
+        if (!INTEGRATION_SETTINGS.web3FormsAccessKey) {
+            console.log("Chatbot lead data (simulation - no key):", data);
+            return;
+        }
+
+        const payload = {
+            access_key: INTEGRATION_SETTINGS.web3FormsAccessKey,
+            subject: `[ליד סוכן AI] ${data.name} - ${data.company}`,
+            from_name: "סוכן AI - IR_Aoutomations",
+            "סוג הפנייה": "ליד מוסמך מסוכן ה-AI בצ'אט",
+            "שם מלא": data.name,
+            "חברה / עסק": data.company,
+            "תפקיד": data.role,
+            "אתגר תפעולי / צוואר בקבוק": data.challenge,
+            "לוח זמנים מתוכנן": data.timeline,
+            "מסלול פנייה": data.wantsCall ? "תיאום שיחת אפיון 📞" : "משאב חינמי / טיפוח 📧",
+            "מספר טלפון": data.phone || "לא צוין",
+            "משאב מבוקש": data.resource || "לא צוין",
+            "כתובת אימייל": data.email || "לא צוין",
+            "תאריך פנייה": new Date().toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem' })
+        };
+
+        fetch("https://api.web3forms.com/submit", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            },
+            body: JSON.stringify(payload)
+        })
+        .then(res => res.json())
+        .then(resData => {
+            if (resData.success) {
+                console.log("Chatbot lead sent successfully via Web3Forms JSON");
+            } else {
+                console.error("Failed to send chatbot lead via Web3Forms:", resData.message);
+            }
+        })
+        .catch(err => {
+            console.error("Error sending chatbot lead via Web3Forms:", err);
+        });
+    }
+
+    // Start Chat/Reset
+    function resetChat() {
+        chatMessages.innerHTML = '';
+        currentState = 'welcome';
+        userData = {
+            name: '',
+            company: '',
+            role: '',
+            challenge: '',
+            timeline: '',
+            qualified: false,
+            wantsCall: false,
+            phone: '',
+            resource: '',
+            email: ''
+        };
+        botReply(`היי! אני סוכן ה-AI של **IR_Aoutomations** 👋 תפקידי הוא לעזור לך לזהות איך לפנות זמן יקר ולחסוך עלויות בעסק באמצעות אוטומציות חכמות.\n\nאיך קוראים לך?`);
+    }
+
+    // Handles user typed message via input form
+    chatForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const text = chatInput.value.trim();
+        if (text === '') return;
+
+        chatInput.value = '';
+        addMessage(text, 'user');
+
+        handleUserInputText(text);
+    });
+
+    // Handle state transitions for text input
+    function handleUserInputText(text) {
+        if (currentState === 'welcome') {
+            userData.name = text;
+            currentState = 'ask_company';
+            botReply(`נעים להכיר, **${userData.name}**! מאיזו חברה או עסק אתה עובד?`);
+        } else if (currentState === 'ask_company') {
+            userData.company = text;
+            currentState = 'ask_role';
+            askRoleQuestion();
+        } else if (currentState === 'ask_role') {
+            userData.role = text;
+            currentState = 'ask_challenge';
+            askChallengeQuestion();
+        } else if (currentState === 'ask_challenge') {
+            userData.challenge = text;
+            currentState = 'ask_timeline';
+            askTimelineQuestion();
+        } else if (currentState === 'collect_phone') {
+            if (validatePhone(text)) {
+                userData.phone = text;
+                userData.wantsCall = true;
+                currentState = 'completed';
+                submitChatbotLead(userData);
+                showFinalCallThanks();
+            } else {
+                botReply(`נראה שמספר הטלפון שהזנת אינו תקין. אנא הזן מספר טלפון תקין (לדוגמה: 054-1234567 או 09-1234567).`);
+            }
+        } else if (currentState === 'collect_email') {
+            if (validateEmail(text)) {
+                userData.email = text;
+                userData.wantsCall = false;
+                currentState = 'completed';
+                submitChatbotLead(userData);
+                showFinalResourceThanks();
+            } else {
+                botReply(`נראה שכתובת המייל שהזנת אינה תקינה. אנא הזן כתובת מייל תקינה (לדוגמה: name@example.com).`);
+            }
+        } else {
+            botReply(`תודה רבה! אם ברצונך להתחיל שיחה חדשה, לחץ על הכפתור למטה.`, [
+                { text: 'התחל שיחה מחדש 🔄', value: 'reset' }
+            ]);
+        }
+    }
+
+    // Ask role question with chips
+    function askRoleQuestion() {
+        botReply(`מעולה! ומה התפקיד שלך ב-**${userData.company}**?`, [
+            { text: 'מנכ"ל / בעלים 👑', value: 'CEO' },
+            { text: 'מנהל תפעול / פרויקטים ⚙️', value: 'COO' },
+            { text: 'מנהל שיווק / מכירות 📈', value: 'Sales' },
+            { text: 'אחר (הקלד חופשי) ✍️', value: 'Other' }
+        ]);
+    }
+
+    // Ask challenge question with chips
+    function askChallengeQuestion() {
+        botReply(`הבנתי לגמרי.\nכ-${userData.role} ב-${userData.company}, מהו אתגר התפעול או צוואר הבקבוק המרכזי שבו אתם נתקלים ביומיום ושואב לכם הכי הרבה זמן?`, [
+            { text: 'העתקת נתונים ידנית וניירת 📂', value: 'data_entry' },
+            { text: 'סינון ומעקב אחר לידים (פולו-אפ) 📞', value: 'leads' },
+            { text: 'סנכרון בין מערכות (CRM, וואטסאפ, מייל) 🔗', value: 'sync' },
+            { text: 'מענה ללקוחות ושירות 💬', value: 'support' },
+            { text: 'אחר (הקלד חופשי) ✍️', value: 'other' }
+        ]);
+    }
+
+    // Ask timeline question with chips
+    function askTimelineQuestion() {
+        botReply(`זהו אתגר מוכר מאוד, ובדיוק כאן אנחנו עוזרים! אנחנו ב-**IR_Aoutomations** מתמחים בפתרון צווארי בקבוק כאלה בדיוק באמצעות **n8n** - כלי האינטגרציה המוביל שחוסך את עלויות הרישוי היקרות של זאפייר.\n\nמהו לוח הזמנים המתוכנן שלך לבחינה ויישום של פתרון לעסק?`, [
+            { text: 'מיידי (השבוע-שבועיים הקרובים) ⚡', value: 'immediate' },
+            { text: 'במהלך החודש הקרוב 🗓️', value: 'next_month' },
+            { text: 'רק בודק אופציות כרגע 🔍', value: 'browsing' }
+        ]);
+    }
+
+    // Ask if wants call (qualified path)
+    function askOfferCall() {
+        botReply(`נשמע שאתה מוכן לעשות שינוי אמיתי שיפנה לכם המון זמן יקר. נוכל לעשות שיחת אפיון קצרה (ללא עלות) שבה נציג לך איך אוטומציה מבוססת n8n תפתור בדיוק את האתגר של **${userData.challenge}** אצלכם.\n\nהאם תרצה שנתאם שיחת אפיון קצרה?`, [
+            { text: 'כן, אשמח לתאם שיחה! 📞', value: 'yes' },
+            { text: 'עדיין לא מוכן לשיחה, אולי בהמשך 🤔', value: 'no' }
+        ]);
+    }
+
+    // Ask to select resource (nurture path)
+    function askOfferResource() {
+        botReply(`הבנתי לגמרי, הכל בסדר ואין שום לחץ! כדי שתוכל להתרשם בקצב שלך, הכנו כמה מדריכים מקצועיים שיעזרו לך להבין איך לייעל את העסק.\n\nמה הכי יעזור לקבל כעת?`, [
+            { text: 'מדריך תמחור ועלויות אוטומציה 💰', value: 'pricing' },
+            { text: 'מקרה בוחן (חיסכון של 120 שעות חודשיות) 📄', value: 'casestudy' },
+            { text: 'דוח מגמות אוטומציה לעסקים 📈', value: 'report' }
+        ]);
+    }
+
+    // Show call path success
+    function showFinalCallThanks() {
+        botReply(`תודה רבה, **${userData.name}**! 🎉\n\nפרטייך התקבלו בהצלחה. סוכן מ-**IR_Aoutomations** ייצור איתך קשר בהקדם לתיאום שיחת האפיון.\n\nלזירוז המענה ותיאום מיידי, תוכל לשלוח לנו הודעה ישירה בוואטסאפ!`, [
+            { text: 'מעבר לשיחה בוואטסאפ 💬', value: 'whatsapp' },
+            { text: 'התחל שיחה מחדש 🔄', value: 'reset' }
+        ]);
+    }
+
+    // Show resource path success
+    function showFinalResourceThanks() {
+        botReply(`מעולה, **${userData.name}**!\n\nהמשאב **"${userData.resource}"** נשלח כעת לכתובת המייל שלך: **${userData.email}** 📧\n\nנשמח לעמוד לרשותך בעתיד כשתרצה להתקדם. שיהיה יום נפלא ומוצלח! 🚀`, [
+            { text: 'התחל שיחה מחדש 🔄', value: 'reset' }
+        ]);
+    }
+
+    // Handle clicks on option chips
+    function handleOptionClick(opt) {
+        addMessage(opt.text, 'user');
+
+        if (currentState === 'ask_role') {
+            userData.role = opt.text;
+            currentState = 'ask_challenge';
+            askChallengeQuestion();
+        } else if (currentState === 'ask_challenge') {
+            userData.challenge = opt.text;
+            currentState = 'ask_timeline';
+            askTimelineQuestion();
+        } else if (currentState === 'ask_timeline') {
+            userData.timeline = opt.text;
+            if (opt.value === 'browsing') {
+                userData.qualified = false;
+                currentState = 'offer_resource';
+                askOfferResource();
+            } else {
+                userData.qualified = true;
+                currentState = 'offer_call';
+                askOfferCall();
+            }
+        } else if (currentState === 'offer_call') {
+            if (opt.value === 'yes') {
+                currentState = 'collect_phone';
+                botReply(`מעולה! מהו מספר הטלפון שלך ליצירת קשר ותיאום השיחה?`);
+            } else {
+                currentState = 'offer_resource';
+                askOfferResource();
+            }
+        } else if (currentState === 'offer_resource') {
+            userData.resource = opt.text;
+            currentState = 'collect_email';
+            botReply(`בחירה מצוינת! לאיזה כתובת אימייל לשלוח לך את ה-**${userData.resource}**?`);
+        } else if (currentState === 'completed') {
+            if (opt.value === 'whatsapp') {
+                const phone = "972547171828";
+                const message = encodeURIComponent(`היי, שוחחתי עם סוכן ה-AI באתר שלכם. אשמח לתאם שיחת אפיון קצרה לאוטומציה של העסק שלי.`);
+                window.open(`https://api.whatsapp.com/send?phone=${phone}&text=${message}`, '_blank');
+            } else if (opt.value === 'reset') {
+                resetChat();
+            }
+        } else {
+            if (opt.value === 'reset') {
+                resetChat();
+            }
+        }
+    }
+
+    // Toggle Chat Window
+    chatToggle.addEventListener('click', () => {
+        chatWindow.classList.toggle('open');
+        if (badge) {
+            badge.style.display = 'none'; // Hide notification badge on first open
+        }
+        
+        // Start conversation if empty
+        if (chatMessages.children.length === 0) {
+            resetChat();
+        }
+    });
+
+    chatClose.addEventListener('click', () => {
+        chatWindow.classList.remove('open');
+    });
 }
