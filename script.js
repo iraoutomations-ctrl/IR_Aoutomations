@@ -1489,19 +1489,24 @@ function initParticleTrail() {
     // Site theme neon colors: violet, cyan, bright blue
     const colors = ['#8b5cf6', '#06b6d4', '#3b82f6'];
 
-    function createParticles(x, y) {
-        // Spawn 2 particles per mouse movement tick
-        for (let i = 0; i < 2; i++) {
+    function createParticles(x, y, count = 2, speedFactor = 1) {
+        for (let i = 0; i < count; i++) {
+            // If count is 1 (mouse movement trail), make velocity light and drifting upward
+            const vx = count === 1 ? (Math.random() - 0.5) * 1.5 : (Math.random() - 0.5) * 3 * speedFactor;
+            const vy = count === 1 ? (Math.random() - 0.5) * 1.5 - 0.6 : (Math.random() - 0.5) * 3 * speedFactor - 0.2;
             particles.push({
                 x: x,
                 y: y,
-                vx: (Math.random() - 0.5) * 2,
-                vy: (Math.random() - 0.5) * 2 - 0.6, // upward drift
-                size: Math.random() * 3 + 1, // small clean particles
+                vx: vx,
+                vy: vy,
+                size: Math.random() * 2.5 + 1.2, // small clean particles
                 color: colors[Math.floor(Math.random() * colors.length)],
                 alpha: 1,
-                decay: Math.random() * 0.02 + 0.015 // fade speed
+                decay: count === 1 ? (Math.random() * 0.02 + 0.015) : (Math.random() * 0.03 + 0.02) // fade faster for bursts
             });
+        }
+        if (!animationFrameId) {
+            animate();
         }
     }
 
@@ -1541,20 +1546,31 @@ function initParticleTrail() {
         }
     }
 
+    // Gentle trail on movement
     window.addEventListener('mousemove', (e) => {
-        createParticles(e.clientX, e.clientY);
-        
-        // Restart the frame drawer if paused
-        if (!animationFrameId) {
-            animate();
-        }
+        createParticles(e.clientX, e.clientY, 1, 0.4);
     });
 
     window.addEventListener('touchmove', (e) => {
         if (e.touches.length > 0) {
-            createParticles(e.touches[0].clientX, e.touches[0].clientY);
-            if (!animationFrameId) {
-                animate();
+            createParticles(e.touches[0].clientX, e.touches[0].clientY, 1, 0.4);
+        }
+    });
+
+    // Dopamine burst when clicking anywhere on the screen
+    window.addEventListener('click', (e) => {
+        createParticles(e.clientX, e.clientY, 15, 1.3);
+    });
+
+    // Dopamine spark burst when crossing boundary of interactive elements
+    document.addEventListener('mouseover', (e) => {
+        const interactive = e.target.closest('a, button, .chat-chip, .carousel-item, .service-card, input[type="range"]');
+        if (interactive) {
+            const now = Date.now();
+            const lastHover = interactive.dataset.lastHover || 0;
+            if (now - lastHover > 300) { // Throttled to prevent multiple triggers
+                interactive.dataset.lastHover = now;
+                createParticles(e.clientX, e.clientY, 6, 0.6);
             }
         }
     });
