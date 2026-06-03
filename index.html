@@ -441,47 +441,20 @@
         </div>
     </footer>
 
-    <!-- Floating AI Chatbot Widget -->
-    <div class="ai-chat-container">
-        <!-- Floating Toggle Button -->
-        <button class="ai-chat-toggle" id="aiChatToggle" aria-label="פתח סוכן AI">
-            <span class="toggle-badge">1</span>
-            <i class="fa-solid fa-robot"></i>
-        </button>
-
-        <!-- Chat Window -->
-        <div class="ai-chat-window glass-card" id="aiChatWindow">
-            <!-- Header -->
-            <div class="chat-header">
-                <div class="bot-info">
-                    <div class="bot-avatar"><i class="fa-solid fa-robot"></i></div>
-                    <div class="bot-status">
-                        <span class="bot-name">סוכן ה-AI של IR</span>
-                        <span class="bot-online-indicator">פעיל כעת</span>
-                    </div>
-                </div>
-                <button class="chat-close-btn" id="aiChatClose" aria-label="סגור צ'אט"><i class="fa-solid fa-xmark"></i></button>
-            </div>
-
-            <!-- Messages Body -->
-            <div class="chat-messages" id="aiChatMessages">
-                <!-- Messages will be injected via JS -->
-            </div>
-
-            <!-- Predefined Option Chips (Dynamic targets) -->
-            <div class="chat-options-chips" id="aiChatOptions">
-                <!-- Option chips injected via JS -->
-            </div>
-
-            <!-- Footer / Input Form -->
-            <form class="chat-input-form" id="aiChatInputForm">
-                <input type="text" class="chat-input-field" id="aiChatInputField" placeholder="הקלד הודעה..." autocomplete="off">
-                <button type="submit" class="chat-send-btn" id="aiChatSendBtn" aria-label="שלח הודעה">
-                    <i class="fa-solid fa-paper-plane"></i>
-                </button>
-            </form>
-        </div>
-    </div>
+    <!-- Voiceflow Live AI Chatbot Widget -->
+    <script type="text/javascript">
+      (function(d, t) {
+          var v = d.createElement(t), s = d.getElementsByTagName(t)[0];
+          v.onload = function() {
+            window.voiceflow.chat.load({
+              verify: { projectID: '6a209db2e6b458fc9ead6ac' },
+              url: 'https://general-runtime.voiceflow.com',
+              versionID: 'production'
+            });
+          }
+          v.src = "https://cdn.voiceflow.com/widget/bundle.mjs"; v.type = "text/javascript"; s.parentNode.insertBefore(v, s);
+      })(document, 'script');
+    </script>
 
     <!-- Main JS script -->
     <script src="script.js"></script>
