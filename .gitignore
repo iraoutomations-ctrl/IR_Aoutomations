@@ -1,0 +1,7 @@
+# Temporary files
+web3forms_error.json
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
