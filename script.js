@@ -26,6 +26,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initROICalculator();
     initAIChatbot();
     initScrollAnimations();
+    initMouseGlow();
 });
 
 /* ==========================================================================
@@ -1040,6 +1041,13 @@ function initROICalculator() {
         resultHours.textContent = monthlyHoursSaved.toLocaleString('he-IL');
         resultMonthly.textContent = `₪${monthlyMoneySaved.toLocaleString('he-IL')}`;
         resultYearly.textContent = `₪${yearlyMoneySaved.toLocaleString('he-IL')}`;
+
+        // Trigger scale-pop animation on changes
+        [resultHours, resultMonthly, resultYearly].forEach(el => {
+            el.classList.remove('scale-pop');
+            void el.offsetWidth; // Force reflow to restart CSS animation
+            el.classList.add('scale-pop');
+        });
     }
 
     inputEmployees.addEventListener('input', calculateSavings);
@@ -1436,5 +1444,25 @@ function initScrollAnimations() {
             el.classList.add('scroll-reveal');
             observer.observe(el);
         });
+    });
+}
+
+/* ==========================================================================
+   Glowing Mouse Spotlight Tracker
+   ========================================================================== */
+function initMouseGlow() {
+    const glow = document.getElementById('mouseGlow');
+    if (!glow) return;
+
+    window.addEventListener('mousemove', (e) => {
+        // Use requestAnimationFrame for high performance 60fps movement
+        window.requestAnimationFrame(() => {
+            glow.style.transform = `translate3d(${e.clientX}px, ${e.clientY}px, 0)`;
+            glow.style.opacity = '1';
+        });
+    });
+
+    document.addEventListener('mouseleave', () => {
+        glow.style.opacity = '0';
     });
 }
