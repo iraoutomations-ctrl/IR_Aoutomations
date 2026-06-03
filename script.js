@@ -25,6 +25,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initContactForm();
     initROICalculator();
     initAIChatbot();
+    initScrollAnimations();
 });
 
 /* ==========================================================================
@@ -1395,5 +1396,45 @@ function initAIChatbot() {
 
     chatClose.addEventListener('click', () => {
         chatWindow.classList.remove('open');
+    });
+}
+
+/* ==========================================================================
+   Scroll Reveal Animation Engine
+   ========================================================================== */
+function initScrollAnimations() {
+    const observerOptions = {
+        root: null,
+        rootMargin: '0px -10px -40px -10px',
+        threshold: 0.05
+    };
+
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.classList.add('scroll-active');
+            } else {
+                entry.target.classList.remove('scroll-active');
+            }
+        });
+    }, observerOptions);
+
+    const revealSelectors = [
+        '.service-card',
+        '.calculator-card-wrapper',
+        '.survey-card-wrapper',
+        '.contact-card',
+        '.hero-content',
+        '.hero-mockup',
+        '.section-header',
+        '.tech-stack-section'
+    ];
+
+    revealSelectors.forEach(selector => {
+        const elements = document.querySelectorAll(selector);
+        elements.forEach(el => {
+            el.classList.add('scroll-reveal');
+            observer.observe(el);
+        });
     });
 }
