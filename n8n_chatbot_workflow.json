@@ -5,7 +5,9 @@
         "httpMethod": "POST",
         "path": "chatbot",
         "responseMode": "responseNode",
-        "options": {}
+        "options": {
+          "allowedOrigins": "*"
+        }
       },
       "id": "eaef0c4d-409b-450d-8fe5-710d172355e3",
       "name": "Webhook",
