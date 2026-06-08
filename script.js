@@ -1271,6 +1271,10 @@ function initAIChatbot() {
 
     // Handle state transitions for text input
     function handleUserInputText(text) {
+        if (currentState === 'ai_chat') {
+            sendToN8nAI(text);
+            return;
+        }
         if (currentState === 'welcome') {
             userData.name = text;
             currentState = 'ask_company';
@@ -1333,10 +1337,63 @@ function initAIChatbot() {
 
     // Show call path success
     function showFinalCallThanks() {
-        botReply(`תודה רבה, **${userData.name}**! 🎉\n\nפרטייך התקבלו בהצלחה. סוכן מ-**IR_Aoutomations** ייצור איתך קשר בהקדם לתיאום שיחת האפיון.\n\nלזירוז המענה ותיאום מיידי, תוכל לשלוח לנו הודעה ישירה בוואטסאפ!`, [
+        const chips = [
             { text: 'מעבר לשיחה בוואטסאפ 💬', value: 'whatsapp' },
             { text: 'התחל שיחה מחדש 🔄', value: 'reset' }
-        ]);
+        ];
+        if (INTEGRATION_SETTINGS.n8nChatbotWebhook) {
+            chips.splice(1, 0, { text: 'שאל את סוכן ה-AI שאלות חופשיות 🤖', value: 'start_ai_chat' });
+        }
+        botReply(`תודה רבה, **${userData.name}**! 🎉\n\nפרטייך התקבלו בהצלחה. סוכן מ-**IR_Aoutomations** ייצור איתך קשר בהקדם לתיאום שיחת האפיון.\n\nלזירוז המענה ותיאום מיידי, תוכל לשלוח לנו הודעה ישירה בוואטסאפ!`, chips);
+    }
+
+    // Send chat text input to n8n AI Agent endpoint
+    function sendToN8nAI(text) {
+        addTypingIndicator();
+        chatInput.disabled = true;
+        if (chatOptions) chatOptions.innerHTML = '';
+
+        const payload = {
+            name: userData.name,
+            company: userData.company,
+            challenge: userData.challenge,
+            message: text
+        };
+
+        fetch(INTEGRATION_SETTINGS.n8nChatbotWebhook, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(payload)
+        })
+        .then(res => {
+            if (!res.ok) throw new Error("HTTP error " + res.status);
+            return res.json();
+        })
+        .then(data => {
+            removeTypingIndicator();
+            chatInput.disabled = false;
+            
+            // Read response from n8n structure (output, reply, response, or raw)
+            const reply = data.reply || data.output || data.response || (typeof data === 'string' ? data : JSON.stringify(data));
+            addMessage(reply, 'bot');
+            
+            renderChips([
+                { text: 'התחל שיחה מחדש 🔄', value: 'reset' }
+            ]);
+            chatInput.focus();
+        })
+        .catch(err => {
+            removeTypingIndicator();
+            chatInput.disabled = false;
+            console.error("Error communicating with n8n AI Chatbot:", err);
+            addMessage(`אני מצטער, אירעה שגיאה בתקשורת עם סוכן ה-AI. אנא נסה שוב.`, 'bot');
+            renderChips([
+                { text: 'התחל שיחה מחדש 🔄', value: 'reset' }
+            ]);
+            chatInput.focus();
+        });
     }
 
     // Handle clicks on option chips
@@ -1354,9 +1411,14 @@ function initAIChatbot() {
                 userData.wantsCall = false;
                 currentState = 'completed';
                 submitChatbotLead(userData);
-                botReply(`הבנתי לגמרי, הכל בסדר ואין שום לחץ!\n\nנשמח לעמוד לרשותך בעתיד כשתרצה לבחון פתרונות אוטומציה לעסק שלכם. שיהיה יום נפלא ומוצלח! 🚀`, [
+                
+                const chips = [
                     { text: 'התחל שיחה מחדש 🔄', value: 'reset' }
-                ]);
+                ];
+                if (INTEGRATION_SETTINGS.n8nChatbotWebhook) {
+                    chips.unshift({ text: 'שאל את סוכן ה-AI שאלות חופשיות 🤖', value: 'start_ai_chat' });
+                }
+                botReply(`הבנתי לגמרי, הכל בסדר ואין שום לחץ!\n\nנשמח לעמוד לרשותך בעתיד כשתרצה לבחון פתרונות אוטומציה לעסק שלכם. שיהיה יום נפלא ומוצלח! 🚀`, chips);
             } else {
                 userData.qualified = true;
                 currentState = 'offer_call';
@@ -1371,16 +1433,28 @@ function initAIChatbot() {
                 userData.wantsCall = false;
                 currentState = 'completed';
                 submitChatbotLead(userData);
-                botReply(`הבנתי לגמרי, הכל בסדר ואין שום לחץ!\n\nנשמח לעמוד לרשותך בעתיד כשתהיה מוכן. שיהיה יום נפלא ומוצלח! 🚀`, [
+                
+                const chips = [
                     { text: 'התחל שיחה מחדש 🔄', value: 'reset' }
-                ]);
+                ];
+                if (INTEGRATION_SETTINGS.n8nChatbotWebhook) {
+                    chips.unshift({ text: 'שאל את סוכן ה-AI שאלות חופשיות 🤖', value: 'start_ai_chat' });
+                }
+                botReply(`הבנתי לגמרי, הכל בסדר ואין שום לחץ!\n\nנשמח לעמוד לרשותך בעתיד כשתהיה מוכן. שיהיה יום נפלא ומוצלח! 🚀`, chips);
             }
         } else if (currentState === 'completed') {
             if (opt.value === 'whatsapp') {
                 const phone = "972547171828";
                 const message = encodeURIComponent(`היי, שוחחתי עם סוכן ה-AI באתר שלכם. אשמח לתאם שיחת אפיון קצרה לאוטומציה של העסק שלי.`);
                 window.open(`https://api.whatsapp.com/send?phone=${phone}&text=${message}`, '_blank');
+            } else if (opt.value === 'start_ai_chat') {
+                currentState = 'ai_chat';
+                botReply(`מעולה, **${userData.name}**! העברתי אותך כעת לסוכן ה-AI החי של **IR_Aoutomations** המופעל על ידי Gemini 🤖\n\nשאל אותי כל שאלה לגבי המערכות שלך, רעיונות לאוטומציה, או איך נוכל לייעל את העסק שלך!`);
             } else if (opt.value === 'reset') {
+                resetChat();
+            }
+        } else if (currentState === 'ai_chat') {
+            if (opt.value === 'reset') {
                 resetChat();
             }
         } else {
