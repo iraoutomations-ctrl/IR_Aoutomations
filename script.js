@@ -1074,13 +1074,13 @@ function initAIChatbot() {
 
     if (!chatToggle || !chatWindow || !chatMessages || !chatForm) return;
 
-    let currentState = 'welcome';
+    let currentState = 'ai_chat';
     let userData = {
-        name: '',
-        company: '',
-        role: '',
-        challenge: '',
-        timeline: '',
+        name: 'אורח',
+        company: 'לא ידוע',
+        role: 'לא ידוע',
+        challenge: 'לא ידוע',
+        timeline: 'לא ידוע',
         qualified: false,
         wantsCall: false,
         phone: '',
@@ -1235,27 +1235,27 @@ function initAIChatbot() {
             });
         }
         else {
-            print("Chatbot Lead (Simulation - no integration key):", payload);
+            console.log("Chatbot Lead (Simulation - no integration key):", payload);
         }
     }
 
     // Start Chat/Reset
     function resetChat() {
         chatMessages.innerHTML = '';
-        currentState = 'welcome';
+        currentState = 'ai_chat';
         userData = {
-            name: '',
-            company: '',
-            role: '',
-            challenge: '',
-            timeline: '',
+            name: 'אורח',
+            company: 'לא ידוע',
+            role: 'לא ידוע',
+            challenge: 'לא ידוע',
+            timeline: 'לא ידוע',
             qualified: false,
             wantsCall: false,
             phone: '',
             resource: '',
             email: ''
         };
-        botReply(`היי! אני סוכן ה-AI של **IR_Aoutomations** 👋 תפקידי הוא לעזור לך לזהות איך לפנות זמן יקר ולחסוך עלויות בעסק באמצעות אוטומציות חכמות.\n\nאיך קוראים לך?`);
+        botReply(`היי! אני סוכן ה-AI של **IR_Aoutomations** 👋 שאל אותי כל שאלה לגבי המערכות שלך, רעיונות לאוטומציה, או איך נוכל לייעל את העסק שלך!`);
     }
 
     // Handles user typed message via input form
@@ -1272,37 +1272,7 @@ function initAIChatbot() {
 
     // Handle state transitions for text input
     function handleUserInputText(text) {
-        if (currentState === 'ai_chat') {
-            sendToN8nAI(text);
-            return;
-        }
-        if (currentState === 'welcome') {
-            userData.name = text;
-            currentState = 'ask_company';
-            botReply(`נעים להכיר, **${userData.name}**! מאיזו חברה או עסק אתה עובד?`);
-        } else if (currentState === 'ask_company') {
-            userData.company = text;
-            currentState = 'ask_challenge';
-            askChallengeQuestion();
-        } else if (currentState === 'ask_challenge') {
-            userData.challenge = text;
-            currentState = 'ask_timeline';
-            askTimelineQuestion();
-        } else if (currentState === 'collect_phone') {
-            if (validatePhone(text)) {
-                userData.phone = text;
-                userData.wantsCall = true;
-                currentState = 'completed';
-                submitChatbotLead(userData);
-                showFinalCallThanks();
-            } else {
-                botReply(`נראה שמספר הטלפון שהזנת אינו תקין. אנא הזן מספר טלפון תקין (לדוגמה: 054-1234567 או 09-1234567).`);
-            }
-        } else {
-            botReply(`תודה רבה! אם ברצונך להתחיל שיחה חדשה, לחץ על הכפתור למטה.`, [
-                { text: 'התחל שיחה מחדש 🔄', value: 'reset' }
-            ]);
-        }
+        sendToN8nAI(text);
     }
 
     // Ask challenge question with chips
