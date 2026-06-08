@@ -1187,24 +1187,8 @@ function initAIChatbot() {
             "תאריך פנייה": new Date().toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem' })
         };
 
-        // Scenario 1: n8n Integration webhook if provided
-        if (INTEGRATION_SETTINGS.n8nChatbotWebhook) {
-            fetch(INTEGRATION_SETTINGS.n8nChatbotWebhook, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify(payload)
-            })
-            .then(response => {
-                console.log("Chatbot lead sent to n8n successfully:", response);
-            })
-            .catch(err => {
-                console.error("Failed to send chatbot lead to n8n:", err);
-            });
-        }
-        // Scenario 2: Web3Forms fallback (sends to iraoutomations@gmail.com)
-        else if (INTEGRATION_SETTINGS.web3FormsAccessKey) {
+        // Send email via Web3Forms (always send email notification to iraoutomations@gmail.com if key is provided)
+        if (INTEGRATION_SETTINGS.web3FormsAccessKey) {
             const emailPayload = {
                 access_key: INTEGRATION_SETTINGS.web3FormsAccessKey,
                 subject: `[ליד סוכן AI] ${data.name} - ${data.company}`,
@@ -1231,6 +1215,23 @@ function initAIChatbot() {
             })
             .catch(err => {
                 console.error("Error sending chatbot lead via Web3Forms:", err);
+            });
+        }
+
+        // Optionally send a copy to a dedicated n8n leads/survey webhook if provided
+        if (INTEGRATION_SETTINGS.n8nSurveyWebhook) {
+            fetch(INTEGRATION_SETTINGS.n8nSurveyWebhook, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify(payload)
+            })
+            .then(response => {
+                console.log("Chatbot lead sent to n8n Survey successfully:", response);
+            })
+            .catch(err => {
+                console.error("Failed to send chatbot lead to n8n Survey:", err);
             });
         }
         else {
