@@ -1381,8 +1381,11 @@ function initAIChatbot() {
                 currentState = 'collect_name_for_whatsapp';
                 botReply(`מצוין! כדי שנשמור את הפרטים שלך ונכין את האפיון מראש, מה השם המלא שלך?`);
             } else if (lower.includes('אנושי') || lower.includes('נציג') || lower.includes('human') || lower.includes('דבר עם')) {
-                currentState = 'collect_name_for_human';
-                botReply(`הבנתי לגמרי! נוכל לחבר אותך לנציג אנושי. מה השם שלך כדי שנציג יחזור אליך בהקדם?`);
+                currentState = 'completed';
+                botReply(`אין בעיה בכלל! נשמח לעמוד לשירותך בכל עת. מספר הטלפון שלנו ליצירת קשר הוא **054-7171828** 📞\n\nתוכל גם לפנות אלינו בוואטסאפ בלחיצה על הכפתור מטה.`, [
+                    { text: 'מעבר לשיחה בוואטסאפ 💬', value: 'whatsapp' },
+                    { text: 'התחל שיחה מחדש 🔄', value: 'reset' }
+                ]);
             } else {
                 currentState = 'step4_nurture';
                 showNurtureDIYPlan();
@@ -1486,7 +1489,7 @@ function initAIChatbot() {
         botReply(`${solution}\n\nהפתרון הזה יחסוך לכם עשרות שעות עבודה חודשיות וימנע טעויות אנוש. ⏱️\n\n**בוא נתאם שיחת אפיון מלאה של 10 דקות ללא עלות בטלפון או בווטסאפ כדי שנתאים לכם את הפתרון. מה דעתך?**`, [
             { text: 'כן, אשמח לתאם שיחה! 📞', value: 'yes' },
             { text: 'מעדיף לעבור ישר לוואטסאפ 💬', value: 'whatsapp_direct' },
-            { text: 'אני רוצה לדבר עם נציג אנושי בנייד 👤', value: 'human' },
+            { text: 'אני רוצה לדבר עם נציג אנושי בנייד 👤', value: 'human_phone' },
             { text: 'לא כרגע, תודה 🤔', value: 'no' }
         ]);
     }
@@ -1602,9 +1605,12 @@ function initAIChatbot() {
                 userData.contactMethod = 'whatsapp';
                 currentState = 'collect_name_for_whatsapp';
                 botReply(`מצוין! כדי שנשמור את הפרטים שלך ונכין את האפיון מראש, מה השם המלא שלך?`);
-            } else if (opt.value === 'human') {
-                currentState = 'collect_name_for_human';
-                botReply(`הבנתי לגמרי! נוכל לחבר אותך לנציג אנושי. מה השם שלך כדי שנציג יחזור אליך בהקדם?`);
+            } else if (opt.value === 'human_phone') {
+                currentState = 'completed';
+                botReply(`אין בעיה בכלל! נשמח לעמוד לשירותך בכל עת. מספר הטלפון שלנו ליצירת קשר הוא **054-7171828** 📞\n\nתוכל גם לפנות אלינו בוואטסאפ בלחיצה על הכפתור מטה.`, [
+                    { text: 'מעבר לשיחה בוואטסאפ 💬', value: 'whatsapp' },
+                    { text: 'התחל שיחה מחדש 🔄', value: 'reset' }
+                ]);
             } else if (opt.value === 'no') {
                 currentState = 'step4_nurture';
                 showNurtureDIYPlan();
