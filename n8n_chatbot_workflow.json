@@ -53,7 +53,9 @@
       }
     },
     {
-      "parameters": {},
+      "parameters": {
+        "sessionId": "={{ $json.body.sessionId }}"
+      },
       "id": "528bc7fb-fa5f-41d0-ab07-b0349013db8c",
       "name": "Simple Memory",
       "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",

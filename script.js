@@ -1075,6 +1075,7 @@ function initAIChatbot() {
     if (!chatToggle || !chatWindow || !chatMessages || !chatForm) return;
 
     let currentState = 'ai_chat';
+    let chatSessionId = 'sess_' + Math.random().toString(36).substring(2, 9) + '_' + Date.now();
     let userData = {
         name: 'אורח',
         company: 'לא ידוע',
@@ -1309,6 +1310,7 @@ function initAIChatbot() {
     function resetChat() {
         chatMessages.innerHTML = '';
         currentState = 'step1_niche';
+        chatSessionId = 'sess_' + Math.random().toString(36).substring(2, 9) + '_' + Date.now();
         userData = {
             name: '',
             company: 'לא ידוע',
@@ -1531,6 +1533,7 @@ function initAIChatbot() {
         if (chatOptions) chatOptions.innerHTML = '';
 
         const payload = {
+            sessionId: chatSessionId,
             name: userData.name || 'אורח',
             company: userData.industry || 'לא ידוע',
             challenge: userData.challenge || 'לא ידוע',
