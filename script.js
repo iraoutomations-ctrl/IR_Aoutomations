@@ -11,7 +11,7 @@ const INTEGRATION_SETTINGS = {
     // The landing page will automatically POST the data to n8n in JSON format.
     n8nContactWebhook: "", // e.g. "https://n8n.yourdomain.com/webhook/contact"
     n8nSurveyWebhook: "",  // e.g. "https://n8n.yourdomain.com/webhook/survey"
-    n8nChatbotWebhook: "http://localhost:5678/webhook-test/chatbot", // e.g. "https://n8n.yourdomain.com/webhook/chatbot"
+    n8nChatbotWebhook: "http://localhost:5678/webhook/chatbot", // e.g. "https://n8n.yourdomain.com/webhook/chatbot"
 
     // 2. Free Email Fallback (Web3Forms):
     // If you don't use n8n for email yet, you can get a free access key from https://web3forms.com/
