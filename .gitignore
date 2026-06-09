@@ -5,3 +5,8 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Agent-specific files
+.agents/
+ORIGINAL_REQUEST.md
+progress.md
