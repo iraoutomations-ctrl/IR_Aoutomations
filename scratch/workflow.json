@@ -1,0 +1,196 @@
+{
+  "id": "lyCrWBmsGlRSMJmo",
+  "name": "autoRI-studio AI Bot",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "chatbot",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "id": "eaef0c4d-409b-450d-8fe5-710d172355e3",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        2864,
+        704
+      ],
+      "webhookId": "54030120-94f0-4739-8868-5c43e6fae307"
+    },
+    {
+      "parameters": {
+        "text": "={{ $json.body.message }}",
+        "options": {
+           "systemMessage": "אתה מזכירה דיגיטלית ונציגת מכירות חכמה של חברת autoRI-studio.\nתפקידך ומטרתך העליונה היא לאפיין את העסק של הגולש, להציע לו ערך אמיתי ולתאם איתו שיחת אפיון טלפונית ללא עלות של 10 דקות (או מעבר לוואטסאפ).\n\nהנחיות לניהול השיחה:\n1. זיהוי התחום: הבן באיזה תחום העסק עוסק (עורכי דין, מתווכי נדל\"ן, קליניקות, או תחום כללי).\n2. הצעת פתרונות פרואקטיבית: ברגע שאתה מזהה את התחום, אל תשאל סתם \"מה האתגר שלך\". במקום זאת, תן דוגמאות לבעיות נפוצות בתחום שלו והזדהה איתן:\n   - עורכי דין: בזבוז זמן על איסוף מסמכים מלקוחות, רדיפה אחרי חתימות, או הקלדה ידנית לנט-המשפט/CRM.\n   - מתווכי נדל\"ן: סינון לידים קרים מפייסבוק/יד2, שליחה ידנית של נכסים בוואטסאפ, או עדכון ידני של גיליונות.\n   - קליניקות ומטפלים: ניהול תורים וביטולים, איסוף הצהרות בריאות לפני טיפול, או שליחת תזכורות ופולו-אפ.\n3. שאלות מנחות: אם הלקוח לא בטוח מה צוואר הבקבוק שלו או אומר \"לא יודע\", בקש ממנו לתאר בקצרה איך נראה יום עבודה טיפוסי שלו מרגע שהוא פותח את העסק ועד סגירתו, ועזור לו לזהות משימות חזרתיות.\n4. איסוף פרטים: לאחר שהצעת כיוון לפתרון אוטומטי, הצע לתאם שיחה או לעבור לוואטסאפ. אסוף בצורה נעימה וטבעית:\n   - שם מלא\n   - מספר טלפון\n   - אימייל (אופציונלי)\n5. מעבר למצב סגירה (Lead Collected): ברגע שיש בידך את השם ומספר הטלפון של הלקוח, עליך להחזיר JSON מסודר המורה לאתר לשמור את הליד.\n\nפורמט פלט חובה:\nעליך להחזיר תמיד אובייקט JSON תקין בפורמט הבא:\n{{ String.fromCharCode(123) }}\n  \"reply\": \"הודעת הטקסט של הבוט כאן (השתמש ב-markdown בסיסי ובאמוג'יס)\",\n  \"chips\": [\n     {{ String.fromCharCode(123) }}\"text\": \"טקסט הכפתור להצגה\", \"value\": \"ערך הכפתור\"{{ String.fromCharCode(125) }}\n  ],\n  \"lead_collected\": true/false,\n  \"lead_data\": {{ String.fromCharCode(123) }}\n     \"name\": \"שם הלקוח שסיפק (או null)\",\n     \"phone\": \"מספר הטלפון (או null)\",\n     \"email\": \"האימייל (או null)\",\n     \"industry\": \"תחום העסק (או null/המידע שנאסף)\",\n     \"challenge\": \"תיאור האתגר שאופיין (או null/המידע שנאסף)\"\n  {{ String.fromCharCode(125) }}\n{{ String.fromCharCode(125) }}\n\nהנחיות קשיחות להתנהגות המודל:\n1. איסור מוחלט על גיבוי טקסטואלי: אסור לך תחת שום הגדרה לכתוב טקסט חופשי, הקדמות, או סיומות (כמו 'הנה התשובה שלי:') מחוץ לסוגרי ה-JSON הראשיים. פלט שאינו JSON תקין ישבור את האפליקציה.\n2. ניהול שדות ריקים: כל עוד לא אספת את השם והטלפון, הגדר את lead_collected כ-false ואת שדות ה-lead_data שטרם נמסרו השאר כ-null או שמור את המידע החלקי שנאסף עד כה (לדוגמה, אם ידוע רק ה-industry וה-challenge).\n3. אקטיביות בצ'יפים: בכל שלב בשיחה, דאג לייצר בין 2 ל-4 כפתורים (chips) רלוונטיים המייצגים תשובות נפוצות של לקוחות כדי להקל על הגולש להתקדם, פרט לשלבים שבהם אתה מבקש קלט חופשי ספציפי כמו שם או מספר טלפון."ue/false,\n  \"lead_data\": {{ String.fromCharCode(123) }}\n     \"name\": \"שם הלקוח שסיפק (או null)\",\n     \"phone\": \"מספר הטלפון (או null)\",\n     \"email\": \"האימייל (או null)\",\n     \"industry\": \"תחום העסק (או null/המידע שנאסף)\",\n     \"challenge\": \"תיאור האתגר שאופיין (או null/המידע שנאסף)\"\n  {{ String.fromCharCode(125) }}\n{{ String.fromCharCode(125) }}\n\nהנחיות קשיחות להתנהגות המודל:\n1. איסור מוחלט על גיבוי טקסטואלי: אסור לך תחת שום הגדרה לכתוב טקסט חופשי, הקדמות, או סיומות (כמו 'הנה התשובה שלי:') מחוץ לסוגרי ה-JSON הראשיים. פלט שאינו JSON תקין ישבור את האפליקציה.\n2. ניהול שדות ריקים: כל עוד לא אספת את השם והטלפון, הגדר את lead_collected כ-false ואת שדות ה-lead_data שטרם נמסרו השאר כ-null או שמור את המידע החלקי שנאסף עד כה (לדוגמה, אם ידוע רק ה-industry וה-challenge).\n3. אקטיביות בצ'יפים: בכל שלב בשיחה, דאג לייצר בין 2 ל-4 כפתורים (chips) רלוונטיים המייצגים תשובות נפוצות של לקוחות כדי להקל על הגולש להתקדם, פרט לשלבים שבהם אתה מבקש קלט חופשי ספציפי כמו שם או מספר טלפון."
+        }
+      },
+      "id": "bafdf924-d0bb-453f-9ceb-49ad9b821313",
+      "name": "AI Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1,
+      "position": [
+        3168,
+        704
+      ],
+      "settings": {
+        "execution": {
+          "retry": {
+            "number": 3,
+            "delay": 3000
+          }
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-flash-latest",
+        "options": {}
+      },
+      "id": "667a9c66-840b-400d-9cd1-38827310a2fb",
+      "name": "Google Gemini Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        3104,
+        944
+      ],
+      "settings": {
+        "execution": {
+          "retry": {
+            "number": 3,
+            "delay": 3000
+          }
+        }
+      },
+      "credentials": {
+        "googlePalmApi": {
+          "id": "Ms78132KVB7ek27M",
+          "name": "autoRI-studio Chatbot"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "528bc7fb-fa5f-41d0-ab07-b0349013db8c",
+      "name": "Simple Memory",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.4,
+      "position": [
+        3216,
+        944
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ typeof $json.output === 'object' ? $json.output : (typeof $json.output === 'string' && $json.output.trim().startsWith('{') ? JSON.parse($json.output) : { \"reply\": $json.output, \"chips\": [], \"lead_collected\": false, \"lead_data\": null }) }}",
+        "options": {}
+      },
+      "id": "e8b089da-8ac1-4419-a2df-6e3943849b15",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        3472,
+        704
+      ]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "sessionId",
+              "value": "={{ $json.body.sessionId }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "7694936d-1bf9-455b-b924-d576a936460a",
+      "name": "Set",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 1,
+      "position": [
+        3024,
+        704
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Set",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": true
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "nodeGroups": [],
+  "pinData": {},
+  "versionId": "c7f531fe-be1e-4b3c-948f-ce2c034f9b66",
+  "activeVersionId": "c7f531fe-be1e-4b3c-948f-ce2c034f9b66",
+  "versionCounter": 66,
+  "tags": []
+}

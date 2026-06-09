@@ -1,5 +1,5 @@
 /* ==========================================================================
-   IR_Aoutomations - js/chatbot.js
+   autoRI-studio - js/chatbot.js
    ========================================================================== */
 import { INTEGRATION_SETTINGS } from './config.js';
 
@@ -109,7 +109,7 @@ export function initAIChatbot() {
             const emailPayload = {
                 access_key: INTEGRATION_SETTINGS.web3FormsAccessKey,
                 subject: `[ליד סוכן AI] ${data.name || 'אורח'} - ${data.industry || 'אפיון מהיר'}`,
-                from_name: "סוכן AI - IR_Aoutomations",
+                from_name: "סוכן AI - autoRI-studio",
                 "סוג הפנייה": "ליד מוסמך מסוכן ה-AI בצ'אט",
                 ...payload
             };
@@ -228,7 +228,7 @@ export function initAIChatbot() {
             email: '',
             contactMethod: ''
         };
-        botReply(`היי! אני סוכן ה-AI של **IR_Aoutomations** 👋 תפקידי הוא לעזור לך לחסוך המון זמן יקר ועלויות רישוי בעסק באמצעות אוטומציות חכמות.
+        botReply(`היי! אני סוכן ה-AI של **autoRI-studio** 👋 תפקידי הוא לעזור לך לחסוך המון זמן יקר ועלויות רישוי בעסק באמצעות אוטומציות חכמות.
  
 בוא נתחיל באפיון קצר ומהיר של העסק שלך. 🚀
  
@@ -340,7 +340,7 @@ export function initAIChatbot() {
             resetChat();
         } else if (opt.value === 'whatsapp') {
             const phone = "972547171828";
-            let text = `שלום IR_Aoutomations, שמי ${userData.name || 'אורח'}. `;
+            let text = `שלום autoRI-studio, שמי ${userData.name || 'אורח'}. `;
             if (userData.phone) {
                 text += `הגשתי כעת אפיון מהיר באתר עבור עסק בתחום ${userData.industry || 'לא צוין'}. האתגר התפעולי המרכזי שלי הוא: ${userData.challenge || 'לא צוין'}. אשמח לתאם שיחת אפיון קצרה.`;
             } else {

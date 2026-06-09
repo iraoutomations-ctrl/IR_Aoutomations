@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert');
 const puppeteer = require('C:/Users/test0/node_modules/puppeteer');
 
-test('IR_Aoutomations Landing Page E2E Test Suite', async (t) => {
+test('autoRI-studio Landing Page E2E Test Suite', async (t) => {
   let browser;
   let lastUserName = 'משה';
 

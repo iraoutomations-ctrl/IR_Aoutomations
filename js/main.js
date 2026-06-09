@@ -1,5 +1,5 @@
 /* ==========================================================================
-   IR_Aoutomations - js/main.js
+   autoRI-studio - js/main.js
    ========================================================================== */
 import { INTEGRATION_SETTINGS } from './config.js';
 import { initROICalculator } from './calculator.js';
@@ -105,7 +105,7 @@ function initContactForm() {
                 const payload = {
                     access_key: INTEGRATION_SETTINGS.web3FormsAccessKey,
                     subject: `[צור קשר] השאירו פרטים באתר - ${data.name}`,
-                    from_name: "אתר IR_Aoutomations",
+                    from_name: "אתר autoRI-studio",
                     "סוג הפנייה": "טופס השארת פרטים ליצירת קשר מהאתר",
                     "תאריך שליחה": data.timestamp,
                     "שם מלא": data.name,

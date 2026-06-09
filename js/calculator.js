@@ -1,5 +1,5 @@
 /* ==========================================================================
-   IR_Aoutomations - js/calculator.js
+   autoRI-studio - js/calculator.js
    ========================================================================== */
 export function initROICalculator() {
     const inputEmployees = document.getElementById('inputEmployees');

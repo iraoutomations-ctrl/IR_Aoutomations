@@ -1,5 +1,5 @@
 /* ==========================================================================
-   IR_Aoutomations - js/animations.js
+   autoRI-studio - js/animations.js
    ========================================================================== */
 export function initScrollAnimations() {
     const observerOptions = {

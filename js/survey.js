@@ -1,5 +1,5 @@
 /* ==========================================================================
-   IR_Aoutomations - js/survey.js
+   autoRI-studio - js/survey.js
    ========================================================================== */
 import { INTEGRATION_SETTINGS } from './config.js';
 import { surveyConfig } from './surveyData.js';
@@ -259,7 +259,7 @@ function submitSurvey() {
         const payload = {
             access_key: INTEGRATION_SETTINGS.web3FormsAccessKey,
             subject: `[אפיון דיגיטלי - ${industryTag}] ${surveyConfig[activeIndustry].title}`,
-            from_name: "מערכת אפיון IR_Aoutomations",
+            from_name: "מערכת אפיון autoRI-studio",
             "סוג הפנייה": `שאלון אפיון דיגיטלי - ${surveyConfig[activeIndustry].title.replace("שאלון אפיון", "").trim()}`,
             "תאריך מילוי": surveyAnswers.timestamp,
             "סוג תעשייה": surveyConfig[activeIndustry].title
@@ -355,7 +355,7 @@ function sendWhatsAppResults() {
     const phone = "972547171828";
     const config = surveyConfig[activeIndustry];
     
-    let text = `שלום IR_Aoutomations, הגשתי שאלון אפיון עסק מהאתר בתאריך ${surveyAnswers.timestamp}.\n\n`;
+    let text = `שלום autoRI-studio, הגשתי שאלון אפיון עסק מהאתר בתאריך ${surveyAnswers.timestamp}.\n\n`;
     text += `*פרטי אפיון עבור תעשיית:* ${config.title}\n`;
     text += `-------------------------------------------\n\n`;
 

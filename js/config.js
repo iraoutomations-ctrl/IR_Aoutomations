@@ -1,5 +1,5 @@
 /* ==========================================================================
-   IR_Aoutomations - js/config.js
+   autoRI-studio - js/config.js
    ========================================================================== */
 export const INTEGRATION_SETTINGS = {
     // 1. n8n Integration Webhook URLs:

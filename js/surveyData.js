@@ -1,5 +1,5 @@
 /* ==========================================================================
-   IR_Aoutomations - js/surveyData.js
+   autoRI-studio - js/surveyData.js
    ========================================================================== */
 export const surveyConfig = {
     clinics: {
