@@ -26,7 +26,9 @@ export function initScrollAnimations() {
         '.hero-content',
         '.hero-mockup',
         '.section-header',
-        '.tech-stack-section'
+        '.tech-stack-section',
+        '.about-content',
+        '.about-visual'
     ];
 
     revealSelectors.forEach(selector => {
