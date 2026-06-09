@@ -106,9 +106,19 @@ export function initAIChatbot() {
         };
 
         if (INTEGRATION_SETTINGS.web3FormsAccessKey) {
+            let industryTag = "כללי";
+            const ind = (data.industry || "").toLowerCase();
+            if (ind.includes("נדלן") || ind.includes("נדל\"ן") || ind.includes("תיווך") || ind.includes("מתווך") || ind.includes("🏠")) {
+                industryTag = "נדלן";
+            } else if (ind.includes("עורך") || ind.includes("דין") || ind.includes("משפט") || ind.includes("⚖️")) {
+                industryTag = "עורכי דין";
+            } else if (ind.includes("קליניק") || ind.includes("מטפל") || ind.includes("רופא") || ind.includes("🩺")) {
+                industryTag = "קליניקות";
+            }
+
             const emailPayload = {
                 access_key: INTEGRATION_SETTINGS.web3FormsAccessKey,
-                subject: `[ליד סוכן AI] ${data.name || 'אורח'} - ${data.industry || 'אפיון מהיר'}`,
+                subject: `[אפיון דיגיטלי - ${industryTag}] (סוכן AI) ${data.name || 'אורח'} - ${data.industry || 'אפיון מהיר'}`,
                 from_name: "סוכן AI - autoRI-studio",
                 "סוג הפנייה": "ליד מוסמך מסוכן ה-AI בצ'אט",
                 ...payload
