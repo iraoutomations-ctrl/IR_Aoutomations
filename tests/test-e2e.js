@@ -4,6 +4,7 @@ const puppeteer = require('C:/Users/test0/node_modules/puppeteer');
 
 test('IR_Aoutomations Landing Page E2E Test Suite', async (t) => {
   let browser;
+  let lastUserName = 'משה';
 
   t.before(async () => {
     browser = await puppeteer.launch({
@@ -53,6 +54,75 @@ test('IR_Aoutomations Landing Page E2E Test Suite', async (t) => {
           body: JSON.stringify({ success: true, message: "Form submitted successfully" })
         });
       } else if (url.includes('/webhook/')) {
+        const postData = request.postData();
+        let payload = {};
+        try {
+          payload = JSON.parse(postData);
+        } catch(e) {}
+        
+        const msg = payload.message || '';
+        let reply = "תשובה מדומה מסוכן ה-AI";
+        let chips = [];
+        let lead_collected = false;
+        let lead_data = null;
+        
+        if (msg.includes('קליניקות')) {
+          reply = "איזה אתגר תפעולי מציק לכם ביותר?";
+          chips = [
+            { text: 'ניהול תורים וביטולים 📅', value: 'scheduling' },
+            { text: 'תורים', value: 'scheduling' }
+          ];
+        } else if (msg.includes('עסק כללי')) {
+          reply = "איזה אתגר תפעולי מציק לכם ביותר?";
+          chips = [
+            { text: 'הזנת נתונים וקלדנות 📂', value: 'data_entry' }
+          ];
+        } else if (msg.includes('תורים') || msg.includes('Excel manual copy')) {
+          reply = "בוא נתאם שיחת אפיון מלאה של 10 דקות ללא עלות בטלפון או בווטסאפ כדי שנתאים לכם את הפתרון. מה דעתך?";
+          chips = [
+            { text: 'כן, אשמח לתאם שיחה! 📞', value: 'yes' },
+            { text: 'כן', value: 'yes' },
+            { text: 'לא כרגע, תודה 🤔', value: 'no' },
+            { text: 'לא כרגע', value: 'no' }
+          ];
+        } else if (msg.includes('כן')) {
+          reply = "מעולה! כדי שנוכל לחזור אליך, מה השם המלא שלך?";
+        } else if (msg === 'משה' || msg === 'שלומי' || msg === 'Doctor Bob') {
+          lastUserName = msg;
+          reply = `תודה, ${msg}! מה מספר הטלפון שלך?`;
+        } else if (msg === '123a' || msg === 'invalid-phone-num') {
+          reply = "נראה שמספר הטלפון שהזנת לא תקין. אנא הקלד מספר טלפון תקין (לדוגמה: 054-7171828):";
+        } else if (msg === '0547171828' || msg === '0501234567') {
+          reply = "תודה! ומה כתובת האימייל שלך לקבלת סיכום האפיון? (אופציונלי - הקלד או לחץ על 'דלג')";
+          chips = [{ text: 'דלג ⏭️', value: 'skip' }, { text: 'דלג', value: 'skip' }];
+        } else if (msg === 'wrong-email') {
+          reply = "נראה שכתובת האימייל לא תקינה. אנא הקלד אימייל תקין או לחץ על 'דלג':";
+          chips = [{ text: 'דלג ⏭️', value: 'skip' }, { text: 'דלג', value: 'skip' }];
+        } else if (msg.includes('דלג') || msg.includes('skip')) {
+          reply = `תודה רבה, **${lastUserName}**! 🎉\n\nפרטייך התקבלו בהצלחה ונשלחו אלינו במייל.`;
+          lead_collected = true;
+          lead_data = {
+            name: lastUserName,
+            phone: "0547171828",
+            email: "לא צוין",
+            industry: "קליניקות ומטפלים 🩺",
+            challenge: "תורים"
+          };
+        } else if (msg.includes('לא כרגע')) {
+          reply = "מבין לגמרי, אין שום לחץ! הנה תוכנית פעולה לעבודה עצמית (DIY Automation Blueprint)... Make.com או n8n.cloud...";
+          chips = [
+            { text: 'שוחח עם סוכן ה-AI שאלות חופשיות 🤖', value: 'start_ai_chat' },
+            { text: 'שוחח עם סוכן', value: 'start_ai_chat' },
+            { text: 'דבר עם נציג', value: 'human_phone' }
+          ];
+        } else if (msg.includes('שוחח עם סוכן') || msg.includes('דבר עם נציג') || msg.includes('הסבר לי עוד')) {
+          reply = "העברתי אותך כעת לסוכן ה-AI החי המופעל על ידי Gemini 🤖. שאל אותי כל שאלה!";
+          chips = [
+            { text: 'התחל שיחה מחדש 🔄', value: 'reset' },
+            { text: 'התחל שיחה מחדש', value: 'reset' }
+          ];
+        }
+        
         request.respond({
           status: 200,
           headers: {
@@ -61,7 +131,7 @@ test('IR_Aoutomations Landing Page E2E Test Suite', async (t) => {
             'Access-Control-Allow-Methods': 'POST, GET, OPTIONS'
           },
           contentType: 'application/json',
-          body: JSON.stringify({ success: true, reply: "תשובה מדומה מסוכן ה-AI", output: "תשובה מדומה מסוכן ה-AI" })
+          body: JSON.stringify({ reply, chips, lead_collected, lead_data })
         });
       } else if (url.startsWith('file://')) {
         request.continue();
@@ -291,6 +361,7 @@ test('IR_Aoutomations Landing Page E2E Test Suite', async (t) => {
         await page.click('#btnNextStep');
 
         // Step 3 (Ratings) - Click submit
+        await page.waitForSelector('input[name="rating_scheduling"]');
         await page.click('#btnNextStep');
 
         const displayThankYou = await page.$eval('#stepThankYou', el => getComputedStyle(el).display);
@@ -832,7 +903,7 @@ test('IR_Aoutomations Landing Page E2E Test Suite', async (t) => {
         await page.type('#contactEmail', 'haim@example.com');
         await page.type('#contactPhone', '0547171828');
         await page.type('#contactMessage', 'רוצה לייעל את העסק');
-        await page.click('#generalContactForm button[type="submit"]');
+        await jsClick(page, '#generalContactForm button[type="submit"]');
 
         // Verify contact form success
         await page.waitForSelector('#contactFormStatus.success', { visible: true });
@@ -854,21 +925,27 @@ test('IR_Aoutomations Landing Page E2E Test Suite', async (t) => {
       try {
         // Complete survey
         await page.click('.industry-selector-card[data-industry="clinics"]');
+        await page.waitForSelector('#clinic_name');
         await page.type('#clinic_name', 'קליניקה א');
         await page.type('#specialty', 'פיזיותרפיה');
         await page.click('#btnNextStep');
         await page.type('#bottlenecks', 'זמן המתנה');
         await page.click('#btnNextStep');
+        await page.waitForSelector('input[name="rating_scheduling"]');
         await page.click('#btnNextStep');
 
+        // Wait for thank you screen to be displayed
+        await page.waitForSelector('#stepThankYou', { visible: true });
+
         // Click WhatsApp results
-        await page.click('#btnSendWhatsApp');
+        await jsClick(page, '#btnSendWhatsApp');
 
         // Verify url matches WhatsApp API format
         await page.waitForFunction(() => window.lastOpenedUrl !== undefined, { timeout: 5000 });
         const openedUrl = await page.evaluate(() => window.lastOpenedUrl);
+        console.log("DEBUG: openedUrl =", openedUrl);
         assert.ok(openedUrl.startsWith('https://api.whatsapp.com/send'));
-        assert.ok(openedUrl.includes('פיזיותרפיה'));
+        assert.ok(decodeURIComponent(openedUrl).includes('פיזיותרפיה'));
 
         // Open Chatbot and submit lead
         await page.click('#aiChatToggle');
@@ -930,6 +1007,7 @@ test('IR_Aoutomations Landing Page E2E Test Suite', async (t) => {
         await page.click('#btnNextStep');
 
         // Step 3: Choose whatsapp contact (not required but we submit it)
+        await page.waitForSelector('input[name="rating_scheduling"]');
         await page.click('#btnNextStep');
 
         // Verify summary
@@ -996,6 +1074,7 @@ test('IR_Aoutomations Landing Page E2E Test Suite', async (t) => {
         await page.type('#bottlenecks', 'שילוחים');
         await page.click('#btnNextStep');
 
+        await page.waitForSelector('input[name="rating_sales"]');
         await page.click('#btnNextStep');
 
         const summary = await page.$eval('#answersSummaryBox', el => el.textContent);
