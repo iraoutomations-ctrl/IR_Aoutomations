@@ -1767,6 +1767,44 @@ textarea.survey-input {
     }
 }
 
+@media (max-width: 480px) {
+    .ai-chat-window {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        width: 100vw;
+        height: 100dvh;
+        max-height: 100dvh;
+        border-radius: 0;
+        border: none;
+        box-shadow: none;
+        transform: translateY(100%);
+        opacity: 0;
+        transition: transform 0.38s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s;
+        background: rgba(10, 11, 16, 0.98);
+    }
+    
+    .ai-chat-window.open {
+        transform: translateY(0);
+        opacity: 1;
+    }
+    
+    .chat-messages {
+        padding: 16px;
+    }
+    
+    .chat-msg {
+        max-width: 90%;
+    }
+    
+    .chat-close-btn {
+        padding: 8px 12px;
+        font-size: 1.45rem;
+    }
+}
+
 /* ==========================================================================
    Scroll Reveal & Dopamine Animations
    ========================================================================== */
