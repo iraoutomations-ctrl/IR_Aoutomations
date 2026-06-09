@@ -289,14 +289,18 @@ input, select, textarea, button {
 }
 
 .nav-logo {
-    height: 48px;
-    width: 48px;
+    height: 56px;
+    width: 56px;
     object-fit: contain;
     border-radius: 8px;
+    transition: transform 0.3s ease;
+}
+.nav-logo:hover {
+    transform: scale(1.05);
 }
 
 .logo-text {
-    font-size: 1.35rem;
+    font-size: 1.5rem;
     font-weight: 800;
     background: linear-gradient(135deg, #fff 30%, var(--text-secondary) 100%);
     -webkit-background-clip: text;
@@ -1036,10 +1040,14 @@ textarea.survey-input {
 }
 
 .footer-logo {
-    height: 40px;
-    width: 40px;
+    height: 48px;
+    width: 48px;
     object-fit: contain;
     border-radius: 8px;
+    transition: transform 0.3s ease;
+}
+.footer-logo:hover {
+    transform: scale(1.05);
 }
 
 .brand-desc {
