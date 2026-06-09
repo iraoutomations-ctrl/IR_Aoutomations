@@ -37,6 +37,7 @@
     },
     {
       "parameters": {
+        "modelName": "models/gemini-3.1-flash-lite",
         "options": {}
       },
       "id": "667a9c66-840b-400d-9cd1-38827310a2fb",
