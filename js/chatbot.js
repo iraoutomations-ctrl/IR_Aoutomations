@@ -2,6 +2,7 @@
    autoRI-studio - js/chatbot.js
    ========================================================================== */
 import { INTEGRATION_SETTINGS } from './config.js';
+import { saveLeadToCRM } from './crm-integration.js';
 
 export function initAIChatbot() {
     const chatToggle = document.getElementById('aiChatToggle');
@@ -17,6 +18,7 @@ export function initAIChatbot() {
 
     let currentState = 'ai_chat';
     let chatSessionId = 'sess_' + Math.random().toString(36).substring(2, 9) + '_' + Date.now();
+    let chatHistory = [];
     let userData = {
         name: 'אורח',
         company: 'לא ידוע',
@@ -45,6 +47,13 @@ export function initAIChatbot() {
         msgDiv.innerHTML = formatMessageText(text);
         chatMessages.appendChild(msgDiv);
         chatMessages.scrollTop = chatMessages.scrollHeight;
+
+        chatHistory.push({
+            role: sender === 'bot' ? 'model' : 'user',
+            parts: [
+                { text: text }
+            ]
+        });
     }
 
     function addTypingIndicator() {
@@ -95,6 +104,20 @@ export function initAIChatbot() {
     }
 
     function submitChatbotLead(data) {
+        // Save lead to CRM system
+        saveLeadToCRM({
+            name: data.name || "אורח בצ'אט",
+            email: data.email && data.email !== 'לא צוין' ? data.email : '',
+            phone: data.phone && data.phone !== 'לא צוין' ? data.phone : '',
+            company: data.company && data.company !== 'לא ידוע' ? data.company : '',
+            source: 'chatbot',
+            chatbot_session: {
+                industry: data.industry || 'לא צוין',
+                challenge: data.challenge || 'לא צוין',
+                contact_pref: data.contactMethod || 'whatsapp'
+            }
+        });
+
         const payload = {
             "שם מלא": data.name || "אורח",
             "תחום העסק": data.industry || "לא צוין",
@@ -238,6 +261,7 @@ export function initAIChatbot() {
             email: '',
             contactMethod: ''
         };
+        chatHistory = [];
         botReply(`היי! אני סוכן ה-AI של **autoRI-studio** 👋 תפקידי הוא לעזור לך לחסוך המון זמן יקר ועלויות רישוי בעסק באמצעות אוטומציות חכמות.
  
 בוא נתחיל באפיון קצר ומהיר של העסק שלך. 🚀
@@ -277,7 +301,9 @@ export function initAIChatbot() {
 
         const payload = {
             sessionId: chatSessionId,
-            message: text
+            message: text,
+            history: chatHistory,
+            chatHistory: chatHistory
         };
 
         fetch(INTEGRATION_SETTINGS.n8nChatbotWebhook, {

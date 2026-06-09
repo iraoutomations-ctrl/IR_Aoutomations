@@ -6,6 +6,7 @@ import { initROICalculator } from './calculator.js';
 import { initSurveySystem } from './survey.js';
 import { initAIChatbot } from './chatbot.js';
 import { initScrollAnimations, initMouseGlow, initParticleTrail } from './animations.js';
+import { saveLeadToCRM } from './crm-integration.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     initNavigation();
@@ -79,6 +80,16 @@ function initContactForm() {
             const formData = new FormData(contactForm);
             const data = Object.fromEntries(formData.entries());
             data.timestamp = new Date().toLocaleString('he-IL');
+
+            // Save lead to CRM system
+            saveLeadToCRM({
+                name: data.name,
+                email: data.email,
+                phone: data.phone,
+                company: data.business || '',
+                source: 'contact_form',
+                notes: data.message || ''
+            });
 
             // Scenario 1: n8n webhook takes priority
             if (INTEGRATION_SETTINGS.n8nContactWebhook) {

@@ -3,6 +3,7 @@
    ========================================================================== */
 import { INTEGRATION_SETTINGS } from './config.js';
 import { surveyConfig } from './surveyData.js';
+import { saveLeadToCRM } from './crm-integration.js';
 
 let activeIndustry = null;
 let currentStepIndex = 0;
@@ -231,6 +232,52 @@ function submitSurvey() {
     if (stepThankYou) stepThankYou.style.display = 'block';
 
     renderAnswersSummary();
+
+    // Extract lead name from answers
+    const leadName = surveyAnswers.clinic_name || 
+                     surveyAnswers.office_name || 
+                     surveyAnswers.realtor_name || 
+                     surveyAnswers.business_name || 
+                     "אפיון עסק חדש";
+
+    // Read current ROI Calculator values from DOM to attach
+    const employees = document.getElementById('inputEmployees')?.value || '5';
+    const manual_hours = document.getElementById('inputHours')?.value || '8';
+    const hourly_cost = document.getElementById('inputCost')?.value || '60';
+    const monthly_savings_hours = document.getElementById('resultHours')?.textContent || '173';
+    const monthly_savings_cost = document.getElementById('resultMonthly')?.textContent || '₪10,380';
+    const yearly_savings_cost = document.getElementById('resultYearly')?.textContent || '₪124,560';
+
+    // Prepare structured survey answers for the CRM details view
+    const structuredAnswers = {};
+    const config = surveyConfig[activeIndustry];
+    config.steps.forEach(step => {
+        step.questions.forEach(q => {
+            const val = surveyAnswers[q.id];
+            if (val && val !== '') {
+                structuredAnswers[q.id] = val;
+            }
+        });
+    });
+
+    // Save lead to CRM
+    saveLeadToCRM({
+        name: leadName,
+        email: 'נשלח בוואטסאפ',
+        phone: 'נשלח בוואטסאפ',
+        company: leadName,
+        source: 'survey',
+        survey_data: {
+            industry: activeIndustry,
+            employees,
+            manual_hours,
+            hourly_cost,
+            monthly_savings_hours,
+            monthly_savings_cost,
+            yearly_savings_cost,
+            answers: structuredAnswers
+        }
+    });
     
     if (INTEGRATION_SETTINGS.n8nSurveyWebhook) {
         fetch(INTEGRATION_SETTINGS.n8nSurveyWebhook, {
