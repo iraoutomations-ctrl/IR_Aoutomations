@@ -24,7 +24,8 @@ export default function Sidebar({
     unreadCount = 0,
     onMarkAlertRead,
     onMarkAllAlertsRead,
-    onDeleteAlert
+    onDeleteAlert,
+    onDeleteAllAlerts
 }) {
     const [showNotifications, setShowNotifications] = useState(false);
 
@@ -144,6 +145,16 @@ export default function Sidebar({
                                     >
                                         <CheckCheck size={12} />
                                         סמן הכל
+                                    </button>
+                                )}
+                                {alerts.length > 0 && (
+                                    <button 
+                                        className="btn btn-secondary" 
+                                        onClick={onDeleteAllAlerts}
+                                        style={{ padding: '4px 8px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px', borderColor: 'rgba(239, 68, 68, 0.2)', color: '#ef4444' }}
+                                    >
+                                        <Trash2 size={12} style={{ color: '#ef4444' }} />
+                                        נקה הכל
                                     </button>
                                 )}
                                 <button onClick={() => setShowNotifications(false)} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', padding: '4px' }}>

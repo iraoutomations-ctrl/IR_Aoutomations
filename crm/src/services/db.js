@@ -1118,6 +1118,20 @@ export const db = {
         }
     },
 
+    async deleteAllSystemAlerts() {
+        if (isSupabaseConfigured) {
+            const { error } = await supabase
+                .from('system_alerts')
+                .delete()
+                .gt('created_at', '1970-01-01T00:00:00Z');
+            if (error) throw error;
+            return true;
+        } else {
+            setLocalData(STORAGE_KEYS.SYSTEM_ALERTS, []);
+            return true;
+        }
+    },
+
     // --------------------------------------------------
     // REALTIME SUBSCRIPTIONS
     // --------------------------------------------------

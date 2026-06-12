@@ -85,6 +85,15 @@ export default function App() {
         }
     };
 
+    const handleDeleteAllAlerts = async () => {
+        try {
+            await db.deleteAllSystemAlerts();
+            setAlerts([]);
+        } catch (err) {
+            console.error("Error deleting all alerts:", err);
+        }
+    };
+
     const unreadCount = alerts.filter(a => !a.read).length;
 
     // Render active tab view
@@ -143,6 +152,7 @@ export default function App() {
                 onMarkAlertRead={handleMarkAlertRead}
                 onMarkAllAlertsRead={handleMarkAllAlertsRead}
                 onDeleteAlert={handleDeleteAlert}
+                onDeleteAllAlerts={handleDeleteAllAlerts}
             />
 
             {/* Main Section */}
