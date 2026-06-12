@@ -139,6 +139,7 @@ export default function Projects({ onSelectLead, activeTab }) {
     const [logSearchFilter, setLogSearchFilter] = useState({});
     const [logDurationFilter, setLogDurationFilter] = useState({});
     const [chartResolution, setChartResolution] = useState({});
+    const [chartStates, setChartStates] = useState({});
     const [expandedRun, setExpandedRun] = useState({});
     const [analyzingRun, setAnalyzingRun] = useState({});
     const [aiAnalysisText, setAiAnalysisText] = useState({});
@@ -1030,38 +1031,18 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
                                                                                             const activeMonths = monthlyIssues.filter(m => (m.errors + m.warnings) > 0);
                                                                                             const activeYears = Object.entries(yearlyIssues).filter(([_, data]) => (data.errors + data.warnings) > 0);
 
-                                                                                            // Calculate interactive chart volume data based on resolution toggle
-                                                                                            const resolution = chartResolution[auto.id] || 'hourly';
+                                                                                            // Calculate interactive chart volume data based on resolution toggle and drill-down filters
+                                                                                            const state = chartStates[auto.id] || {
+                                                                                                resolution: 'yearly',
+                                                                                                year: null,
+                                                                                                month: null,
+                                                                                                week: null,
+                                                                                                day: null
+                                                                                            };
+                                                                                            const resolution = state.resolution;
                                                                                             let chartData = [];
-                                                                                            if (resolution === 'hourly') {
-                                                                                                chartData = Array(12).fill(0).map((_, i) => {
-                                                                                                    const start = i * 2;
-                                                                                                    const end = start + 2;
-                                                                                                    const label = `${String(start).padStart(2, '0')}:00-${String(end).padStart(2, '0')}:00`;
-                                                                                                    return { label, count: 0 };
-                                                                                                });
-                                                                                                runs.forEach(r => {
-                                                                                                    const hour = new Date(r.created_at).getHours();
-                                                                                                    const blockIdx = Math.floor(hour / 2);
-                                                                                                    if (blockIdx >= 0 && blockIdx < 12) {
-                                                                                                        chartData[blockIdx].count++;
-                                                                                                    }
-                                                                                                });
-                                                                                            } else if (resolution === 'daily') {
-                                                                                                const dayNames = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
-                                                                                                chartData = dayNames.map(name => ({ label: `יום ${name}`, count: 0 }));
-                                                                                                runs.forEach(r => {
-                                                                                                    const day = new Date(r.created_at).getDay();
-                                                                                                    chartData[day].count++;
-                                                                                                });
-                                                                                            } else if (resolution === 'monthly') {
-                                                                                                const monthNames = ['ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני', 'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר'];
-                                                                                                chartData = monthNames.map(name => ({ label: name, count: 0 }));
-                                                                                                runs.forEach(r => {
-                                                                                                    const month = new Date(r.created_at).getMonth();
-                                                                                                    chartData[month].count++;
-                                                                                                });
-                                                                                            } else if (resolution === 'yearly') {
+                                                                                            
+                                                                                            if (resolution === 'yearly') {
                                                                                                 const years = {};
                                                                                                 runs.forEach(r => {
                                                                                                     const year = new Date(r.created_at).getFullYear();
@@ -1069,10 +1050,105 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
                                                                                                 });
                                                                                                 const sortedYears = Object.keys(years).sort();
                                                                                                 if (sortedYears.length === 0) {
-                                                                                                    chartData = [{ label: String(new Date().getFullYear()), count: 0 }];
+                                                                                                    chartData = [{ label: String(new Date().getFullYear()), count: 0, year: new Date().getFullYear() }];
                                                                                                 } else {
-                                                                                                    chartData = sortedYears.map(y => ({ label: String(y), count: years[y] }));
+                                                                                                    chartData = sortedYears.map(y => ({ label: String(y), count: years[y], year: Number(y) }));
                                                                                                 }
+                                                                                            } else if (resolution === 'monthly') {
+                                                                                                const yearFilter = state.year || new Date().getFullYear();
+                                                                                                chartData = monthNames.map((name, idx) => ({ label: name, count: 0, year: yearFilter, month: idx }));
+                                                                                                runs.forEach(r => {
+                                                                                                    const d = new Date(r.created_at);
+                                                                                                    if (d.getFullYear() === yearFilter) {
+                                                                                                        const month = d.getMonth();
+                                                                                                        chartData[month].count++;
+                                                                                                    }
+                                                                                                });
+                                                                                            } else if (resolution === 'weekly') {
+                                                                                                const yearFilter = state.year || new Date().getFullYear();
+                                                                                                const monthFilter = state.month !== null ? state.month : new Date().getMonth();
+                                                                                                chartData = Array(5).fill(0).map((_, idx) => ({
+                                                                                                    label: `שבוע ${idx + 1}`,
+                                                                                                    count: 0,
+                                                                                                    year: yearFilter,
+                                                                                                    month: monthFilter,
+                                                                                                    week: idx + 1
+                                                                                                }));
+                                                                                                runs.forEach(r => {
+                                                                                                    const d = new Date(r.created_at);
+                                                                                                    if (d.getFullYear() === yearFilter && d.getMonth() === monthFilter) {
+                                                                                                        const dayOfMonth = d.getDate();
+                                                                                                        let weekIdx = Math.floor((dayOfMonth - 1) / 7);
+                                                                                                        if (weekIdx > 4) weekIdx = 4;
+                                                                                                        chartData[weekIdx].count++;
+                                                                                                    }
+                                                                                                });
+                                                                                            } else if (resolution === 'daily') {
+                                                                                                const yearFilter = state.year || new Date().getFullYear();
+                                                                                                const monthFilter = state.month !== null ? state.month : new Date().getMonth();
+                                                                                                const weekFilter = state.week || 1;
+                                                                                                
+                                                                                                const startDay = (weekFilter - 1) * 7 + 1;
+                                                                                                const endDay = weekFilter === 5 ? 31 : weekFilter * 7;
+                                                                                                
+                                                                                                const days = [];
+                                                                                                for (let day = startDay; day <= endDay; day++) {
+                                                                                                    const dateObj = new Date(yearFilter, monthFilter, day);
+                                                                                                    if (dateObj.getMonth() === monthFilter) {
+                                                                                                        const dayNameHeb = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'][dateObj.getDay()];
+                                                                                                        days.push({
+                                                                                                            label: `${dayNameHeb}' - ${day}/${monthFilter + 1}`,
+                                                                                                            count: 0,
+                                                                                                            year: yearFilter,
+                                                                                                            month: monthFilter,
+                                                                                                            week: weekFilter,
+                                                                                                            day: day
+                                                                                                        });
+                                                                                                    }
+                                                                                                }
+                                                                                                
+                                                                                                runs.forEach(r => {
+                                                                                                    const d = new Date(r.created_at);
+                                                                                                    if (d.getFullYear() === yearFilter && d.getMonth() === monthFilter) {
+                                                                                                        const dayOfMonth = d.getDate();
+                                                                                                        if (dayOfMonth >= startDay && dayOfMonth <= endDay) {
+                                                                                                            const dayIdx = dayOfMonth - startDay;
+                                                                                                            if (days[dayIdx]) {
+                                                                                                                days[dayIdx].count++;
+                                                                                                            }
+                                                                                                        }
+                                                                                                    }
+                                                                                                });
+                                                                                                chartData = days;
+                                                                                            } else if (resolution === 'hourly') {
+                                                                                                const yearFilter = state.year || new Date().getFullYear();
+                                                                                                const monthFilter = state.month !== null ? state.month : new Date().getMonth();
+                                                                                                const dayFilter = state.day || new Date().getDate();
+                                                                                                
+                                                                                                chartData = Array(12).fill(0).map((_, i) => {
+                                                                                                    const start = i * 2;
+                                                                                                    const end = start + 2;
+                                                                                                    const label = `${String(start).padStart(2, '0')}-${String(end).padStart(2, '0')}`;
+                                                                                                    return {
+                                                                                                        label,
+                                                                                                        count: 0,
+                                                                                                        year: yearFilter,
+                                                                                                        month: monthFilter,
+                                                                                                        day: dayFilter,
+                                                                                                        hourBlock: i
+                                                                                                    };
+                                                                                                });
+                                                                                                
+                                                                                                runs.forEach(r => {
+                                                                                                    const d = new Date(r.created_at);
+                                                                                                    if (d.getFullYear() === yearFilter && d.getMonth() === monthFilter && d.getDate() === dayFilter) {
+                                                                                                        const hour = d.getHours();
+                                                                                                        const blockIdx = Math.floor(hour / 2);
+                                                                                                        if (blockIdx >= 0 && blockIdx < 12) {
+                                                                                                            chartData[blockIdx].count++;
+                                                                                                        }
+                                                                                                    }
+                                                                                                });
                                                                                             }
 
                                                                                             return (
@@ -1115,20 +1191,58 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
                                                                                                     {/* Interactive Volume Chart Widget */}
                                                                                                     {total > 0 && (
                                                                                                         <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '12px', marginTop: '4px' }}>
-                                                                                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                                                                                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
                                                                                                                 <span style={{ fontSize: '11px', fontWeight: '600', color: 'var(--text-light)' }}>
                                                                                                                     נפח שימוש באוטומציה לפי זמן:
                                                                                                                 </span>
                                                                                                                 <div style={{ display: 'flex', gap: '4px' }}>
                                                                                                                     {[
-                                                                                                                        { id: 'hourly', label: 'שעתי' },
-                                                                                                                        { id: 'daily', label: 'יומי' },
+                                                                                                                        { id: 'yearly', label: 'שנתי' },
                                                                                                                         { id: 'monthly', label: 'חודשי' },
-                                                                                                                        { id: 'yearly', label: 'שנתי' }
+                                                                                                                        { id: 'weekly', label: 'שבועי' },
+                                                                                                                        { id: 'daily', label: 'יומי' },
+                                                                                                                        { id: 'hourly', label: 'שעתי' }
                                                                                                                     ].map(res => (
                                                                                                                         <button
                                                                                                                             key={res.id}
-                                                                                                                            onClick={() => setChartResolution({ ...chartResolution, [auto.id]: res.id })}
+                                                                                                                            onClick={() => {
+                                                                                                                                let nextYear = state.year;
+                                                                                                                                let nextMonth = state.month;
+                                                                                                                                let nextWeek = state.week;
+                                                                                                                                let nextDay = state.day;
+                                                                                                                                
+                                                                                                                                if (res.id === 'yearly') {
+                                                                                                                                    nextYear = null; nextMonth = null; nextWeek = null; nextDay = null;
+                                                                                                                                } else if (res.id === 'monthly') {
+                                                                                                                                    nextYear = nextYear || new Date().getFullYear();
+                                                                                                                                    nextMonth = null; nextWeek = null; nextDay = null;
+                                                                                                                                } else if (res.id === 'weekly') {
+                                                                                                                                    nextYear = nextYear || new Date().getFullYear();
+                                                                                                                                    nextMonth = nextMonth !== null ? nextMonth : new Date().getMonth();
+                                                                                                                                    nextWeek = null; nextDay = null;
+                                                                                                                                } else if (res.id === 'daily') {
+                                                                                                                                    nextYear = nextYear || new Date().getFullYear();
+                                                                                                                                    nextMonth = nextMonth !== null ? nextMonth : new Date().getMonth();
+                                                                                                                                    nextWeek = nextWeek || 1;
+                                                                                                                                    nextDay = null;
+                                                                                                                                } else if (res.id === 'hourly') {
+                                                                                                                                    nextYear = nextYear || new Date().getFullYear();
+                                                                                                                                    nextMonth = nextMonth !== null ? nextMonth : new Date().getMonth();
+                                                                                                                                    nextWeek = nextWeek || 1;
+                                                                                                                                    nextDay = nextDay || new Date().getDate();
+                                                                                                                                }
+                                                                                                                                
+                                                                                                                                setChartStates({
+                                                                                                                                    ...chartStates,
+                                                                                                                                    [auto.id]: {
+                                                                                                                                        resolution: res.id,
+                                                                                                                                        year: nextYear,
+                                                                                                                                        month: nextMonth,
+                                                                                                                                        week: nextWeek,
+                                                                                                                                        day: nextDay
+                                                                                                                                    }
+                                                                                                                                });
+                                                                                                                            }}
                                                                                                                             style={{
                                                                                                                                 padding: '2px 6px',
                                                                                                                                 fontSize: '9px',
@@ -1148,11 +1262,66 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
                                                                                                                 </div>
                                                                                                             </div>
 
+                                                                                                            {/* Navigation Breadcrumbs */}
+                                                                                                            <div style={{ display: 'flex', gap: '6px', alignItems: 'center', fontSize: '10px', color: 'var(--text-secondary)', marginBottom: '8px', flexWrap: 'wrap' }}>
+                                                                                                                <span style={{ color: 'var(--text-muted)' }}>ניווט:</span>
+                                                                                                                <span
+                                                                                                                    style={{ cursor: 'pointer', color: resolution === 'yearly' ? 'var(--accent-cyan)' : 'var(--text-secondary)', textDecoration: resolution !== 'yearly' ? 'underline' : 'none' }}
+                                                                                                                    onClick={() => setChartStates({ ...chartStates, [auto.id]: { resolution: 'yearly', year: null, month: null, week: null, day: null } })}
+                                                                                                                >
+                                                                                                                    שנתי
+                                                                                                                </span>
+                                                                                                                {state.year && (
+                                                                                                                    <>
+                                                                                                                        <span style={{ color: 'var(--text-muted)' }}>&gt;</span>
+                                                                                                                        <span
+                                                                                                                            style={{ cursor: 'pointer', color: resolution === 'monthly' ? 'var(--accent-cyan)' : 'var(--text-secondary)', textDecoration: resolution !== 'monthly' ? 'underline' : 'none' }}
+                                                                                                                            onClick={() => setChartStates({ ...chartStates, [auto.id]: { resolution: 'monthly', year: state.year, month: null, week: null, day: null } })}
+                                                                                                                        >
+                                                                                                                            {state.year}
+                                                                                                                        </span>
+                                                                                                                    </>
+                                                                                                                )}
+                                                                                                                {state.month !== null && (
+                                                                                                                    <>
+                                                                                                                        <span style={{ color: 'var(--text-muted)' }}>&gt;</span>
+                                                                                                                        <span
+                                                                                                                            style={{ cursor: 'pointer', color: resolution === 'weekly' ? 'var(--accent-cyan)' : 'var(--text-secondary)', textDecoration: resolution !== 'weekly' ? 'underline' : 'none' }}
+                                                                                                                            onClick={() => setChartStates({ ...chartStates, [auto.id]: { resolution: 'weekly', year: state.year, month: state.month, week: null, day: null } })}
+                                                                                                                        >
+                                                                                                                            {monthNames[state.month]}
+                                                                                                                        </span>
+                                                                                                                    </>
+                                                                                                                )}
+                                                                                                                {state.week && (
+                                                                                                                    <>
+                                                                                                                        <span style={{ color: 'var(--text-muted)' }}>&gt;</span>
+                                                                                                                        <span
+                                                                                                                            style={{ cursor: 'pointer', color: resolution === 'daily' ? 'var(--accent-cyan)' : 'var(--text-secondary)', textDecoration: resolution !== 'daily' ? 'underline' : 'none' }}
+                                                                                                                            onClick={() => setChartStates({ ...chartStates, [auto.id]: { resolution: 'daily', year: state.year, month: state.month, week: state.week, day: null } })}
+                                                                                                                        >
+                                                                                                                            שבוע {state.week}
+                                                                                                                        </span>
+                                                                                                                    </>
+                                                                                                                )}
+                                                                                                                {state.day && (
+                                                                                                                    <>
+                                                                                                                        <span style={{ color: 'var(--text-muted)' }}>&gt;</span>
+                                                                                                                        <span
+                                                                                                                            style={{ cursor: 'pointer', color: resolution === 'hourly' ? 'var(--accent-cyan)' : 'var(--text-secondary)' }}
+                                                                                                                            onClick={() => setChartStates({ ...chartStates, [auto.id]: { resolution: 'hourly', year: state.year, month: state.month, week: state.week, day: state.day } })}
+                                                                                                                        >
+                                                                                                                            {['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'][new Date(state.year, state.month, state.day).getDay()]}' - {state.day}/{state.month + 1}
+                                                                                                                        </span>
+                                                                                                                    </>
+                                                                                                                )}
+                                                                                                            </div>
+
                                                                                                             <div style={{ position: 'relative', width: '100%' }}>
                                                                                                                 {(() => {
                                                                                                                     const maxVal = Math.max(...chartData.map(d => d.count), 1);
-                                                                                                                    const h = 100;
-                                                                                                                    const padBottom = 20;
+                                                                                                                    const h = 110;
+                                                                                                                    const padBottom = 26;
                                                                                                                     const padTop = 10;
                                                                                                                     const innerH = h - padBottom - padTop;
                                                                                                                     return (
@@ -1184,7 +1353,34 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
                                                                                                                                 const y = padTop + innerH - barHeight;
 
                                                                                                                                 return (
-                                                                                                                                    <g key={idx} style={{ cursor: 'pointer' }} className="svg-chart-bar">
+                                                                                                                                    <g
+                                                                                                                                        key={idx}
+                                                                                                                                        style={{ cursor: 'pointer' }}
+                                                                                                                                        className="svg-chart-bar"
+                                                                                                                                        onClick={() => {
+                                                                                                                                            if (resolution === 'yearly') {
+                                                                                                                                                setChartStates({
+                                                                                                                                                    ...chartStates,
+                                                                                                                                                    [auto.id]: { resolution: 'monthly', year: d.year, month: null, week: null, day: null }
+                                                                                                                                                });
+                                                                                                                                            } else if (resolution === 'monthly') {
+                                                                                                                                                setChartStates({
+                                                                                                                                                    ...chartStates,
+                                                                                                                                                    [auto.id]: { resolution: 'weekly', year: d.year, month: d.month, week: null, day: null }
+                                                                                                                                                });
+                                                                                                                                            } else if (resolution === 'weekly') {
+                                                                                                                                                setChartStates({
+                                                                                                                                                    ...chartStates,
+                                                                                                                                                    [auto.id]: { resolution: 'daily', year: d.year, month: d.month, week: d.week, day: null }
+                                                                                                                                                });
+                                                                                                                                            } else if (resolution === 'daily') {
+                                                                                                                                                setChartStates({
+                                                                                                                                                    ...chartStates,
+                                                                                                                                                    [auto.id]: { resolution: 'hourly', year: d.year, month: d.month, week: d.week, day: d.day }
+                                                                                                                                                });
+                                                                                                                                            }
+                                                                                                                                        }}
+                                                                                                                                    >
                                                                                                                                         <title>{`${d.label}: ${d.count} שימושים`}</title>
                                                                                                                                         <rect x={x} y={y} width={barWidth} height={barHeight} rx="2" ry="2" fill={`url(#chartGrad-${auto.id})`} />
                                                                                                                                         
@@ -1197,7 +1393,16 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
                                                                                                                                         )}
                                                                                                                                         
                                                                                                                                         {/* X Axis Label */}
-                                                                                                                                        <text x={x + barWidth / 2} y={h - 4} textAnchor="middle" fill="var(--text-muted)" fontSize="7px">{d.label}</text>
+                                                                                                                                        <text
+                                                                                                                                            x={x + barWidth / 2}
+                                                                                                                                            y={h - 8}
+                                                                                                                                            textAnchor="middle"
+                                                                                                                                            fill="var(--text-muted)"
+                                                                                                                                            fontSize="7.5px"
+                                                                                                                                            transform={resolution === 'hourly' ? `rotate(-25, ${x + barWidth / 2}, ${h - 8})` : undefined}
+                                                                                                                                        >
+                                                                                                                                            {d.label}
+                                                                                                                                        </text>
                                                                                                                                     </g>
                                                                                                                                 );
                                                                                                                             })}
