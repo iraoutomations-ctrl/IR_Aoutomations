@@ -138,6 +138,7 @@ export default function Projects({ onSelectLead, activeTab }) {
     const [logTimeFilter, setLogTimeFilter] = useState({});
     const [logSearchFilter, setLogSearchFilter] = useState({});
     const [logDurationFilter, setLogDurationFilter] = useState({});
+    const [chartResolution, setChartResolution] = useState({});
     const [expandedRun, setExpandedRun] = useState({});
     const [analyzingRun, setAnalyzingRun] = useState({});
     const [aiAnalysisText, setAiAnalysisText] = useState({});
@@ -1029,6 +1030,51 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
                                                                                             const activeMonths = monthlyIssues.filter(m => (m.errors + m.warnings) > 0);
                                                                                             const activeYears = Object.entries(yearlyIssues).filter(([_, data]) => (data.errors + data.warnings) > 0);
 
+                                                                                            // Calculate interactive chart volume data based on resolution toggle
+                                                                                            const resolution = chartResolution[auto.id] || 'hourly';
+                                                                                            let chartData = [];
+                                                                                            if (resolution === 'hourly') {
+                                                                                                chartData = Array(12).fill(0).map((_, i) => {
+                                                                                                    const start = i * 2;
+                                                                                                    const end = start + 2;
+                                                                                                    const label = `${String(start).padStart(2, '0')}:00-${String(end).padStart(2, '0')}:00`;
+                                                                                                    return { label, count: 0 };
+                                                                                                });
+                                                                                                runs.forEach(r => {
+                                                                                                    const hour = new Date(r.created_at).getHours();
+                                                                                                    const blockIdx = Math.floor(hour / 2);
+                                                                                                    if (blockIdx >= 0 && blockIdx < 12) {
+                                                                                                        chartData[blockIdx].count++;
+                                                                                                    }
+                                                                                                });
+                                                                                            } else if (resolution === 'daily') {
+                                                                                                const dayNames = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
+                                                                                                chartData = dayNames.map(name => ({ label: `יום ${name}`, count: 0 }));
+                                                                                                runs.forEach(r => {
+                                                                                                    const day = new Date(r.created_at).getDay();
+                                                                                                    chartData[day].count++;
+                                                                                                });
+                                                                                            } else if (resolution === 'monthly') {
+                                                                                                const monthNames = ['ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני', 'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר'];
+                                                                                                chartData = monthNames.map(name => ({ label: name, count: 0 }));
+                                                                                                runs.forEach(r => {
+                                                                                                    const month = new Date(r.created_at).getMonth();
+                                                                                                    chartData[month].count++;
+                                                                                                });
+                                                                                            } else if (resolution === 'yearly') {
+                                                                                                const years = {};
+                                                                                                runs.forEach(r => {
+                                                                                                    const year = new Date(r.created_at).getFullYear();
+                                                                                                    years[year] = (years[year] || 0) + 1;
+                                                                                                });
+                                                                                                const sortedYears = Object.keys(years).sort();
+                                                                                                if (sortedYears.length === 0) {
+                                                                                                    chartData = [{ label: String(new Date().getFullYear()), count: 0 }];
+                                                                                                } else {
+                                                                                                    chartData = sortedYears.map(y => ({ label: String(y), count: years[y] }));
+                                                                                                }
+                                                                                            }
+
                                                                                             return (
                                                                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                                                                                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: '8px' }}>
@@ -1062,6 +1108,102 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
                                                                                                                 <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981' }} />תקין ({success})</span>
                                                                                                                 <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#f59e0b' }} />אזהרה ({warning})</span>
                                                                                                                 <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#ef4444' }} />שגיאה ({error})</span>
+                                                                                                            </div>
+                                                                                                        </div>
+                                                                                                    )}
+
+                                                                                                    {/* Interactive Volume Chart Widget */}
+                                                                                                    {total > 0 && (
+                                                                                                        <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '12px', marginTop: '4px' }}>
+                                                                                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                                                                                                                <span style={{ fontSize: '11px', fontWeight: '600', color: 'var(--text-light)' }}>
+                                                                                                                    נפח שימוש באוטומציה לפי זמן:
+                                                                                                                </span>
+                                                                                                                <div style={{ display: 'flex', gap: '4px' }}>
+                                                                                                                    {[
+                                                                                                                        { id: 'hourly', label: 'שעתי' },
+                                                                                                                        { id: 'daily', label: 'יומי' },
+                                                                                                                        { id: 'monthly', label: 'חודשי' },
+                                                                                                                        { id: 'yearly', label: 'שנתי' }
+                                                                                                                    ].map(res => (
+                                                                                                                        <button
+                                                                                                                            key={res.id}
+                                                                                                                            onClick={() => setChartResolution({ ...chartResolution, [auto.id]: res.id })}
+                                                                                                                            style={{
+                                                                                                                                padding: '2px 6px',
+                                                                                                                                fontSize: '9px',
+                                                                                                                                borderRadius: '4px',
+                                                                                                                                border: '1px solid',
+                                                                                                                                borderColor: resolution === res.id ? 'var(--accent-violet)' : 'rgba(255,255,255,0.1)',
+                                                                                                                                background: resolution === res.id ? 'rgba(139, 92, 246, 0.15)' : 'none',
+                                                                                                                                color: resolution === res.id ? 'var(--accent-cyan)' : 'var(--text-secondary)',
+                                                                                                                                cursor: 'pointer',
+                                                                                                                                fontWeight: resolution === res.id ? '600' : 'normal',
+                                                                                                                                transition: 'all 0.2s'
+                                                                                                                            }}
+                                                                                                                        >
+                                                                                                                            {res.label}
+                                                                                                                        </button>
+                                                                                                                    ))}
+                                                                                                                </div>
+                                                                                                            </div>
+
+                                                                                                            <div style={{ position: 'relative', width: '100%' }}>
+                                                                                                                {(() => {
+                                                                                                                    const maxVal = Math.max(...chartData.map(d => d.count), 1);
+                                                                                                                    const h = 100;
+                                                                                                                    const padBottom = 20;
+                                                                                                                    const padTop = 10;
+                                                                                                                    const innerH = h - padBottom - padTop;
+                                                                                                                    return (
+                                                                                                                        <svg viewBox={`0 0 500 ${h}`} style={{ width: '100%', height: 'auto', overflow: 'visible' }}>
+                                                                                                                            <defs>
+                                                                                                                                <linearGradient id={`chartGrad-${auto.id}`} x1="0" y1="0" x2="0" y2="1">
+                                                                                                                                    <stop offset="0%" stopColor="#8b5cf6" stopOpacity="0.85" />
+                                                                                                                                    <stop offset="100%" stopColor="#06b6d4" stopOpacity="0.4" />
+                                                                                                                                </linearGradient>
+                                                                                                                            </defs>
+
+                                                                                                                            {/* Grid Lines */}
+                                                                                                                            {[0, 0.5, 1].map((ratio, idx) => {
+                                                                                                                                const y = padTop + innerH * (1 - ratio);
+                                                                                                                                return (
+                                                                                                                                    <g key={idx}>
+                                                                                                                                        <line x1="0" y1={y} x2="500" y2={y} stroke="rgba(255, 255, 255, 0.05)" strokeWidth="1" strokeDasharray="3 3" />
+                                                                                                                                        <text x="5" y={y - 3} fill="var(--text-muted)" fontSize="8px">{Math.round(maxVal * ratio)}</text>
+                                                                                                                                    </g>
+                                                                                                                                );
+                                                                                                                            })}
+
+                                                                                                                            {/* Bars */}
+                                                                                                                            {chartData.map((d, idx) => {
+                                                                                                                                const barWidth = 400 / chartData.length;
+                                                                                                                                const gap = 100 / chartData.length;
+                                                                                                                                const x = idx * (barWidth + gap) + gap / 2;
+                                                                                                                                const barHeight = (d.count / maxVal) * innerH;
+                                                                                                                                const y = padTop + innerH - barHeight;
+
+                                                                                                                                return (
+                                                                                                                                    <g key={idx} style={{ cursor: 'pointer' }} className="svg-chart-bar">
+                                                                                                                                        <title>{`${d.label}: ${d.count} שימושים`}</title>
+                                                                                                                                        <rect x={x} y={y} width={barWidth} height={barHeight} rx="2" ry="2" fill={`url(#chartGrad-${auto.id})`} />
+                                                                                                                                        
+                                                                                                                                        {/* Hover overlay */}
+                                                                                                                                        <rect x={x} y={y} width={barWidth} height={barHeight} rx="2" ry="2" fill="#06b6d4" opacity="0" style={{ transition: 'opacity 0.2s' }} onMouseEnter={(e) => e.target.setAttribute('opacity', '0.2')} onMouseLeave={(e) => e.target.setAttribute('opacity', '0')} />
+                                                                                                                                        
+                                                                                                                                        {/* Value label */}
+                                                                                                                                        {d.count > 0 && (
+                                                                                                                                            <text x={x + barWidth / 2} y={y - 3} textAnchor="middle" fill="var(--text-light)" fontSize="7px" fontWeight="600">{d.count}</text>
+                                                                                                                                        )}
+                                                                                                                                        
+                                                                                                                                        {/* X Axis Label */}
+                                                                                                                                        <text x={x + barWidth / 2} y={h - 4} textAnchor="middle" fill="var(--text-muted)" fontSize="7px">{d.label}</text>
+                                                                                                                                    </g>
+                                                                                                                                );
+                                                                                                                            })}
+                                                                                                                        </svg>
+                                                                                                                    );
+                                                                                                                })()}
                                                                                                             </div>
                                                                                                         </div>
                                                                                                     )}
