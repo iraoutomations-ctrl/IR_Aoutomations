@@ -197,6 +197,56 @@ BEGIN
     END LOOP;
 END
 $$;
+
+-- 9. יצירת טריגר להעתקת התראות מערכת ללוג ריצות (כדי למנוע אובדן מידע במחיקה)
+CREATE OR REPLACE FUNCTION copy_alert_to_run()
+RETURNS TRIGGER AS $$
+DECLARE
+    run_status TEXT := 'success';
+    run_error_type TEXT := NULL;
+BEGIN
+    IF NEW.n8n_workflow_id IS NOT NULL THEN
+        IF NEW.type = 'error' THEN
+            run_status := 'error';
+            run_error_type := NEW.title;
+        ELSIF NEW.type = 'warning' THEN
+            run_status := 'warning';
+            run_error_type := NEW.title;
+        END IF;
+
+        INSERT INTO automation_runs (
+            id,
+            created_at,
+            automation_id,
+            n8n_workflow_id,
+            status,
+            duration_ms,
+            error_type,
+            details
+        ) VALUES (
+            NEW.id,
+            NEW.created_at,
+            NEW.automation_id,
+            NEW.n8n_workflow_id,
+            run_status,
+            NEW.duration_ms,
+            run_error_type,
+            jsonb_build_object(
+                'error_message', NEW.message,
+                'warning_message', NEW.message
+            )
+        )
+        ON CONFLICT (id) DO NOTHING;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS tr_copy_alert_to_run ON system_alerts;
+CREATE TRIGGER tr_copy_alert_to_run
+AFTER INSERT ON system_alerts
+FOR EACH ROW
+EXECUTE FUNCTION copy_alert_to_run();
 `;
 
 export default function Settings() {

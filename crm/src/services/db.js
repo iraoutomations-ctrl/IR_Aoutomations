@@ -1035,6 +1035,31 @@ export const db = {
             };
             alerts.unshift(newAlert);
             setLocalData(STORAGE_KEYS.SYSTEM_ALERTS, alerts);
+
+            // Replicate database trigger: copy alert to automation runs locally
+            if (newAlert.n8n_workflow_id) {
+                const runs = getLocalData(STORAGE_KEYS.AUTOMATION_RUNS, INITIAL_MOCK_AUTOMATION_RUNS);
+                let status = 'success';
+                if (newAlert.type === 'error') status = 'error';
+                else if (newAlert.type === 'warning') status = 'warning';
+
+                const newRun = {
+                    id: newAlert.id,
+                    created_at: newAlert.created_at,
+                    automation_id: newAlert.automation_id || 'chatbot-automation',
+                    n8n_workflow_id: newAlert.n8n_workflow_id,
+                    status: status,
+                    duration_ms: newAlert.duration_ms || null,
+                    error_type: newAlert.title || '',
+                    details: {
+                        error_message: newAlert.message,
+                        warning_message: newAlert.message
+                    },
+                    ai_analysis: null
+                };
+                runs.unshift(newRun);
+                setLocalData(STORAGE_KEYS.AUTOMATION_RUNS, runs);
+            }
             return newAlert;
         }
     },
