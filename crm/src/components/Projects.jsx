@@ -956,6 +956,23 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
                                                                                 {(activeAutoTabs[auto.id] || 'ops') === 'stats' && (
                                                                                     <div onClick={(e) => e.stopPropagation()}>
                                                                                         {(() => {
+                                                                                            const getWeeksOfMonth = (year, month) => {
+                                                                                                const firstDayIndex = new Date(year, month, 1).getDay();
+                                                                                                const firstSaturdayDate = 1 + (6 - firstDayIndex);
+                                                                                                const lastDay = new Date(year, month + 1, 0).getDate();
+                                                                                                const weeks = [];
+                                                                                                weeks.push({ weekNum: 1, startDay: 1, endDay: Math.min(firstSaturdayDate, lastDay) });
+                                                                                                let currentStart = firstSaturdayDate + 1;
+                                                                                                let wNum = 2;
+                                                                                                while (currentStart <= lastDay) {
+                                                                                                    const currentEnd = Math.min(currentStart + 6, lastDay);
+                                                                                                    weeks.push({ weekNum: wNum, startDay: currentStart, endDay: currentEnd });
+                                                                                                    currentStart = currentEnd + 1;
+                                                                                                    wNum++;
+                                                                                                }
+                                                                                                return weeks;
+                                                                                            };
+
                                                                                             const runs = autoRuns[auto.id] || [];
                                                                                             const total = runs.length;
                                                                                             const success = runs.filter(r => r.status === 'success').length;
@@ -1067,20 +1084,28 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
                                                                                             } else if (resolution === 'weekly') {
                                                                                                 const yearFilter = state.year || new Date().getFullYear();
                                                                                                 const monthFilter = state.month !== null ? state.month : new Date().getMonth();
-                                                                                                chartData = Array(5).fill(0).map((_, idx) => ({
-                                                                                                    label: `שבוע ${idx + 1}`,
+                                                                                                
+                                                                                                // Get correct Sunday-Saturday weeks
+                                                                                                const weeks = getWeeksOfMonth(yearFilter, monthFilter);
+                                                                                                chartData = weeks.map(w => ({
+                                                                                                    label: `שבוע ${w.weekNum} (${w.startDay}/${monthFilter + 1}-${w.endDay}/${monthFilter + 1})`,
                                                                                                     count: 0,
                                                                                                     year: yearFilter,
                                                                                                     month: monthFilter,
-                                                                                                    week: idx + 1
+                                                                                                    week: w.weekNum,
+                                                                                                    startDay: w.startDay,
+                                                                                                    endDay: w.endDay
                                                                                                 }));
+                                                                                                
                                                                                                 runs.forEach(r => {
                                                                                                     const d = new Date(r.created_at);
                                                                                                     if (d.getFullYear() === yearFilter && d.getMonth() === monthFilter) {
                                                                                                         const dayOfMonth = d.getDate();
-                                                                                                        let weekIdx = Math.floor((dayOfMonth - 1) / 7);
-                                                                                                        if (weekIdx > 4) weekIdx = 4;
-                                                                                                        chartData[weekIdx].count++;
+                                                                                                        // Find which week this day belongs to
+                                                                                                        const matchedWeekIdx = weeks.findIndex(w => dayOfMonth >= w.startDay && dayOfMonth <= w.endDay);
+                                                                                                        if (matchedWeekIdx !== -1) {
+                                                                                                            chartData[matchedWeekIdx].count++;
+                                                                                                        }
                                                                                                     }
                                                                                                 });
                                                                                             } else if (resolution === 'daily') {
@@ -1088,8 +1113,12 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
                                                                                                 const monthFilter = state.month !== null ? state.month : new Date().getMonth();
                                                                                                 const weekFilter = state.week || 1;
                                                                                                 
-                                                                                                const startDay = (weekFilter - 1) * 7 + 1;
-                                                                                                const endDay = weekFilter === 5 ? 31 : weekFilter * 7;
+                                                                                                // Get correct Sunday-Saturday weeks
+                                                                                                const weeks = getWeeksOfMonth(yearFilter, monthFilter);
+                                                                                                const selectedWeekObj = weeks.find(w => w.weekNum === weekFilter) || weeks[0];
+                                                                                                
+                                                                                                const startDay = selectedWeekObj.startDay;
+                                                                                                const endDay = selectedWeekObj.endDay;
                                                                                                 
                                                                                                 const days = [];
                                                                                                 for (let day = startDay; day <= endDay; day++) {
