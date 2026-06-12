@@ -37,92 +37,94 @@ export default function Sidebar({
     ];
 
     return (
-        <aside className="sidebar">
-            <div style={{ display: 'flex', flexDirection: 'column', height: '100%', justifyContent: 'space-between' }}>
-                <div>
-                    {/* Branding Logo */}
-                    <div className="sidebar-logo">
-                        <Cpu className="text-violet" style={{ color: '#8b5cf6' }} size={28} />
-                        <span className="sidebar-logo-text">autoRI CRM</span>
+        <>
+            <aside className="sidebar">
+                <div style={{ display: 'flex', flexDirection: 'column', height: '100%', justifyContent: 'space-between' }}>
+                    <div>
+                        {/* Branding Logo */}
+                        <div className="sidebar-logo">
+                            <Cpu className="text-violet" style={{ color: '#8b5cf6' }} size={28} />
+                            <span className="sidebar-logo-text">autoRI CRM</span>
+                        </div>
+
+                        {/* Navigation Menu */}
+                        <ul className="sidebar-menu">
+                            {menuItems.map(item => {
+                                const Icon = item.icon;
+                                return (
+                                    <li key={item.id}>
+                                        <div 
+                                            className={`sidebar-link ${activeTab === item.id ? 'active' : ''}`}
+                                            onClick={() => {
+                                                setActiveTab(item.id);
+                                                setShowNotifications(false);
+                                            }}
+                                        >
+                                            <Icon size={18} />
+                                            <span>{item.label}</span>
+                                        </div>
+                                    </li>
+                                );
+                            })}
+                        </ul>
                     </div>
 
-                    {/* Navigation Menu */}
-                    <ul className="sidebar-menu">
-                        {menuItems.map(item => {
-                            const Icon = item.icon;
-                            return (
-                                <li key={item.id}>
-                                    <div 
-                                        className={`sidebar-link ${activeTab === item.id ? 'active' : ''}`}
-                                        onClick={() => {
-                                            setActiveTab(item.id);
-                                            setShowNotifications(false);
-                                        }}
-                                    >
-                                        <Icon size={18} />
-                                        <span>{item.label}</span>
-                                    </div>
-                                </li>
-                            );
-                        })}
-                    </ul>
-                </div>
+                    <div>
+                        {/* Notification Bell Button */}
+                        <div style={{ padding: '0 16px', marginBottom: '16px' }}>
+                            <button 
+                                className={`sidebar-link ${showNotifications ? 'active' : ''}`}
+                                onClick={() => setShowNotifications(!showNotifications)}
+                                style={{ 
+                                    width: '100%', 
+                                    display: 'flex', 
+                                    alignItems: 'center', 
+                                    justifyContent: 'space-between',
+                                    border: 'none',
+                                    background: 'none',
+                                    cursor: 'pointer',
+                                    textAlign: 'right',
+                                    padding: '10px 14px',
+                                    borderRadius: '8px'
+                                }}
+                            >
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    <Bell size={18} className={unreadCount > 0 ? 'pulse-bell' : ''} style={{ color: unreadCount > 0 ? '#ef4444' : 'inherit' }} />
+                                    <span style={{ fontSize: '13.5px', fontWeight: '500' }}>התראות מערכת</span>
+                                </div>
+                                {unreadCount > 0 && (
+                                    <span style={{ 
+                                        background: '#ef4444', 
+                                        color: '#fff', 
+                                        borderRadius: '10px', 
+                                        padding: '2px 8px', 
+                                        fontSize: '10px', 
+                                        fontWeight: '600' 
+                                    }}>
+                                        {unreadCount}
+                                    </span>
+                                )}
+                            </button>
+                        </div>
 
-                <div>
-                    {/* Notification Bell Button */}
-                    <div style={{ padding: '0 16px', marginBottom: '16px' }}>
-                        <button 
-                            className={`sidebar-link ${showNotifications ? 'active' : ''}`}
-                            onClick={() => setShowNotifications(!showNotifications)}
-                            style={{ 
-                                width: '100%', 
-                                display: 'flex', 
-                                alignItems: 'center', 
-                                justifyContent: 'space-between',
-                                border: 'none',
-                                background: 'none',
-                                cursor: 'pointer',
-                                textAlign: 'right',
-                                padding: '10px 14px',
-                                borderRadius: '8px'
-                            }}
-                        >
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                <Bell size={18} className={unreadCount > 0 ? 'pulse-bell' : ''} style={{ color: unreadCount > 0 ? '#ef4444' : 'inherit' }} />
-                                <span style={{ fontSize: '13.5px', fontWeight: '500' }}>התראות מערכת</span>
-                            </div>
-                            {unreadCount > 0 && (
-                                <span style={{ 
-                                    background: '#ef4444', 
-                                    color: '#fff', 
-                                    borderRadius: '10px', 
-                                    padding: '2px 8px', 
-                                    fontSize: '10px', 
-                                    fontWeight: '600' 
-                                }}>
-                                    {unreadCount}
-                                </span>
-                            )}
-                        </button>
-                    </div>
-
-                    {/* Connection Status Indicator */}
-                    <div className="sidebar-footer" style={{ borderTop: '1px solid var(--border-color)', paddingTop: '16px' }}>
-                        <div className="connection-status">
-                            <Database size={16} />
-                            <div className="flex-col" style={{ display: 'flex', flexDirection: 'column' }}>
-                                <span style={{ fontWeight: '500', fontSize: '11px' }}>
-                                    בסיס נתונים:
-                                </span>
-                                <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '10px', marginTop: '2px' }}>
-                                    <span className={`status-dot ${isSupabaseConfigured ? 'online' : 'offline'}`}></span>
-                                    {isSupabaseConfigured ? 'ענן Supabase מחובר' : 'מצב אופליין (Mock)'}
-                                </span>
+                        {/* Connection Status Indicator */}
+                        <div className="sidebar-footer" style={{ borderTop: '1px solid var(--border-color)', paddingTop: '16px' }}>
+                            <div className="connection-status">
+                                <Database size={16} />
+                                <div className="flex-col" style={{ display: 'flex', flexDirection: 'column' }}>
+                                    <span style={{ fontWeight: '500', fontSize: '11px' }}>
+                                        בסיס נתונים:
+                                    </span>
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '10px', marginTop: '2px' }}>
+                                        <span className={`status-dot ${isSupabaseConfigured ? 'online' : 'offline'}`}></span>
+                                        {isSupabaseConfigured ? 'ענן Supabase מחובר' : 'מצב אופליין (Mock)'}
+                                    </span>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
-            </div>
+            </aside>
 
             {/* Slide-out Notifications Drawer Overlay */}
             {showNotifications && (
@@ -170,6 +172,7 @@ export default function Sidebar({
                                         <div 
                                             key={alert.id} 
                                             className={`alert-item ${!alert.read ? 'unread' : ''}`}
+                                            onClick={() => !alert.read && onMarkAlertRead(alert.id)}
                                             style={{ 
                                                 borderRight: `4px solid ${colors.iconColor}`,
                                                 background: colors.bg,
@@ -177,7 +180,8 @@ export default function Sidebar({
                                                 borderRadius: '6px',
                                                 border: `1px solid ${colors.border}`,
                                                 borderRightWidth: '4px',
-                                                position: 'relative'
+                                                position: 'relative',
+                                                cursor: !alert.read ? 'pointer' : 'default'
                                             }}
                                         >
                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px' }}>
@@ -187,7 +191,10 @@ export default function Sidebar({
                                                 <div style={{ display: 'flex', gap: '8px' }}>
                                                     {!alert.read && (
                                                         <button 
-                                                            onClick={() => onMarkAlertRead(alert.id)}
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                onMarkAlertRead(alert.id);
+                                                            }}
                                                             title="סמן כנקרא"
                                                             style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: 0 }}
                                                         >
@@ -195,7 +202,10 @@ export default function Sidebar({
                                                         </button>
                                                     )}
                                                     <button 
-                                                        onClick={() => onDeleteAlert(alert.id)}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            onDeleteAlert(alert.id);
+                                                        }}
                                                         title="מחק התראה"
                                                         style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: 0 }}
                                                     >
@@ -217,6 +227,6 @@ export default function Sidebar({
                     </div>
                 </div>
             )}
-        </aside>
+        </>
     );
 }

@@ -734,6 +734,9 @@ p {
 }
 
 .notifications-drawer {
+    position: absolute;
+    right: 0;
+    top: 0;
     width: 380px;
     height: 100vh;
     background: rgba(18, 20, 32, 0.85) !important;
