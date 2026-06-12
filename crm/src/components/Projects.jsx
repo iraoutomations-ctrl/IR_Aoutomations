@@ -976,23 +976,37 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
                                                                                                 }
                                                                                             });
 
-                                                                                            // Calculate hourly and weekly distributions for time-based statistics
+                                                                                            // Calculate hourly, weekly, monthly and yearly distributions for time-based statistics
                                                                                             const hourlyErrors = Array(24).fill(0);
                                                                                             const hourlyWarnings = Array(24).fill(0);
                                                                                             
                                                                                             const dayNames = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
                                                                                             const dayIssues = Array(7).fill(0).map((_, i) => ({ name: dayNames[i], errors: 0, warnings: 0 }));
 
+                                                                                            const monthNames = ['ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני', 'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר'];
+                                                                                            const monthlyIssues = Array(12).fill(0).map((_, i) => ({ name: monthNames[i], errors: 0, warnings: 0 }));
+                                                                                            
+                                                                                            const yearlyIssues = {};
+
                                                                                             runs.forEach(r => {
                                                                                                 const date = new Date(r.created_at);
                                                                                                 const hour = date.getHours();
                                                                                                 const day = date.getDay();
+                                                                                                const month = date.getMonth();
+                                                                                                const year = date.getFullYear();
+
                                                                                                 if (r.status === 'error') {
                                                                                                     hourlyErrors[hour]++;
                                                                                                     dayIssues[day].errors++;
+                                                                                                    monthlyIssues[month].errors++;
+                                                                                                    if (!yearlyIssues[year]) yearlyIssues[year] = { errors: 0, warnings: 0 };
+                                                                                                    yearlyIssues[year].errors++;
                                                                                                 } else if (r.status === 'warning') {
                                                                                                     hourlyWarnings[hour]++;
                                                                                                     dayIssues[day].warnings++;
+                                                                                                    monthlyIssues[month].warnings++;
+                                                                                                    if (!yearlyIssues[year]) yearlyIssues[year] = { errors: 0, warnings: 0 };
+                                                                                                    yearlyIssues[year].warnings++;
                                                                                                 }
                                                                                             });
 
@@ -1012,6 +1026,8 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
 
                                                                                             const totalIssues = error + warning;
                                                                                             const activeDays = dayIssues.filter(d => (d.errors + d.warnings) > 0);
+                                                                                            const activeMonths = monthlyIssues.filter(m => (m.errors + m.warnings) > 0);
+                                                                                            const activeYears = Object.entries(yearlyIssues).filter(([_, data]) => (data.errors + data.warnings) > 0);
 
                                                                                             return (
                                                                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -1107,27 +1123,70 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
                                                                                                         </div>
                                                                                                     )}
 
-                                                                                                    {/* Day of Week Metrics */}
-                                                                                                    {activeDays.length > 0 && (
-                                                                                                        <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '10px', marginTop: '4px' }}>
-                                                                                                            <span style={{ fontSize: '11px', fontWeight: '600', color: 'var(--text-light)', display: 'block', marginBottom: '6px' }}>ריכוז תקלות ואזהרות לפי ימי השבוע:</span>
-                                                                                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                                                                                                                {dayIssues.map(day => {
-                                                                                                                    const total = day.errors + day.warnings;
-                                                                                                                    if (total === 0) return null;
-                                                                                                                    return (
-                                                                                                                        <div key={day.name} style={{ background: 'rgba(0,0,0,0.15)', padding: '6px 10px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.03)', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '10px' }}>
-                                                                                                                            <strong style={{ color: 'var(--text-light)' }}>יום {day.name}</strong>
-                                                                                                                            <span style={{ display: 'flex', gap: '6px', fontSize: '9px' }}>
-                                                                                                                                {day.errors > 0 && <span style={{ color: '#f87171' }}>שגיאות: {day.errors}</span>}
-                                                                                                                                {day.warnings > 0 && <span style={{ color: '#f59e0b' }}>אזהרות: {day.warnings}</span>}
-                                                                                                                            </span>
-                                                                                                                        </div>
-                                                                                                                    );
-                                                                                                                })}
-                                                                                                            </div>
-                                                                                                        </div>
-                                                                                                    )}
+                                                                                                     {/* Day of Week Metrics */}
+                                                                                                     {activeDays.length > 0 && (
+                                                                                                         <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '10px', marginTop: '4px' }}>
+                                                                                                             <span style={{ fontSize: '11px', fontWeight: '600', color: 'var(--text-light)', display: 'block', marginBottom: '6px' }}>ריכוז תקלות ואזהרות לפי ימי השבוע:</span>
+                                                                                                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                                                                                                                 {dayIssues.map(day => {
+                                                                                                                     const total = day.errors + day.warnings;
+                                                                                                                     if (total === 0) return null;
+                                                                                                                     return (
+                                                                                                                         <div key={day.name} style={{ background: 'rgba(0,0,0,0.15)', padding: '6px 10px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.03)', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '10px' }}>
+                                                                                                                             <strong style={{ color: 'var(--text-light)' }}>יום {day.name}</strong>
+                                                                                                                             <span style={{ display: 'flex', gap: '6px', fontSize: '9px' }}>
+                                                                                                                                 {day.errors > 0 && <span style={{ color: '#f87171' }}>שגיאות: {day.errors}</span>}
+                                                                                                                                 {day.warnings > 0 && <span style={{ color: '#f59e0b' }}>אזהרות: {day.warnings}</span>}
+                                                                                                                             </span>
+                                                                                                                         </div>
+                                                                                                                     );
+                                                                                                                 })}
+                                                                                                             </div>
+                                                                                                         </div>
+                                                                                                     )}
+
+                                                                                                     {/* Monthly Metrics */}
+                                                                                                     {activeMonths.length > 0 && (
+                                                                                                         <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '10px', marginTop: '4px' }}>
+                                                                                                             <span style={{ fontSize: '11px', fontWeight: '600', color: 'var(--text-light)', display: 'block', marginBottom: '6px' }}>ריכוז תקלות ואזהרות לפי חודשים:</span>
+                                                                                                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                                                                                                                 {monthlyIssues.map(month => {
+                                                                                                                     const total = month.errors + month.warnings;
+                                                                                                                     if (total === 0) return null;
+                                                                                                                     return (
+                                                                                                                         <div key={month.name} style={{ background: 'rgba(0,0,0,0.15)', padding: '6px 10px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.03)', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '10px' }}>
+                                                                                                                             <strong style={{ color: 'var(--text-light)' }}>{month.name}</strong>
+                                                                                                                             <span style={{ display: 'flex', gap: '6px', fontSize: '9px' }}>
+                                                                                                                                 {month.errors > 0 && <span style={{ color: '#f87171' }}>שגיאות: {month.errors}</span>}
+                                                                                                                                 {month.warnings > 0 && <span style={{ color: '#f59e0b' }}>אזהרות: {month.warnings}</span>}
+                                                                                                                             </span>
+                                                                                                                         </div>
+                                                                                                                     );
+                                                                                                                 })}
+                                                                                                             </div>
+                                                                                                         </div>
+                                                                                                     )}
+
+                                                                                                     {/* Yearly Metrics */}
+                                                                                                     {activeYears.length > 0 && (
+                                                                                                         <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '10px', marginTop: '4px' }}>
+                                                                                                             <span style={{ fontSize: '11px', fontWeight: '600', color: 'var(--text-light)', display: 'block', marginBottom: '6px' }}>ריכוז תקלות ואזהרות לפי שנים:</span>
+                                                                                                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                                                                                                                 {activeYears.map(([year, data]) => {
+                                                                                                                     return (
+                                                                                                                         <div key={year} style={{ background: 'rgba(0,0,0,0.15)', padding: '6px 10px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.03)', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '10px' }}>
+                                                                                                                             <strong style={{ color: 'var(--text-light)' }}>שנת {year}</strong>
+                                                                                                                             <span style={{ display: 'flex', gap: '6px', fontSize: '9px' }}>
+                                                                                                                                 {data.errors > 0 && <span style={{ color: '#f87171' }}>שגיאות: {data.errors}</span>}
+                                                                                                                                 {data.warnings > 0 && <span style={{ color: '#f59e0b' }}>אזהרות: {data.warnings}</span>}
+                                                                                                                             </span>
+                                                                                                                         </div>
+                                                                                                                     );
+                                                                                                                 })}
+                                                                                                             </div>
+                                                                                                         </div>
+                                                                                                     )}
+
                                                                                                 </div>
                                                                                             );
                                                                                         })()}
