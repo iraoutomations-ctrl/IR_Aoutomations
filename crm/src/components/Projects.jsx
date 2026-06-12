@@ -976,6 +976,43 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
                                                                                                 }
                                                                                             });
 
+                                                                                            // Calculate hourly and weekly distributions for time-based statistics
+                                                                                            const hourlyErrors = Array(24).fill(0);
+                                                                                            const hourlyWarnings = Array(24).fill(0);
+                                                                                            
+                                                                                            const dayNames = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
+                                                                                            const dayIssues = Array(7).fill(0).map((_, i) => ({ name: dayNames[i], errors: 0, warnings: 0 }));
+
+                                                                                            runs.forEach(r => {
+                                                                                                const date = new Date(r.created_at);
+                                                                                                const hour = date.getHours();
+                                                                                                const day = date.getDay();
+                                                                                                if (r.status === 'error') {
+                                                                                                    hourlyErrors[hour]++;
+                                                                                                    dayIssues[day].errors++;
+                                                                                                } else if (r.status === 'warning') {
+                                                                                                    hourlyWarnings[hour]++;
+                                                                                                    dayIssues[day].warnings++;
+                                                                                                }
+                                                                                            });
+
+                                                                                            const timeBlocks = [
+                                                                                                { name: 'בוקר (06:00 - 12:00)', start: 6, end: 12, errors: 0, warnings: 0 },
+                                                                                                { name: 'צהריים (12:00 - 18:00)', start: 12, end: 18, errors: 0, warnings: 0 },
+                                                                                                { name: 'ערב (18:00 - 00:00)', start: 18, end: 24, errors: 0, warnings: 0 },
+                                                                                                { name: 'לילה (00:00 - 06:00)', start: 0, end: 6, errors: 0, warnings: 0 }
+                                                                                            ];
+
+                                                                                            timeBlocks.forEach(block => {
+                                                                                                for (let h = block.start; h < block.end; h++) {
+                                                                                                    block.errors += hourlyErrors[h];
+                                                                                                    block.warnings += hourlyWarnings[h];
+                                                                                                }
+                                                                                            });
+
+                                                                                            const totalIssues = error + warning;
+                                                                                            const activeDays = dayIssues.filter(d => (d.errors + d.warnings) > 0);
+
                                                                                             return (
                                                                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                                                                                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: '8px' }}>
@@ -1037,6 +1074,57 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
                                                                                                                         <strong style={{ color: '#f87171' }}>{count} מקרים</strong>
                                                                                                                     </div>
                                                                                                                 ))}
+                                                                                                            </div>
+                                                                                                        </div>
+                                                                                                    )}
+
+                                                                                                    {/* Time-Based Metrics */}
+                                                                                                    {totalIssues > 0 && (
+                                                                                                        <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '10px', marginTop: '4px' }}>
+                                                                                                            <span style={{ fontSize: '11px', fontWeight: '600', color: 'var(--text-light)', display: 'block', marginBottom: '6px' }}>ריכוז תקלות ואזהרות לפי שעות:</span>
+                                                                                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '8px' }}>
+                                                                                                                {timeBlocks.map(block => {
+                                                                                                                    const blockIssues = block.errors + block.warnings;
+                                                                                                                    const percentage = totalIssues > 0 ? Math.round((blockIssues / totalIssues) * 100) : 0;
+                                                                                                                    return (
+                                                                                                                        <div key={block.name} style={{ background: 'rgba(0,0,0,0.15)', padding: '8px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.03)' }}>
+                                                                                                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', marginBottom: '4px' }}>
+                                                                                                                                <span style={{ color: 'var(--text-secondary)' }}>{block.name}</span>
+                                                                                                                                <strong style={{ color: blockIssues > 0 ? '#f87171' : 'var(--text-muted)' }}>{blockIssues} ({percentage}%)</strong>
+                                                                                                                            </div>
+                                                                                                                            <div style={{ display: 'flex', height: '4px', borderRadius: '2px', overflow: 'hidden', background: 'rgba(255,255,255,0.05)', marginBottom: '4px' }}>
+                                                                                                                                <div style={{ width: `${blockIssues > 0 ? (block.errors / blockIssues) * 100 : 0}%`, background: '#ef4444' }} />
+                                                                                                                                <div style={{ width: `${blockIssues > 0 ? (block.warnings / blockIssues) * 100 : 0}%`, background: '#f59e0b' }} />
+                                                                                                                            </div>
+                                                                                                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '8.5px', color: 'var(--text-muted)' }}>
+                                                                                                                                <span>שגיאות: {block.errors}</span>
+                                                                                                                                <span>אזהרות: {block.warnings}</span>
+                                                                                                                            </div>
+                                                                                                                        </div>
+                                                                                                                    );
+                                                                                                                })}
+                                                                                                            </div>
+                                                                                                        </div>
+                                                                                                    )}
+
+                                                                                                    {/* Day of Week Metrics */}
+                                                                                                    {activeDays.length > 0 && (
+                                                                                                        <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '10px', marginTop: '4px' }}>
+                                                                                                            <span style={{ fontSize: '11px', fontWeight: '600', color: 'var(--text-light)', display: 'block', marginBottom: '6px' }}>ריכוז תקלות ואזהרות לפי ימי השבוע:</span>
+                                                                                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                                                                                                                {dayIssues.map(day => {
+                                                                                                                    const total = day.errors + day.warnings;
+                                                                                                                    if (total === 0) return null;
+                                                                                                                    return (
+                                                                                                                        <div key={day.name} style={{ background: 'rgba(0,0,0,0.15)', padding: '6px 10px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.03)', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '10px' }}>
+                                                                                                                            <strong style={{ color: 'var(--text-light)' }}>יום {day.name}</strong>
+                                                                                                                            <span style={{ display: 'flex', gap: '6px', fontSize: '9px' }}>
+                                                                                                                                {day.errors > 0 && <span style={{ color: '#f87171' }}>שגיאות: {day.errors}</span>}
+                                                                                                                                {day.warnings > 0 && <span style={{ color: '#f59e0b' }}>אזהרות: {day.warnings}</span>}
+                                                                                                                            </span>
+                                                                                                                        </div>
+                                                                                                                    );
+                                                                                                                })}
                                                                                                             </div>
                                                                                                         </div>
                                                                                                     )}
