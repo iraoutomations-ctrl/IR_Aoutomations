@@ -983,7 +983,74 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
                                                                                             const runsWithDuration = runs.filter(r => r.duration_ms > 0);
                                                                                             const avgDuration = runsWithDuration.length > 0 ? Math.round(runsWithDuration.reduce((acc, r) => acc + r.duration_ms, 0) / runsWithDuration.length) : 0;
 
-                                                                                            const errorTypes = {};
+                                                                                            // Calculate consecutive failures (from most recent)
+                                                                                            const sortedRuns = [...runs].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+                                                                                            let consecutiveFailures = 0;
+                                                                                            for (const r of sortedRuns) {
+                                                                                                if (r.status === 'error') {
+                                                                                                    consecutiveFailures++;
+                                                                                                } else {
+                                                                                                    break;
+                                                                                                }
+                                                                                            }
+
+                                                                                            // Calculate peak hour
+                                                                                            const hourlyRunCounts = Array(24).fill(0);
+                                                                                            runs.forEach(r => {
+                                                                                                const d = new Date(r.created_at);
+                                                                                                hourlyRunCounts[d.getHours()]++;
+                                                                                            });
+                                                                                            let peakHour = -1;
+                                                                                            let peakCount = 0;
+                                                                                            hourlyRunCounts.forEach((count, hr) => {
+                                                                                                if (count > peakCount) {
+                                                                                                    peakCount = count;
+                                                                                                    peakHour = hr;
+                                                                                                }
+                                                                                            });
+
+                                                                                            // Calculate average success vs failed duration
+                                                                                            const successRunsWithDuration = runs.filter(r => r.status === 'success' && r.duration_ms > 0);
+                                                                                            const avgSuccessDur = successRunsWithDuration.length > 0 ? Math.round(successRunsWithDuration.reduce((acc, r) => acc + r.duration_ms, 0) / successRunsWithDuration.length) : 0;
+
+                                                                                            const failedRunsWithDuration = runs.filter(r => r.status === 'error' && r.duration_ms > 0);
+                                                                                            const avgFailedDur = failedRunsWithDuration.length > 0 ? Math.round(failedRunsWithDuration.reduce((acc, r) => acc + r.duration_ms, 0) / failedRunsWithDuration.length) : 0;
+
+                                                                                            // Calculate weekly performance trend (last 7 days vs preceding 7 days)
+                                                                                            const now = new Date();
+                                                                                            const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                                                                                            const fourteenDaysAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+
+                                                                                            const recentRuns = runs.filter(r => {
+                                                                                                const date = new Date(r.created_at);
+                                                                                                return date >= sevenDaysAgo && r.duration_ms > 0;
+                                                                                            });
+                                                                                            const priorRuns = runs.filter(r => {
+                                                                                                const date = new Date(r.created_at);
+                                                                                                return date >= fourteenDaysAgo && date < sevenDaysAgo && r.duration_ms > 0;
+                                                                                            });
+
+                                                                                            const avgRecent = recentRuns.length > 0 ? recentRuns.reduce((acc, r) => acc + r.duration_ms, 0) / recentRuns.length : 0;
+                                                                                            const avgPrior = priorRuns.length > 0 ? priorRuns.reduce((acc, r) => acc + r.duration_ms, 0) / priorRuns.length : 0;
+
+                                                                                            let trendText = 'אין מספיק נתונים להשוואת מגמה';
+                                                                                            let trendColor = 'var(--text-muted)';
+
+                                                                                            if (avgRecent > 0 && avgPrior > 0) {
+                                                                                                const diffPercent = Math.round(((avgRecent - avgPrior) / avgPrior) * 100);
+                                                                                                if (diffPercent > 5) {
+                                                                                                    trendText = `📈 האטה של ${diffPercent}% בזמני הריצה בהשוואה לשבוע שעבר`;
+                                                                                                    trendColor = '#ef4444';
+                                                                                                } else if (diffPercent < -5) {
+                                                                                                    trendText = `📉 שיפור של ${Math.abs(diffPercent)}% בזמני הריצה בהשוואה לשבוע שעבר`;
+                                                                                                    trendColor = '#10b981';
+                                                                                                } else {
+                                                                                                    trendText = `📊 זמני הריצה יציבים בהשוואה לשבוע שעבר`;
+                                                                                                    trendColor = 'var(--accent-cyan)';
+                                                                                                }
+                                                                                            }
+
+                                                                                            const errorTypes = {};;
                                                                                             const warningTypes = {};
                                                                                             runs.forEach(r => {
                                                                                                 if (r.status === 'error') {
