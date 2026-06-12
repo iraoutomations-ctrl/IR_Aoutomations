@@ -22,7 +22,7 @@ const COLUMNS = [
     { id: 'lost', title: 'אבוד (Lost)', color: '#ef4444', icon: XCircle }
 ];
 
-export default function KanbanBoard({ onSelectLead, activeTab }) {
+export default function KanbanBoard({ onSelectLead, activeTab, onAddLead }) {
     const [leads, setLeads] = useState([]);
     const [loading, setLoading] = useState(true);
 
@@ -111,11 +111,15 @@ export default function KanbanBoard({ onSelectLead, activeTab }) {
     return (
         <div>
             {/* Header */}
-            <header style={{ marginBottom: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <header style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
                 <div>
                     <h1>לוח קנבן</h1>
                     <p>גרור ושחרר לידים כדי לעדכן את שלב הטיפול בהם במהירות.</p>
                 </div>
+                <button className="btn btn-primary" onClick={onAddLead} style={{ padding: '8px 16px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Plus size={16} />
+                    <span>הוסף ליד ידנית</span>
+                </button>
             </header>
 
             {/* Kanban columns grid */}

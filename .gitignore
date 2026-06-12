@@ -10,3 +10,18 @@ Thumbs.db
 .agents/
 ORIGINAL_REQUEST.md
 progress.md
+
+# Local environment variables
+.env
+.env.local
+.env.*.local
+crm/.env
+
+# Scratch and temp directories
+scratch/
+crm/scratch/
+dist/
+crm/dist/
+node_modules/
+crm/node_modules/
+

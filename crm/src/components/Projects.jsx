@@ -1,36 +1,29 @@
 /* ==========================================================================
-   autoRI-studio CRM - Lead Details Modal Component
+   autoRI-studio CRM - Projects & Automations Dashboard Component
    ========================================================================== */
 import React, { useState, useEffect } from 'react';
 import { 
-    X, 
+    Wrench, 
+    DollarSign, 
+    TrendingUp, 
+    Bug, 
     Calendar, 
-    User, 
-    Mail, 
-    Phone, 
-    Briefcase,
-    Activity, 
-    Plus, 
-    Check,
-    Trash2,
+    Eye, 
+    Search,
+    ExternalLink,
+    PlayCircle,
+    Cpu,
     Clock,
-    AlertTriangle,
-    Wrench,
-    Bug,
-    Settings as SettingsIcon,
-    DollarSign,
-    RefreshCw,
+    X,
     Lock,
     Play,
     CheckCircle2,
     AlertCircle,
     Info,
     Brain,
-    Cpu,
-    FileText,
     Sparkles,
-    TrendingUp,
-    Search
+    Check,
+    Trash2
 } from 'lucide-react';
 import { db } from '../services/db';
 
@@ -55,38 +48,6 @@ const parseWorkflows = (workflowsData) => {
     return [];
 };
 
-const QUESTION_LABELS = {
-    clinic_name: 'שם הקליניקה / המטפל',
-    office_name: 'שם המשרד / עורך הדין',
-    realtor_name: 'שם המשרד / הסוכן',
-    business_name: 'שם העסק והתעשייה',
-    specialty: 'תחום ההתמחות וסוג הפעילות',
-    leads: 'ערוצי גיוס לקוחות ולידים',
-    crm: 'מערכות CRM / תוכנה בשימוש',
-    daily_routine: 'תיאור יום העבודה הטיפוסי',
-    robotic_tasks: 'משימות רובוטיות רפטטיביות',
-    cognitive_tasks: 'משימות רפטטיביות עם מחשבה',
-    bottlenecks: 'צווארי בקבוק ותסכולים מרכזיים',
-    automation_idea: 'הצעות אישיות לאוטומציה',
-    rating_scheduling: 'אוטומציה: ניהול תורים ורשימות המתנה',
-    rating_intake: 'אוטומציה: שאלון אנמנזה והצהרת בריאות',
-    rating_followup: 'אוטומציה: שימור לקוחות ופולו-אפ',
-    rating_leads: 'אוטומציה: מענה מהיר וסינון לידים',
-    rating_courts: 'אוטומציה: מעקב ודיונים משפטיים',
-    rating_billing: 'אוטומציה: גבייה ותזכורות תשלום',
-    rating_status: 'אוטומציה: עדכון סטטוס תיק אוטומטי',
-    rating_docs: 'אוטומציה: איסוף ומרדף מסמכים',
-    rating_generator: 'אוטומציה: מחולל חוזים ומסמכים',
-    rating_ai: 'אוטומציה: תמלול וסיכום AI',
-    rating_lead_routing: 'אוטומציה: ניתוב וסינון לידים',
-    rating_dormant_leads: 'אוטומציה: איתור יזום של לקוחות רדומים',
-    rating_investors: 'אוטומציה: איתור משקיעים להחלפת נכס',
-    rating_syndication: 'אוטומציה: הפצה וקליטת נכס',
-    rating_visit_followup: 'אוטומציה: פולו-אפ לאחר סיור',
-    rating_sales: 'אוטומציה: שיווק ומכירות',
-    rating_service: 'אוטומציה: שירות לקוחות ופולו-אפ',
-    rating_operations: 'אוטומציה: תפעול ומשרד אחורי'
-};
 const WORKFLOW_DESCRIPTIONS = {
     'lyCrWBmsGlRSMJmo': {
         name: "בוט מענה ללידים (IR AI Bot)",
@@ -161,30 +122,14 @@ const formatDuration = (ms) => {
     return `${hr}h ${remainingMin}m ${remainingSec}.${msecStr}s`;
 };
 
-export default function LeadDetailsModal({ leadId, onClose, onLeadUpdated }) {
-    const [lead, setLead] = useState(null);
-    const [notes, setNotes] = useState([]);
-    const [newNote, setNewNote] = useState('');
-    const [tasks, setTasks] = useState([]);
-    const [newTaskTitle, setNewTaskTitle] = useState('');
-    const [newTaskDueDate, setNewTaskDueDate] = useState('');
-    const [loading, setLoading] = useState(true);
-
-    // Advanced task state variables
-    const [newTaskAssignedTo, setNewTaskAssignedTo] = useState('כללי');
-    const [newTaskDependsOn, setNewTaskDependsOn] = useState('');
-
-    // Automations and Bugs states for Won projects
+export default function Projects({ onSelectLead, activeTab }) {
+    const [projects, setProjects] = useState([]);
     const [automations, setAutomations] = useState([]);
     const [bugs, setBugs] = useState([]);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [loading, setLoading] = useState(true);
+    const [expandedAutos, setExpandedAutos] = useState({});
     const [systemAlerts, setSystemAlerts] = useState([]);
-    
-    // New Automation Form states
-    const [newAutoName, setNewAutoName] = useState('');
-    const [newAutoType, setNewAutoType] = useState('סוכני AI ומיילים');
-    const [newAutoSetupPrice, setNewAutoSetupPrice] = useState('');
-    const [newAutoMaintPrice, setNewAutoMaintPrice] = useState('');
-    const [newAutoRunsGoal, setNewAutoRunsGoal] = useState('');
 
     // Additional dashboard/runs states
     const [autoRuns, setAutoRuns] = useState({});
@@ -196,8 +141,7 @@ export default function LeadDetailsModal({ leadId, onClose, onLeadUpdated }) {
     const [expandedRun, setExpandedRun] = useState({});
     const [analyzingRun, setAnalyzingRun] = useState({});
     const [aiAnalysisText, setAiAnalysisText] = useState({});
-    const [expandedAutos, setExpandedAutos] = useState({});
-
+    
     // Mapped by autoId for inline bugs reporting
     const [newBugDesc, setNewBugDesc] = useState({});
     const [newBugSev, setNewBugSev] = useState({});
@@ -205,28 +149,6 @@ export default function LeadDetailsModal({ leadId, onClose, onLeadUpdated }) {
     // Inline workflow input states
     const [wfNameInput, setWfNameInput] = useState({});
     const [wfIdInput, setWfIdInput] = useState({});
-
-    // Helper to check if a task is blocked by another uncompleted task
-    const isTaskBlocked = (task) => {
-        if (!task.depends_on_task_id) return false;
-        const dependency = tasks.find(t => t.id === task.depends_on_task_id);
-        return dependency ? !dependency.completed : false;
-    };
-
-    // Toggle expand automation row & load runs
-    const handleToggleExpandAuto = async (autoId) => {
-        const isExpanding = !expandedAutos[autoId];
-        setExpandedAutos(prev => ({ ...prev, [autoId]: isExpanding }));
-        
-        if (isExpanding) {
-            try {
-                const runsData = await db.getAutomationRuns(autoId);
-                setAutoRuns(prev => ({ ...prev, [autoId]: runsData }));
-            } catch (err) {
-                console.error("Error fetching runs:", err);
-            }
-        }
-    };
 
     // Add workflow to JSONB workflows list
     const handleAddWorkflow = async (autoId) => {
@@ -253,7 +175,6 @@ export default function LeadDetailsModal({ leadId, onClose, onLeadUpdated }) {
             setAutomations(prev => prev.map(a => a.id === autoId ? updated : a));
             setWfNameInput(prev => ({ ...prev, [autoId]: '' }));
             setWfIdInput(prev => ({ ...prev, [autoId]: '' }));
-            onLeadUpdated();
         } catch (err) {
             console.error("Error adding workflow:", err);
         }
@@ -272,10 +193,71 @@ export default function LeadDetailsModal({ leadId, onClose, onLeadUpdated }) {
                 n8n_workflow_id: workflows.map(w => w.id).join(', ')
             });
             setAutomations(prev => prev.map(a => a.id === autoId ? updated : a));
-            onLeadUpdated();
         } catch (err) {
             console.error("Error deleting workflow:", err);
         }
+    };
+
+    const handleUpdateBugStatus = async (bugId, status) => {
+        try {
+            const updated = await db.updateBug(bugId, { status });
+            setBugs(prev => prev.map(b => b.id === bugId ? updated : b));
+        } catch (err) {
+            console.error("Error updating bug status:", err);
+            alert("שגיאה בעדכון סטטוס באג: " + (err.message || err));
+        }
+    };
+
+    const handleDeleteBug = async (bugId) => {
+        if (window.confirm("האם למחוק באג זה?")) {
+            try {
+                await db.deleteBug(bugId);
+                setBugs(prev => prev.filter(b => b.id !== bugId));
+            } catch (err) {
+                console.error("Error deleting bug:", err);
+                alert("שגיאה במחיקת באג: " + (err.message || err));
+            }
+        }
+    };
+
+    const handleAddBug = async (e, autoId) => {
+        e.preventDefault();
+        const desc = newBugDesc[autoId];
+        const sev = newBugSev[autoId] || 'medium';
+        if (!desc || !desc.trim()) return;
+
+        try {
+            const added = await db.addBug({
+                automation_id: autoId,
+                description: desc,
+                severity: sev,
+                status: 'open'
+            });
+            setBugs(prev => [...prev, added]);
+            setNewBugDesc(prev => ({ ...prev, [autoId]: '' }));
+        } catch (err) {
+            console.error("Error adding bug:", err);
+            alert("שגיאה בדיווח על באג: " + (err.message || err));
+        }
+    };
+
+    // Toggle expand automation row & load runs
+    const handleToggleExpandAuto = async (autoId) => {
+        const isExpanding = !expandedAutos[autoId];
+        setExpandedAutos(prev => ({ ...prev, [autoId]: isExpanding }));
+        
+        if (isExpanding) {
+            try {
+                const runsData = await db.getAutomationRuns(autoId);
+                setAutoRuns(prev => ({ ...prev, [autoId]: runsData }));
+            } catch (err) {
+                console.error("Error fetching runs:", err);
+            }
+        }
+    };
+
+    const handleToggleRun = (runId) => {
+        setExpandedRun(prev => ({ ...prev, [runId]: !prev[runId] }));
     };
 
     // Live AI Analysis via Gemini API
@@ -387,7 +369,7 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
         }
     };
 
-    // Offline rule-based diagnostics parser (completely crash-safe)
+    // Offline rule-based diagnostics parser
     const getOfflineDiagnostics = (run) => {
         if (!run) {
             return {
@@ -478,21 +460,46 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
         };
     };
 
-    // Modal Real-time sync for automations, bugs, alerts, and runs
     useEffect(() => {
-        if (!leadId || lead?.status !== 'won') return;
+        async function loadProjectsData() {
+            try {
+                setLoading(true);
+                const leads = await db.getLeads();
+                const wonLeads = leads.filter(l => l.status === 'won');
+                setProjects(wonLeads);
 
-        const cleanups = ['automations', 'bugs', 'system_alerts', 'automation_runs'].map(table => 
+                const autos = await db.getAutomations();
+                const bugList = await db.getBugs();
+                const alerts = await db.getSystemAlerts();
+                
+                setAutomations(autos);
+                setBugs(bugList);
+                setSystemAlerts(alerts);
+            } catch (err) {
+                console.error("Error loading projects dashboard:", err);
+            } finally {
+                setLoading(false);
+            }
+        }
+        loadProjectsData();
+    }, [activeTab]);
+
+    useEffect(() => {
+        const cleanups = ['leads', 'automations', 'bugs', 'system_alerts', 'automation_runs'].map(table => 
             db.subscribeChanges(table, async () => {
                 try {
-                    const autosData = await db.getAutomations(leadId);
-                    const bugsData = await db.getBugs();
-                    const alertsData = await db.getSystemAlerts();
-                    setAutomations(autosData);
-                    setBugs(bugsData);
-                    setSystemAlerts(alertsData);
+                    const leads = await db.getLeads();
+                    const wonLeads = leads.filter(l => l.status === 'won');
+                    setProjects(wonLeads);
 
-                    // Re-fetch runs for any expanded automations
+                    const autos = await db.getAutomations();
+                    const bugList = await db.getBugs();
+                    const alerts = await db.getSystemAlerts();
+                    
+                    setAutomations(autos);
+                    setBugs(bugList);
+                    setSystemAlerts(alerts);
+
                     for (const autoId of Object.keys(expandedAutos)) {
                         if (expandedAutos[autoId]) {
                             const runsData = await db.getAutomationRuns(autoId);
@@ -500,7 +507,7 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
                         }
                     }
                 } catch (err) {
-                    console.error("Error updating real-time data in modal:", err);
+                    console.error("Error updating real-time data in Projects:", err);
                 }
             })
         );
@@ -508,258 +515,53 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
         return () => {
             cleanups.forEach(c => c());
         };
-    }, [leadId, lead?.status, expandedAutos]);
+    }, [expandedAutos]);
 
-    useEffect(() => {
-        if (!leadId) return;
-        
-        async function loadLeadDetails() {
-            try {
-                setLoading(true);
-                const leadData = await db.getLeadById(leadId);
-                const notesData = await db.getNotes(leadId);
-                const tasksData = await db.getTasks(leadId);
-                
-                setLead(leadData);
-                setNotes(notesData);
-                setTasks(tasksData);
+    if (loading) {
+        return (
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '80vh' }}>
+                <i className="fa-solid fa-spinner fa-spin" style={{ fontSize: '30px', color: '#8b5cf6' }}></i>
+            </div>
+        );
+    }
 
-                if (leadData && leadData.status === 'won') {
-                    const autosData = await db.getAutomations(leadId);
-                    const bugsData = await db.getBugs();
-                    const alertsData = await db.getSystemAlerts();
-                    setAutomations(autosData);
-                    setBugs(bugsData);
-                    setSystemAlerts(alertsData);
-                }
-                
-                // Set default due date to tomorrow
-                const tomorrow = new Date();
-                tomorrow.setDate(tomorrow.getDate() + 1);
-                setNewTaskDueDate(tomorrow.toISOString().split('T')[0]);
-            } catch (err) {
-                console.error("Error loading lead details modal:", err);
-            } finally {
-                setLoading(false);
-            }
-        }
-        loadLeadDetails();
-    }, [leadId]);
+    // Calculations
+    const activeProjectsCount = projects.length;
+    
+    // Total setup revenue from won projects' automations
+    const totalSetupRevenue = automations.reduce((sum, auto) => {
+        // Check if automation belongs to a current won project
+        const belongsToWon = projects.some(p => p.id === auto.lead_id);
+        return belongsToWon ? sum + (auto.setup_price || 0) : sum;
+    }, 0);
 
-    const handleUpdateStatus = async (status) => {
-        try {
-            const updated = await db.updateLeadStatus(leadId, status);
-            setLead(updated);
-            
-            // If changed to Won, fetch projects tables
-            if (status === 'won') {
-                const autosData = await db.getAutomations(leadId);
-                const bugsData = await db.getBugs();
-                const alertsData = await db.getSystemAlerts();
-                setAutomations(autosData);
-                setBugs(bugsData);
-                setSystemAlerts(alertsData);
-            }
+    // Monthly Recurring Revenue (MRR) from active/testing won projects' automations
+    const mrr = automations.reduce((sum, auto) => {
+        const belongsToWon = projects.some(p => p.id === auto.lead_id);
+        const isActive = auto.status === 'live' || auto.status === 'testing';
+        return (belongsToWon && isActive) ? sum + (auto.monthly_maintenance || 0) : sum;
+    }, 0);
 
-            const notesData = await db.getNotes(leadId);
-            setNotes(notesData);
-            onLeadUpdated();
-        } catch (err) {
-            console.error("Error updating status:", err);
-        }
-    };
+    // Total active/testing automations
+    const activeAutomationsCount = automations.filter(auto => {
+        const belongsToWon = projects.some(p => p.id === auto.lead_id);
+        return belongsToWon && (auto.status === 'live' || auto.status === 'testing');
+    }).length;
 
-    const handleUpdatePriority = async (priority) => {
-        try {
-            const updated = await db.updateLead(leadId, { priority });
-            setLead(updated);
-            onLeadUpdated();
-        } catch (err) {
-            console.error("Error updating priority:", err);
-        }
-    };
+    // Total open bugs in these projects
+    const openBugsCount = bugs.filter(bug => {
+        const auto = automations.find(a => a.id === bug.automation_id);
+        const belongsToWon = auto && projects.some(p => p.id === auto.lead_id);
+        return belongsToWon && bug.status !== 'resolved';
+    }).length;
 
-    const handleAddNote = async (e) => {
-        e.preventDefault();
-        if (!newNote.trim()) return;
-
-        try {
-            const added = await db.addNote({
-                lead_id: leadId,
-                content: newNote
-            });
-            setNotes(prev => [added, ...prev]);
-            setNewNote('');
-        } catch (err) {
-            console.error("Error adding note:", err);
-        }
-    };
-
-    const handleAddTask = async (e) => {
-        e.preventDefault();
-        if (!newTaskTitle.trim()) return;
-
-        try {
-            const added = await db.addTask({
-                lead_id: leadId,
-                title: newTaskTitle,
-                due_date: new Date(newTaskDueDate).toISOString(),
-                assigned_to: newTaskAssignedTo,
-                depends_on_task_id: newTaskDependsOn || null
-            });
-            setTasks(prev => [...prev, added]);
-            setNewTaskTitle('');
-            setNewTaskDependsOn('');
-            setNewTaskAssignedTo('כללי');
-            
-            // Refresh activity notes
-            const notesData = await db.getNotes(leadId);
-            setNotes(notesData);
-            onLeadUpdated();
-        } catch (err) {
-            console.error("Error adding task:", err);
-            alert("שגיאה בהוספת משימה: " + (err.message || err));
-        }
-    };
-
-    const handleToggleTask = async (taskId) => {
-        const task = tasks.find(t => t.id === taskId);
-        if (task && isTaskBlocked(task)) {
-            alert("משימה זו חסומה על ידי משימה אחרת שלא הושלמה עדיין.");
-            return;
-        }
-        try {
-            const updated = await db.toggleTaskCompleted(taskId);
-            setTasks(prev => prev.map(t => t.id === taskId ? updated : t));
-            
-            // Refresh activity notes
-            const notesData = await db.getNotes(leadId);
-            setNotes(notesData);
-            onLeadUpdated();
-        } catch (err) {
-            console.error("Error toggling task:", err);
-            alert("שגיאה בעדכון משימה: " + (err.message || err));
-        }
-    };
-
-    const handleDeleteTask = async (taskId) => {
-        try {
-            await db.deleteTask(taskId);
-            setTasks(prev => prev.filter(t => t.id !== taskId));
-        } catch (err) {
-            console.error("Error deleting task:", err);
-        }
-    };
-
-    // Add automation handler
-    const handleAddAutomation = async (e) => {
-        e.preventDefault();
-        if (!newAutoName.trim()) return;
-
-        try {
-            const added = await db.addAutomation({
-                lead_id: leadId,
-                name: newAutoName,
-                type: newAutoType,
-                setup_price: Number(newAutoSetupPrice) || 0,
-                monthly_maintenance: Number(newAutoMaintPrice) || 0,
-                runs_goal: Number(newAutoRunsGoal) || 0,
-                status: 'design'
-            });
-            setAutomations(prev => [...prev, added]);
-            setNewAutoName('');
-            setNewAutoSetupPrice('');
-            setNewAutoMaintPrice('');
-            setNewAutoRunsGoal('');
-            
-            const notesData = await db.getNotes(leadId);
-            setNotes(notesData);
-            onLeadUpdated();
-        } catch (err) {
-            console.error("Error adding automation:", err);
-            alert("שגיאה בהוספת אוטומציה: " + (err.message || err));
-        }
-    };
-
-    // Update automation status handler
-    const handleUpdateAutoStatus = async (autoId, status) => {
-        try {
-            const updated = await db.updateAutomation(autoId, { status });
-            setAutomations(prev => prev.map(a => a.id === autoId ? updated : a));
-            onLeadUpdated();
-        } catch (err) {
-            console.error("Error updating automation status:", err);
-            alert("שגיאה בעדכון סטטוס אוטומציה: " + (err.message || err));
-        }
-    };
-
-    // Delete automation handler
-    const handleDeleteAutomation = async (autoId) => {
-        if (window.confirm("האם למחוק אוטומציה זו? כל הבאגים המקושרים יימחקו גם כן.")) {
-            try {
-                await db.deleteAutomation(autoId);
-                setAutomations(prev => prev.filter(a => a.id !== autoId));
-                onLeadUpdated();
-            } catch (err) {
-                console.error("Error deleting automation:", err);
-                alert("שגיאה במחיקת אוטומציה: " + (err.message || err));
-            }
-        }
-    };
-
-    // Update bug status handler
-    const handleUpdateBugStatus = async (bugId, status) => {
-        try {
-            const updated = await db.updateBug(bugId, { status });
-            setBugs(prev => prev.map(b => b.id === bugId ? updated : b));
-        } catch (err) {
-            console.error("Error updating bug status:", err);
-            alert("שגיאה בעדכון סטטוס באג: " + (err.message || err));
-        }
-    };
-
-    // Delete bug handler
-    const handleDeleteBug = async (bugId) => {
-        if (window.confirm("האם למחוק באג זה?")) {
-            try {
-                await db.deleteBug(bugId);
-                setBugs(prev => prev.filter(b => b.id !== bugId));
-            } catch (err) {
-                console.error("Error deleting bug:", err);
-                alert("שגיאה במחיקת באג: " + (err.message || err));
-            }
-        }
-    };
-
-    // Add bug handler
-    const handleAddBug = async (e, autoId) => {
-        e.preventDefault();
-        const desc = newBugDesc[autoId];
-        const sev = newBugSev[autoId] || 'medium';
-        if (!desc || !desc.trim()) return;
-
-        try {
-            const added = await db.addBug({
-                automation_id: autoId,
-                description: desc,
-                severity: sev,
-                status: 'open'
-            });
-            setBugs(prev => [...prev, added]);
-            setNewBugDesc(prev => ({ ...prev, [autoId]: '' }));
-        } catch (err) {
-            console.error("Error adding bug:", err);
-            alert("שגיאה בדיווח על באג: " + (err.message || err));
-        }
-    };
-
-    const handleToggleRun = (runId) => {
-        setExpandedRun(prev => ({ ...prev, [runId]: !prev[runId] }));
-    };
-
-    if (!leadId) return null;
-
-    const leadAutos = automations.filter(a => a.lead_id === leadId);
+    // Filter projects by search
+    const filteredProjects = projects.filter(p => {
+        return (
+            p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (p.company && p.company.toLowerCase().includes(searchTerm.toLowerCase()))
+        );
+    });
 
     const statusBadges = {
         design: <span className="badge badge-new" style={{ fontSize: '10px', padding: '1px 6px' }}>אפיון</span>,
@@ -770,418 +572,126 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
     };
 
     return (
-        <div className="modal-overlay" onClick={onClose}>
-            <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '900px', width: '95%' }}>
-                {/* Modal Header */}
-                <div className="modal-header">
-                    <h2 style={{ margin: '0', fontSize: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <Activity size={20} className="text-violet" style={{ color: '#8b5cf6' }} />
-                        פרטי ליד מורחבים: {loading ? 'טוען...' : lead?.name}
-                    </h2>
-                    <button className="btn btn-secondary btn-icon" onClick={onClose}>
-                        <X size={16} />
-                    </button>
+        <div>
+            {/* Header */}
+            <header style={{ marginBottom: '24px' }}>
+                <h1>פרויקטים ואוטומציות פעילות</h1>
+                <p>נהל את שלבי הפיתוח, הגבייה, התחזוקה ומעקב התקלות עבור לקוחות העסק שלכם.</p>
+            </header>
+
+            {/* Financial & Operational KPIs */}
+            <div className="dashboard-grid" style={{ marginBottom: '24px' }}>
+                <div className="glass-card stat-card">
+                    <div className="stat-card-info">
+                        <h3>₪{totalSetupRevenue.toLocaleString('he-IL')}</h3>
+                        <p>סך הכנסות הקמה</p>
+                    </div>
+                    <div className="stat-card-icon" style={{ background: 'rgba(6, 182, 212, 0.15)', color: '#06b6d4' }}>
+                        <DollarSign size={24} />
+                    </div>
                 </div>
 
-                {loading ? (
-                    <div style={{ padding: '60px', textAlign: 'center' }}>
-                        <i className="fa-solid fa-spinner fa-spin" style={{ fontSize: '30px', color: '#8b5cf6' }}></i>
+                <div className="glass-card stat-card">
+                    <div className="stat-card-info">
+                        <h3>₪{mrr.toLocaleString('he-IL')}</h3>
+                        <p>דמי תחזוקה חודשיים (MRR)</p>
+                    </div>
+                    <div className="stat-card-icon" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10b981' }}>
+                        <TrendingUp size={24} />
+                    </div>
+                </div>
+
+                <div className="glass-card stat-card">
+                    <div className="stat-card-info">
+                        <h3>{activeAutomationsCount}</h3>
+                        <p>אוטומציות פעילות</p>
+                    </div>
+                    <div className="stat-card-icon" style={{ background: 'rgba(139, 92, 246, 0.15)', color: '#8b5cf6' }}>
+                        <Wrench size={24} />
+                    </div>
+                </div>
+
+                <div className="glass-card stat-card">
+                    <div className="stat-card-info">
+                        <h3 style={{ color: openBugsCount > 0 ? '#ef4444' : 'var(--text-light)' }}>{openBugsCount}</h3>
+                        <p>באגים פתוחים בטיפול</p>
+                    </div>
+                    <div className="stat-card-icon" style={{ background: 'rgba(239, 68, 68, 0.15)', color: '#ef4444' }}>
+                        <Bug size={24} />
+                    </div>
+                </div>
+            </div>
+
+            {/* Search filter */}
+            <div className="glass-card" style={{ padding: '16px', marginBottom: '20px', display: 'flex', alignItems: 'center' }}>
+                <div style={{ flex: 1, position: 'relative' }}>
+                    <input 
+                        type="text" 
+                        className="form-control" 
+                        placeholder="חפש לקוח או שם עסק..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        style={{ paddingRight: '40px' }}
+                    />
+                    <Search size={16} style={{ position: 'absolute', right: '14px', top: '14px', color: 'var(--text-muted)' }} />
+                </div>
+            </div>
+
+            {/* Projects list */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                {filteredProjects.length === 0 ? (
+                    <div className="glass-card" style={{ padding: '40px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                        <Wrench size={36} style={{ color: '#8b5cf6', marginBottom: '12px', opacity: 0.6 }} />
+                        <p style={{ fontWeight: '500' }}>לא נמצאו פרויקטים פעילים (Won leads).</p>
+                        <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>שנה סטטוס של ליד ל-"Won" בלוח הקנבן כדי להפוך אותו לפרויקט כאן.</p>
                     </div>
                 ) : (
-                    <div className="modal-body" style={{ maxHeight: '80vh', overflowY: 'auto' }}>
-                        <div className="details-grid">
-                            {/* Column 1: Info and Notes */}
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                                {/* Basic Info Card */}
-                                <div className="glass-card" style={{ padding: '16px' }}>
-                                    <h3 style={{ fontSize: '14px', marginBottom: '12px', borderBottom: '1px solid var(--border-color)', paddingBottom: '6px' }}>פרטי קשר וסטטוס</h3>
-                                    
-                                    <div className="lead-meta-info">
-                                        <div className="lead-meta-row">
-                                            <span className="lead-meta-label"><User size={12} style={{ display: 'inline', marginLeft: '6px' }} />שם מלא:</span>
-                                            <span className="lead-meta-value">{lead.name}</span>
-                                        </div>
-                                        <div className="lead-meta-row">
-                                            <span className="lead-meta-label"><Phone size={12} style={{ display: 'inline', marginLeft: '6px' }} />טלפון:</span>
-                                            <span className="lead-meta-value" style={{ direction: 'ltr' }}>{lead.phone}</span>
-                                        </div>
-                                        <div className="lead-meta-row">
-                                            <span className="lead-meta-label"><Mail size={12} style={{ display: 'inline', marginLeft: '6px' }} />אימייל:</span>
-                                            <span className="lead-meta-value">{lead.email}</span>
-                                        </div>
-                                        <div className="lead-meta-row">
-                                            <span className="lead-meta-label"><Briefcase size={12} style={{ display: 'inline', marginLeft: '6px' }} />חברה/עסק:</span>
-                                            <span className="lead-meta-value">{lead.company || '—'}</span>
-                                        </div>
-                                        <div className="lead-meta-row">
-                                            <span className="lead-meta-label"><Calendar size={12} style={{ display: 'inline', marginLeft: '6px' }} />תאריך יצירה:</span>
-                                            <span className="lead-meta-value">{new Date(lead.created_at).toLocaleString('he-IL')}</span>
-                                        </div>
-                                    </div>
-
-                                    {/* Status & Priority Selectors */}
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '16px' }}>
-                                        <div>
-                                            <label className="form-label" style={{ fontSize: '12px' }}>שלב טיפול (סטטוס)</label>
-                                            <select 
-                                                className="form-control"
-                                                value={lead.status}
-                                                onChange={(e) => handleUpdateStatus(e.target.value)}
-                                                style={{ padding: '8px 12px' }}
-                                            >
-                                                <option value="new">חדש</option>
-                                                <option value="contacted">יצירת קשר</option>
-                                                <option value="proposal">הצעת מחיר</option>
-                                                <option value="won">Won - סגירה</option>
-                                                <option value="lost">Lost - אבוד</option>
-                                            </select>
-                                        </div>
-                                        <div>
-                                            <label className="form-label" style={{ fontSize: '12px' }}>עדיפות</label>
-                                            <select 
-                                                className="form-control"
-                                                value={lead.priority || 'medium'}
-                                                onChange={(e) => handleUpdatePriority(e.target.value)}
-                                                style={{ padding: '8px 12px' }}
-                                            >
-                                                <option value="high">דחוף (High)</option>
-                                                <option value="medium">רגיל (Medium)</option>
-                                                <option value="low">נמוך (Low)</option>
-                                            </select>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Comments & Timeline */}
-                                <div className="glass-card" style={{ padding: '16px', flex: 1, display: 'flex', flexDirection: 'column' }}>
-                                    <h3 style={{ fontSize: '14px', marginBottom: '12px' }}>היסטוריית הערות ופעילות</h3>
-                                    
-                                    {/* Add Comment Form */}
-                                    <form onSubmit={handleAddNote} style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
-                                        <input 
-                                            type="text" 
-                                            className="form-control" 
-                                            placeholder="הוסף הערה או עדכון חדש..." 
-                                            value={newNote}
-                                            onChange={(e) => setNewNote(e.target.value)}
-                                            style={{ padding: '8px 12px' }}
-                                        />
-                                        <button type="submit" className="btn btn-primary" style={{ padding: '8px 12px' }}>
-                                            <Plus size={16} />
-                                        </button>
-                                    </form>
-
-                                    {/* Logs List */}
-                                    <div style={{ flex: 1, overflowY: 'auto', maxHeight: '200px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                        {notes.length === 0 ? (
-                                            <p style={{ fontSize: '12px', color: 'var(--text-muted)', textAlign: 'center', padding: '10px 0' }}>אין היסטוריית פעילות עדיין.</p>
-                                        ) : (
-                                            notes.map(note => {
-                                                const isSystem = note.content.includes("סטטוס") || note.content.includes("נוצר");
-                                                return (
-                                                    <div 
-                                                        key={note.id} 
-                                                        style={{ 
-                                                            padding: '8px 12px', 
-                                                            borderRadius: '6px', 
-                                                            background: isSystem ? 'rgba(139, 92, 246, 0.03)' : 'rgba(255, 255, 255, 0.01)', 
-                                                            border: isSystem ? '1px solid rgba(139, 92, 246, 0.1)' : '1px solid var(--border-color)',
-                                                            fontSize: '12.5px'
-                                                        }}
-                                                    >
-                                                        <div style={{ color: isSystem ? 'var(--text-light)' : 'var(--text-primary)' }}>
-                                                            {note.content}
-                                                        </div>
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '9px', color: 'var(--text-muted)', marginTop: '4px' }}>
-                                                            <Clock size={8} />
-                                                            <span>{new Date(note.created_at).toLocaleString('he-IL')}</span>
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Column 2: Survey / Chatbot Data and Tasks */}
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                                {/* Dynamic questionnaire / chatbot responses */}
-                                <div className="glass-card" style={{ padding: '16px' }}>
-                                    <h3 style={{ fontSize: '14px', marginBottom: '12px', borderBottom: '1px solid var(--border-color)', paddingBottom: '6px' }}>נתונים שנתקבלו מהאתר</h3>
-                                    
-                                    <div className="survey-responses-box">
-                                        {/* Survey Data */}
-                                        {lead.survey_data && (
-                                            <div>
-                                                <div style={{ fontWeight: '600', color: 'var(--accent-cyan)', fontSize: '13px', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                    <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--accent-cyan)' }}></span>
-                                                    שאלון איפיון מפורט
-                                                </div>
-                                                <div className="survey-response-item">
-                                                    <div className="survey-question">ענף פעילות:</div>
-                                                    <div className="survey-answer">{lead.survey_data.industry === 'clinics' ? 'מרפאות' : lead.survey_data.industry === 'lawyers' ? 'עורכי דין' : lead.survey_data.industry === 'realtors' ? 'נדל״ן' : 'כללי/אחר'}</div>
-                                                </div>
-                                                <div className="survey-response-item">
-                                                    <div className="survey-question">מספר עובדים המבצעים משימות ידניות:</div>
-                                                    <div className="survey-answer">{lead.survey_data.employees} עובדים</div>
-                                                </div>
-                                                <div className="survey-response-item">
-                                                    <div className="survey-question">שעות מבוזבזות בשבוע לעובד (הערכה):</div>
-                                                    <div className="survey-answer">{lead.survey_data.manual_hours} שעות שבועיות</div>
-                                                </div>
-                                                <div className="survey-response-item">
-                                                    <div className="survey-question">עלות ממוצעת לשעת עבודה:</div>
-                                                    <div className="survey-answer">₪{lead.survey_data.hourly_cost} לשעה</div>
-                                                </div>
-                                                <div style={{ marginTop: '12px', padding: '10px', background: 'rgba(6, 182, 212, 0.05)', borderRadius: '6px', border: '1px solid rgba(6, 182, 212, 0.15)' }}>
-                                                    <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>הערכת פוטנציאל חיסכון מחושב:</div>
-                                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '4px' }}>
-                                                        <span style={{ fontSize: '12px', color: 'var(--text-primary)' }}>חיסכון חודשי: <strong>{lead.survey_data.monthly_savings_cost}</strong></span>
-                                                        <span style={{ fontSize: '12px', color: 'var(--text-primary)' }}>חיסכון שנתי: <strong style={{ color: '#10b981' }}>{lead.survey_data.yearly_savings_cost}</strong></span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {/* Chatbot Data */}
-                                        {lead.chatbot_session && (
-                                            <div>
-                                                <div style={{ fontWeight: '600', color: 'var(--accent-violet)', fontSize: '13px', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                    <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--accent-violet)' }}></span>
-                                                    שיחת צ׳אטבוט AI
-                                                </div>
-                                                <div className="survey-response-item">
-                                                    <div className="survey-question">ענף שהוגדר:</div>
-                                                    <div className="survey-answer">{lead.chatbot_session.industry === 'clinics' ? 'מרפאות' : lead.chatbot_session.industry === 'lawyers' ? 'עורכי דין' : lead.chatbot_session.industry === 'realtors' ? 'נדל״ן' : 'כללי/אחר'}</div>
-                                                </div>
-                                                <div className="survey-response-item">
-                                                    <div className="survey-question">האתגר/הקושי העיקרי:</div>
-                                                    <div className="survey-answer" style={{ fontStyle: 'italic' }}>"{lead.chatbot_session.challenge || 'לא פורט'}"</div>
-                                                </div>
-                                                <div className="survey-response-item">
-                                                    <div className="survey-question">אופן יצירת קשר מועדף:</div>
-                                                    <div className="survey-answer">{lead.chatbot_session.contact_pref === 'whatsapp' ? 'הודעת WhatsApp' : 'שיחת טלפון'}</div>
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {/* Fallback - Simple Notes */}
-                                        {!lead.survey_data && !lead.chatbot_session && lead.notes && (
-                                            <div>
-                                                <div style={{ fontWeight: '600', color: 'var(--text-secondary)', fontSize: '13px', marginBottom: '8px' }}>תוכן ההודעה המקורית:</div>
-                                                <div style={{ fontSize: '13.5px', padding: '12px', background: 'rgba(255,255,255,0.02)', borderRadius: '6px', border: '1px solid var(--border-color)', fontStyle: 'italic' }}>
-                                                    "{lead.notes}"
-                                                </div>
-                                            </div>
-                                        )}
-                                        
-                                        {!lead.survey_data && !lead.chatbot_session && !lead.notes && (
-                                            <p style={{ fontSize: '12px', color: 'var(--text-muted)', textAlign: 'center' }}>אין מידע מובנה נוסף מהאתר.</p>
-                                        )}
-                                    </div>
-                                </div>
-
-                                {/* Checklist of Tasks */}
-                                <div className="glass-card" style={{ padding: '16px', flex: 1, display: 'flex', flexDirection: 'column' }}>
-                                    <h3 style={{ fontSize: '14px', marginBottom: '12px' }}>משימות המשך (Checklist)</h3>
-                                    
-                                    {/* Add Task Form with Assignee and Dependency */}
-                                    <form onSubmit={handleAddTask} style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
-                                        <div style={{ display: 'flex', gap: '8px' }}>
-                                            <input 
-                                                type="text" 
-                                                className="form-control" 
-                                                placeholder="מה צריך לעשות?" 
-                                                value={newTaskTitle}
-                                                onChange={(e) => setNewTaskTitle(e.target.value)}
-                                                style={{ flex: 1, padding: '8px 12px', fontSize: '12.5px' }}
-                                                required
-                                            />
-                                        </div>
-                                        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1.5fr 1.2fr auto', gap: '8px', alignItems: 'center' }}>
-                                            <select 
-                                                className="form-control"
-                                                value={newTaskAssignedTo}
-                                                onChange={(e) => setNewTaskAssignedTo(e.target.value)}
-                                                style={{ padding: '8px', fontSize: '11.5px', height: '34px' }}
-                                            >
-                                                <option value="כללי">אחראי: כללי</option>
-                                                <option value="אורי">אחראי: אורי</option>
-                                                <option value="עידן">אחראי: עידן</option>
-                                            </select>
-                                            <select 
-                                                className="form-control"
-                                                value={newTaskDependsOn}
-                                                onChange={(e) => setNewTaskDependsOn(e.target.value)}
-                                                style={{ padding: '8px', fontSize: '11.5px', height: '34px' }}
-                                            >
-                                                <option value="">ללא תלות במשימה</option>
-                                                {tasks.filter(t => !t.completed).map(t => (
-                                                    <option key={t.id} value={t.id}>תלוי ב: {t.title}</option>
-                                                ))}
-                                            </select>
-                                            <input 
-                                                type="date" 
-                                                className="form-control" 
-                                                value={newTaskDueDate}
-                                                onChange={(e) => setNewTaskDueDate(e.target.value)}
-                                                style={{ padding: '8px', fontSize: '11px', height: '34px' }}
-                                                required
-                                            />
-                                            <button type="submit" className="btn btn-primary" style={{ padding: '8px 12px', height: '34px' }}>
-                                                <Plus size={16} />
-                                            </button>
-                                        </div>
-                                    </form>
-
-                                    {/* Tasks Checklist */}
-                                    <div style={{ flex: 1, overflowY: 'auto', maxHeight: '200px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                        {tasks.length === 0 ? (
-                                            <p style={{ fontSize: '12px', color: 'var(--text-muted)', textAlign: 'center', padding: '10px 0' }}>אין משימות פתוחות לליד זה.</p>
-                                        ) : (
-                                            tasks.map(task => {
-                                                const isOverdue = !task.completed && task.due_date && task.due_date.split('T')[0] < new Date().toISOString().split('T')[0];
-                                                const isBlocked = isTaskBlocked(task);
-                                                return (
-                                                    <div 
-                                                        key={task.id} 
-                                                        className={`task-item ${task.completed ? 'completed' : ''} ${isBlocked ? 'blocked' : ''}`}
-                                                        style={{ 
-                                                            padding: '8px 12px', 
-                                                            marginBottom: '0', 
-                                                            borderRight: isOverdue ? '3px solid #ef4444' : '1px solid var(--border-color)',
-                                                            borderColor: task.completed ? 'transparent' : '',
-                                                            opacity: isBlocked ? 0.6 : 1
-                                                        }}
-                                                    >
-                                                        <div className="task-item-right">
-                                                            <div 
-                                                                className={`task-checkbox ${task.completed ? 'checked' : ''} ${isBlocked ? 'blocked-chk' : ''}`}
-                                                                onClick={() => handleToggleTask(task.id)}
-                                                                style={{ cursor: isBlocked ? 'not-allowed' : 'pointer' }}
-                                                            >
-                                                                {task.completed ? <Check size={10} /> : isBlocked ? <Lock size={8} /> : null}
-                                                            </div>
-                                                            <div>
-                                                                <span className="task-title" style={{ fontSize: '12.5px', color: isBlocked ? 'var(--text-muted)' : 'var(--text-light)' }}>
-                                                                    {task.title}
-                                                                </span>
-                                                                <div style={{ fontSize: '9px', color: isOverdue ? '#ef4444' : 'var(--text-muted)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                                    <Calendar size={8} />
-                                                                    <span>
-                                                                        {isOverdue ? 'פג תוקף: ' : ''}
-                                                                        {new Date(task.due_date).toLocaleDateString('he-IL')}
-                                                                    </span>
-                                                                    <span>•</span>
-                                                                    <User size={8} />
-                                                                    <span>{task.assigned_to || 'כללי'}</span>
-                                                                    {isBlocked && (
-                                                                        <>
-                                                                            <span>•</span>
-                                                                            <Lock size={8} />
-                                                                            <span style={{ color: '#ef4444' }}>חסום</span>
-                                                                        </>
-                                                                    )}
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                        <button 
-                                                            className="btn btn-secondary btn-icon"
-                                                            style={{ width: '22px', height: '22px', fontSize: '10px', padding: '0', background: 'transparent', border: 'none' }}
-                                                            onClick={() => handleDeleteTask(task.id)}
-                                                        >
-                                                            <Trash2 size={12} style={{ color: 'var(--text-muted)' }} />
-                                                        </button>
-                                                    </div>
-                                                );
-                                            })
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Won Lead - Automations & Bugs Dashboard */}
-                        {lead && lead.status === 'won' && (
-                            <div className="glass-card" style={{ marginTop: '20px', padding: '20px' }}>
-                                <h3 style={{ fontSize: '14px', marginBottom: '16px', borderBottom: '1px solid var(--border-color)', paddingBottom: '6px', color: 'var(--text-light)' }}>
-                                    לוח בקרה לפרויקט: אוטומציות ותקלות
-                                </h3>
-
-                                {/* Add Automation Inline Form */}
-                                <form onSubmit={handleAddAutomation} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr)) 80px', gap: '10px', marginBottom: '20px', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', padding: '12px', borderRadius: '6px' }}>
+                    filteredProjects.map(proj => {
+                        const projAutos = automations.filter(a => a.lead_id === proj.id);
+                        
+                        // Project financial sums
+                        const projSetupSum = projAutos.reduce((s, a) => s + (a.setup_price || 0), 0);
+                        const projMaintSum = projAutos.reduce((s, a) => s + (a.monthly_maintenance || 0), 0);
+                        
+                        return (
+                            <div key={proj.id} className="glass-card" style={{ padding: '20px' }}>
+                                {/* Project summary header */}
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px', borderBottom: '1px solid var(--border-color)', paddingBottom: '16px', marginBottom: '16px' }}>
                                     <div>
-                                        <label className="form-label" style={{ fontSize: '11px', marginBottom: '4px' }}>שם האוטומציה</label>
-                                        <input 
-                                            type="text" 
-                                            className="form-control" 
-                                            placeholder="למשל: בוט הודעות WhatsApp" 
-                                            value={newAutoName} 
-                                            onChange={(e) => setNewAutoName(e.target.value)} 
-                                            style={{ padding: '6px 8px', fontSize: '12px', height: '30px' }} 
-                                            required
-                                        />
+                                        <h2 style={{ fontSize: '16px', margin: '0 0 4px 0', color: 'var(--text-light)' }}>
+                                            {proj.company || proj.name}
+                                        </h2>
+                                        <div style={{ display: 'flex', gap: '12px', fontSize: '12px', color: 'var(--text-secondary)' }}>
+                                            <span>לקוח: <strong>{proj.name}</strong></span>
+                                            <span>•</span>
+                                            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                <Calendar size={12} />
+                                                נוצר: {new Date(proj.created_at).toLocaleDateString('he-IL')}
+                                            </span>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <label className="form-label" style={{ fontSize: '11px', marginBottom: '4px' }}>סוג/קטגוריה</label>
-                                        <select 
-                                            className="form-control" 
-                                            value={newAutoType} 
-                                            onChange={(e) => setNewAutoType(e.target.value)} 
-                                            style={{ padding: '4px 6px', fontSize: '12px', height: '30px' }}
+                                    <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+                                        <div style={{ textAlign: 'left', fontSize: '12.5px' }}>
+                                            <div style={{ color: 'var(--text-secondary)' }}>הכנסות פרויקט:</div>
+                                            <div style={{ fontWeight: '600', color: 'var(--text-light)', marginTop: '2px' }}>
+                                                הקמה: ₪{projSetupSum} | תחזוקה: ₪{projMaintSum}/חודש
+                                            </div>
+                                        </div>
+                                        <button 
+                                            className="btn btn-secondary"
+                                            style={{ padding: '8px 14px', fontSize: '12px' }}
+                                            onClick={() => onSelectLead(proj.id)}
                                         >
-                                            <option value="סוכני AI ומיילים">סוכני AI ומיילים</option>
-                                            <option value="צ'אטבוטים של הודעות">צ'אטבוטים של הודעות</option>
-                                            <option value="אינטגרציית מערכות ו-CRM">אינטגרציית מערכות ו-CRM</option>
-                                            <option value="אוטומציות דוחות ופיננסיים">אוטומציות דוחות ופיננסיים</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label className="form-label" style={{ fontSize: '11px', marginBottom: '4px' }}>עלות הקמה</label>
-                                        <input 
-                                            type="number" 
-                                            className="form-control" 
-                                            placeholder="₪" 
-                                            value={newAutoSetupPrice} 
-                                            onChange={(e) => setNewAutoSetupPrice(e.target.value)} 
-                                            style={{ padding: '6px 8px', fontSize: '12px', height: '30px' }}
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="form-label" style={{ fontSize: '11px', marginBottom: '4px' }}>תחזוקה חודשית</label>
-                                        <input 
-                                            type="number" 
-                                            className="form-control" 
-                                            placeholder="₪" 
-                                            value={newAutoMaintPrice} 
-                                            onChange={(e) => setNewAutoMaintPrice(e.target.value)} 
-                                            style={{ padding: '6px 8px', fontSize: '12px', height: '30px' }}
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="form-label" style={{ fontSize: '11px', marginBottom: '4px' }}>יעד הרצות</label>
-                                        <input 
-                                            type="number" 
-                                            className="form-control" 
-                                            placeholder="למשל: 500" 
-                                            value={newAutoRunsGoal} 
-                                            onChange={(e) => setNewAutoRunsGoal(e.target.value)} 
-                                            style={{ padding: '6px 8px', fontSize: '12px', height: '30px' }}
-                                        />
-                                    </div>
-                                    <div style={{ display: 'flex', alignItems: 'flex-end' }}>
-                                        <button type="submit" className="btn btn-primary" style={{ width: '100%', height: '30px', padding: '0', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', fontSize: '12px' }}>
-                                            <Plus size={14} />
-                                            <span>הוסף</span>
+                                            <Eye size={12} />
+                                            <span>ניהול באגים ואוטומציות</span>
                                         </button>
                                     </div>
-                                </form>
+                                </div>
 
-                                {/* Automations list for this lead */}
+                                {/* Automations list for this project */}
                                 <div>
-                                    {leadAutos.length === 0 ? (
-                                        <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', fontStyle: 'italic', textAlign: 'center', padding: '20px 0' }}>טרם הוגדרו אוטומציות לפרויקט זה.</p>
+                                    {projAutos.length === 0 ? (
+                                        <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', fontStyle: 'italic' }}>טרם הוגדרו אוטומציות לפרויקט זה. לחץ על כפתור הניהול למעלה כדי להוסיף אוטומציה.</p>
                                     ) : (
                                         <div className="table-container" style={{ border: 'none', margin: '0' }}>
                                             <table className="leads-table" style={{ fontSize: '13px' }}>
@@ -1191,13 +701,13 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
                                                         <th style={{ padding: '8px 12px' }}>קטגוריה</th>
                                                         <th style={{ padding: '8px 12px' }}>סכום הקמה</th>
                                                         <th style={{ padding: '8px 12px' }}>תחזוקה חודשית</th>
-                                                        <th style={{ padding: '8px 12px' }}>באגים</th>
-                                                        <th style={{ padding: '8px 12px' }}>סטטוס פיתוח</th>
-                                                        <th style={{ padding: '8px 12px', textAlign: 'left' }}>פעולות</th>
+                                                        <th style={{ padding: '8px 12px' }}>יעד הרצות</th>
+                                                        <th style={{ padding: '8px 12px' }}>באגים פתוחים</th>
+                                                        <th style={{ padding: '8px 12px', textAlign: 'left' }}>סטטוס פיתוח</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
-                                                    {leadAutos.map(auto => {
+                                                    {projAutos.map(auto => {
                                                         const autoBugs = bugs.filter(b => b.automation_id === auto.id);
                                                         const openBugsCount = autoBugs.filter(b => b.status !== 'resolved').length;
                                                         const isExpanded = !!expandedAutos[auto.id];
@@ -1228,7 +738,6 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
                                                                                         direction: 'ltr' 
                                                                                     }}
                                                                                     title={`Workflow ID: ${wf.id}`}
-                                                                                    onClick={(e) => e.stopPropagation()}
                                                                                 >
                                                                                     {wf.name}
                                                                                 </span>
@@ -1238,31 +747,12 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
                                                                     <td style={{ padding: '8px 12px' }}>{auto.type}</td>
                                                                     <td style={{ padding: '8px 12px' }}>₪{auto.setup_price}</td>
                                                                     <td style={{ padding: '8px 12px' }}>₪{auto.monthly_maintenance}</td>
+                                                                    <td style={{ padding: '8px 12px' }}>{auto.runs_goal > 0 ? `${auto.runs_goal} הרצות` : 'ללא יעד'}</td>
                                                                     <td style={{ padding: '8px 12px', color: openBugsCount > 0 ? '#ef4444' : 'var(--text-secondary)', fontWeight: openBugsCount > 0 ? '600' : 'normal' }}>
-                                                                        {openBugsCount > 0 ? `🐛 ${openBugsCount} פתוחים` : 'אין תקלות'}
+                                                                        {openBugsCount > 0 ? `🐛 ${openBugsCount} באגים` : 'אין תקלות'}
                                                                     </td>
-                                                                    <td style={{ padding: '8px 12px' }} onClick={(e) => e.stopPropagation()}>
-                                                                        <select
-                                                                            value={auto.status || 'design'}
-                                                                            onChange={(e) => handleUpdateAutoStatus(auto.id, e.target.value)}
-                                                                            className="form-control"
-                                                                            style={{ padding: '2px 6px', fontSize: '11px', height: '24px', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '4px', color: 'var(--text-light)', width: '90px' }}
-                                                                        >
-                                                                            <option value="design">אפיון</option>
-                                                                            <option value="development">פיתוח</option>
-                                                                            <option value="testing">בדיקות</option>
-                                                                            <option value="live">פעיל</option>
-                                                                            <option value="paused">מוקפא</option>
-                                                                        </select>
-                                                                    </td>
-                                                                    <td style={{ padding: '8px 12px', textAlign: 'left' }} onClick={(e) => e.stopPropagation()}>
-                                                                        <button 
-                                                                            className="btn btn-secondary btn-icon"
-                                                                            style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}
-                                                                            onClick={() => handleDeleteAutomation(auto.id)}
-                                                                        >
-                                                                            <Trash2 size={12} style={{ color: 'var(--text-muted)' }} />
-                                                                        </button>
+                                                                    <td style={{ padding: '8px 12px', textAlign: 'left' }}>
+                                                                        {statusBadges[auto.status] || auto.status}
                                                                     </td>
                                                                 </tr>
                                                                 {isExpanded && (
@@ -1309,8 +799,8 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
                                                                                         {/* Workflows Management */}
                                                                                         <div style={{ background: 'rgba(255, 255, 255, 0.01)', border: '1px solid rgba(255, 255, 255, 0.03)', borderRadius: '6px', padding: '10px', marginBottom: '12px' }}>
                                                                                             <span style={{ fontSize: '11px', fontWeight: '600', color: 'var(--text-light)', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
-                                                                                                    <Cpu size={12} style={{ color: 'var(--accent-cyan)' }} />
-                                                                                                    מזהי Workflows מקושרים ב-N8N
+                                                                                                <Cpu size={12} style={{ color: 'var(--accent-cyan)' }} />
+                                                                                                מזהי Workflows מקושרים ב-N8N
                                                                                             </span>
                                                                                             
                                                                                             {/* Workflows tags list */}
@@ -1469,10 +959,11 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
                                                                                             const success = runs.filter(r => r.status === 'success').length;
                                                                                             const warning = runs.filter(r => r.status === 'warning').length;
                                                                                             const error = runs.filter(r => r.status === 'error').length;
+                                                                                            
                                                                                             const successRate = total > 0 ? Math.round((success / total) * 100) : 100;
                                                                                             const runsWithDuration = runs.filter(r => r.duration_ms > 0);
                                                                                             const avgDuration = runsWithDuration.length > 0 ? Math.round(runsWithDuration.reduce((acc, r) => acc + r.duration_ms, 0) / runsWithDuration.length) : 0;
-                                                                                            
+
                                                                                             const errorTypes = {};
                                                                                             const warningTypes = {};
                                                                                             runs.forEach(r => {
@@ -1775,8 +1266,8 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
                                                                                                                             </div>
 
                                                                                                                             {(aiAnalysisText[run.id] || run.ai_analysis) && (
-                                                                                                                                <div style={{ marginTop: '8px', background: 'rgba(168,85,247,0.03)', border: '1px solid rgba(168,85,247,0.1)', borderRadius: '4px', padding: '8px', fontSize: '10.5px', color: 'var(--text-secondary)', lineHeight: '1.4' }}>
-                                                                                                                                    <strong style={{ color: '#c084fc', display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '4px' }}>
+                                                                                                                                <div style={{ marginTop: '8px', background: 'rgba(168,85,247,0.03)', border: '1px solid rgba(168,85,247,0.1)', borderRadius: '4px', padding: '12px', fontSize: '11px', color: 'var(--text-secondary)', lineHeight: '1.5' }}>
+                                                                                                                                    <strong style={{ color: '#c084fc', display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '8px' }}>
                                                                                                                                         <Brain size={10} />
                                                                                                                                         ניתוח AI (Gemini Flash):
                                                                                                                                     </strong>
@@ -1808,14 +1299,9 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
                                     )}
                                 </div>
                             </div>
-                        )}
-                    </div>
+                        );
+                    })
                 )}
-
-                {/* Footer */}
-                <div className="modal-footer">
-                    <button className="btn btn-secondary" onClick={onClose}>סגור</button>
-                </div>
             </div>
         </div>
     );

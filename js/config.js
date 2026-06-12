@@ -11,6 +11,6 @@ export const INTEGRATION_SETTINGS = {
     web3FormsAccessKey: "70df35d4-7450-40db-a1f2-240b7d0da6eb", // e.g. "12345678-abcd-1234-abcd-1234567890ab"
 
     // 3. Supabase Integration (Optional):
-    supabaseUrl: "", // e.g. "https://yourproject.supabase.co"
-    supabaseAnonKey: "" // e.g. "eyJhbGciOi..."
+    supabaseUrl: "https://pjjncfoaunwugmgkaqlz.supabase.co", // e.g. "https://yourproject.supabase.co"
+    supabaseAnonKey: "sb_publishable_wVtgeu0jwRxQr3xUDjkz8g_00BL2jcb" // e.g. "eyJhbGciOi..."
 };

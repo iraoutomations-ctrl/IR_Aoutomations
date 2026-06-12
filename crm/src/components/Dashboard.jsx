@@ -10,11 +10,12 @@ import {
     CheckSquare,
     Square,
     AlertCircle,
-    TrendingUp
+    TrendingUp,
+    Lock
 } from 'lucide-react';
 import { db } from '../services/db';
 
-export default function Dashboard({ onSelectLead, activeTab }) {
+export default function Dashboard({ onSelectLead, activeTab, alerts = [] }) {
     const [leads, setLeads] = useState([]);
     const [tasks, setTasks] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -42,6 +43,7 @@ export default function Dashboard({ onSelectLead, activeTab }) {
             setTasks(prev => prev.map(t => t.id === taskId ? updatedTask : t));
         } catch (err) {
             console.error("Error toggling task:", err);
+            alert(err.message || err);
         }
     };
 
@@ -328,21 +330,43 @@ export default function Dashboard({ onSelectLead, activeTab }) {
                         ) : (
                             todayTasks.map(task => {
                                 const isOverdue = task.due_date.split('T')[0] < todayStr;
+                                const depTask = task.depends_on_task_id ? tasks.find(t => t.id === task.depends_on_task_id) : null;
+                                const isBlocked = depTask ? !depTask.completed : false;
                                 return (
-                                    <div key={task.id} className="task-item" style={{ borderRight: isOverdue ? '3px solid #ef4444' : '1px solid var(--border-color)' }}>
+                                    <div key={task.id} className="task-item" style={{ borderRight: isOverdue ? '3px solid #ef4444' : '1px solid var(--border-color)', opacity: isBlocked ? 0.75 : 1 }}>
                                         <div className="task-item-right">
-                                            <div 
-                                                className="task-checkbox"
-                                                onClick={() => handleToggleTask(task.id)}
-                                            >
-                                                {/* No need for checked icon since we filter out completed tasks, but just in case */}
-                                                {task.completed && <i className="fa-solid fa-check" style={{ fontSize: '10px' }}></i>}
-                                            </div>
+                                            {isBlocked ? (
+                                                <div 
+                                                    className="task-checkbox locked"
+                                                    style={{ 
+                                                        borderColor: 'rgba(239, 68, 68, 0.4)', 
+                                                        background: 'rgba(239, 68, 68, 0.05)', 
+                                                        cursor: 'not-allowed',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        width: '18px',
+                                                        height: '18px',
+                                                        borderRadius: '4px',
+                                                        border: '1px solid rgba(239, 68, 68, 0.4)'
+                                                    }}
+                                                    onClick={() => alert(`משימה זו נעולה. עליך להשלים קודם את המשימה: "${depTask.title}"`)}
+                                                >
+                                                    <Lock size={10} style={{ color: '#ef4444' }} />
+                                                </div>
+                                            ) : (
+                                                <div 
+                                                    className="task-checkbox"
+                                                    onClick={() => handleToggleTask(task.id)}
+                                                >
+                                                    {task.completed && <i className="fa-solid fa-check" style={{ fontSize: '10px' }}></i>}
+                                                </div>
+                                            )}
                                             <div>
-                                                <div className="task-title" style={{ fontSize: '13.5px', fontWeight: '500', color: 'var(--text-light)' }}>
+                                                <div className="task-title" style={{ fontSize: '13.5px', fontWeight: '500', color: 'var(--text-light)', textDecoration: task.completed ? 'line-through' : 'none' }}>
                                                     {task.title}
                                                 </div>
-                                                <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px', display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }}>
                                                     <span 
                                                         onClick={() => onSelectLead(task.lead_id)}
                                                         style={{ color: '#06b6d4', cursor: 'pointer', textDecoration: 'underline' }}
@@ -354,6 +378,19 @@ export default function Dashboard({ onSelectLead, activeTab }) {
                                                         {isOverdue ? 'באיחור: ' : ''}
                                                         {new Date(task.due_date).toLocaleDateString('he-IL')}
                                                     </span>
+                                                    <span>•</span>
+                                                    <span style={{ background: 'rgba(255,255,255,0.04)', padding: '1px 5px', borderRadius: '3px', fontSize: '10px' }}>
+                                                        מבצע: {task.assigned_to || 'כללי'}
+                                                    </span>
+                                                    {depTask && (
+                                                        <>
+                                                            <span>•</span>
+                                                            <span style={{ color: isBlocked ? '#f59e0b' : '#10b981', display: 'flex', alignItems: 'center', gap: '2px' }}>
+                                                                {isBlocked ? <Lock size={10} /> : <i className="fa-solid fa-check" style={{ fontSize: '8px' }}></i>}
+                                                                תלוי ב: {depTask.title.substring(0, 12)}...
+                                                            </span>
+                                                        </>
+                                                    )}
                                                 </div>
                                             </div>
                                         </div>
@@ -363,6 +400,80 @@ export default function Dashboard({ onSelectLead, activeTab }) {
                         )}
                     </div>
                 </div>
+            </div>
+
+            {/* Recent Alerts Section */}
+            <div className="glass-card" style={{ marginTop: '24px' }}>
+                <h3 style={{ fontSize: '16px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <AlertCircle size={18} style={{ color: '#ef4444' }} />
+                    התראות מערכת אחרונות (מ-N8N)
+                </h3>
+                
+                {alerts.length === 0 ? (
+                    <p style={{ fontSize: '13px', color: 'var(--text-muted)', fontStyle: 'italic', padding: '10px 0', margin: 0 }}>
+                        אין התראות מערכת פעילות.
+                    </p>
+                ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        {alerts.slice(0, 5).map(alert => {
+                            const typeBadge = {
+                                error: <span className="badge badge-lost" style={{ fontSize: '10px', padding: '1px 6px' }}>שגיאה</span>,
+                                success: <span className="badge badge-won" style={{ fontSize: '10px', padding: '1px 6px' }}>הצלחה</span>,
+                                warning: <span className="badge badge-proposal" style={{ fontSize: '10px', padding: '1px 6px' }}>אזהרה</span>,
+                                info: <span className="badge badge-new" style={{ fontSize: '10px', padding: '1px 6px' }}>מידע</span>
+                            };
+
+                            const typeStyles = {
+                                error: { borderRight: '4px solid #ef4444', background: 'rgba(239, 68, 68, 0.03)' },
+                                success: { borderRight: '4px solid #10b981', background: 'rgba(16, 185, 129, 0.03)' },
+                                warning: { borderRight: '4px solid #f59e0b', background: 'rgba(245, 158, 11, 0.03)' },
+                                info: { borderRight: '4px solid #06b6d4', background: 'rgba(6, 182, 212, 0.03)' }
+                            };
+
+                            return (
+                                <div 
+                                    key={alert.id} 
+                                    style={{ 
+                                        padding: '12px 16px', 
+                                        borderRadius: '6px', 
+                                        border: '1px solid var(--border-color)', 
+                                        ...typeStyles[alert.type || 'info'],
+                                        display: 'flex', 
+                                        justifyContent: 'space-between', 
+                                        alignItems: 'center',
+                                        flexWrap: 'wrap',
+                                        gap: '12px'
+                                    }}
+                                >
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
+                                        {typeBadge[alert.type || 'info']}
+                                        <div>
+                                            <div style={{ fontSize: '13.5px', fontWeight: '600', color: 'var(--text-light)' }}>
+                                                {alert.title}
+                                            </div>
+                                            <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                                                {alert.message}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'flex', gap: '10px', alignItems: 'center' }}>
+                                        {alert.lead_id && (
+                                            <span 
+                                                onClick={() => onSelectLead(alert.lead_id)}
+                                                style={{ color: '#06b6d4', cursor: 'pointer', textDecoration: 'underline', fontWeight: '500' }}
+                                            >
+                                                לקוח: {getLeadName(alert.lead_id)}
+                                            </span>
+                                        )}
+                                        <span>
+                                            {new Date(alert.created_at).toLocaleTimeString('he-IL')} | {new Date(alert.created_at).toLocaleDateString('he-IL')}
+                                        </span>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
             </div>
         </div>
     );

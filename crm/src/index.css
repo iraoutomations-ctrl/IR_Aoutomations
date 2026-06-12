@@ -718,3 +718,92 @@ p {
 .svg-chart-bar:hover {
     fill-opacity: 0.9;
 }
+
+/* Notifications Drawer Overlay and Panel */
+.notifications-drawer-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    z-index: 1000;
+    display: flex;
+    justify-content: flex-start; /* Align right in RTL */
+}
+
+.notifications-drawer {
+    width: 380px;
+    height: 100vh;
+    background: rgba(18, 20, 32, 0.85) !important;
+    backdrop-filter: blur(20px) saturate(180%);
+    border-left: 1px solid var(--border-color);
+    box-shadow: -10px 0 30px rgba(0, 0, 0, 0.5);
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    animation: slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes slideInRight {
+    from {
+        transform: translateX(100%);
+    }
+    to {
+        transform: translateX(0);
+    }
+}
+
+.alert-item {
+    transition: all 0.2s ease-in-out;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);
+}
+
+.alert-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.25);
+    border-color: rgba(139, 92, 246, 0.4) !important;
+}
+
+.alert-item.unread {
+    animation: alertPulse 2s infinite alternate;
+}
+
+@keyframes alertPulse {
+    0% {
+        box-shadow: 0 0 4px rgba(239, 68, 68, 0.15);
+        background: rgba(239, 68, 68, 0.04);
+    }
+    100% {
+        box-shadow: 0 0 12px rgba(239, 68, 68, 0.3);
+        background: rgba(239, 68, 68, 0.08);
+    }
+}
+
+/* Bell animation */
+.pulse-bell {
+    animation: bellRing 1s infinite alternate;
+}
+
+@keyframes bellRing {
+    0% {
+        transform: rotate(0);
+    }
+    20% {
+        transform: rotate(15deg);
+    }
+    40% {
+        transform: rotate(-15deg);
+    }
+    60% {
+        transform: rotate(10deg);
+    }
+    80% {
+        transform: rotate(-10deg);
+    }
+    100% {
+        transform: rotate(0);
+    }
+}
+

@@ -8,11 +8,35 @@ import {
     Check, 
     ExternalLink, 
     Terminal, 
-    Info
+    Info,
+    Brain,
+    Key
 } from 'lucide-react';
 
-const SQL_SCRIPT = `-- 1. יצירת טבלת לידים (leads)
-CREATE TABLE leads (
+const SQL_SCRIPT = `-- *** אם כבר הרצת את הסקריפט בעבר, הרץ רק את השורות הבאות ב-SQL Editor כדי לשדרג את מסד הנתונים: ***
+-- ALTER TABLE tasks ADD COLUMN IF NOT EXISTS assigned_to TEXT;
+-- ALTER TABLE tasks ADD COLUMN IF NOT EXISTS depends_on_task_id UUID REFERENCES tasks(id) ON DELETE SET NULL;
+-- ALTER TABLE system_alerts ADD COLUMN IF NOT EXISTS automation_id UUID REFERENCES automations(id) ON DELETE CASCADE;
+-- ALTER TABLE automations ADD COLUMN IF NOT EXISTS n8n_workflow_id TEXT;
+-- ALTER TABLE system_alerts ADD COLUMN IF NOT EXISTS n8n_workflow_id TEXT;
+-- ALTER TABLE system_alerts ADD COLUMN IF NOT EXISTS duration_ms INTEGER;
+-- ALTER TABLE automations ADD COLUMN IF NOT EXISTS n8n_workflows JSONB DEFAULT '[]'::jsonb;
+-- CREATE TABLE IF NOT EXISTS automation_runs (
+--     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+--     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+--     automation_id UUID REFERENCES automations(id) ON DELETE CASCADE,
+--     n8n_workflow_id TEXT,
+--     status TEXT NOT NULL,
+--     duration_ms INTEGER,
+--     error_type TEXT,
+--     details JSONB DEFAULT '{}'::jsonb,
+--     ai_analysis TEXT
+-- );
+-- ALTER TABLE automation_runs ENABLE ROW LEVEL SECURITY;
+-- CREATE POLICY "Allow public access for automation_runs" ON automation_runs FOR ALL USING (true);
+
+-- 1. יצירת טבלת לידים (leads)
+CREATE TABLE IF NOT EXISTS leads (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
     name TEXT NOT NULL,
@@ -28,41 +52,165 @@ CREATE TABLE leads (
 );
 
 -- 2. יצירת טבלת משימות (tasks) עם מחיקה משורשרת (CASCADE)
-CREATE TABLE tasks (
+CREATE TABLE IF NOT EXISTS tasks (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     lead_id UUID REFERENCES leads(id) ON DELETE CASCADE NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
     title TEXT NOT NULL,
     due_date TIMESTAMP WITH TIME ZONE,
     completed BOOLEAN DEFAULT false NOT NULL,
-    completed_at TIMESTAMP WITH TIME ZONE
+    completed_at TIMESTAMP WITH TIME ZONE,
+    assigned_to TEXT,
+    depends_on_task_id UUID REFERENCES tasks(id) ON DELETE SET NULL
 );
 
 -- 3. יצירת טבלת הערות (notes) עם מחיקה משורשרת
-CREATE TABLE notes (
+CREATE TABLE IF NOT EXISTS notes (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     lead_id UUID REFERENCES leads(id) ON DELETE CASCADE NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
     content TEXT NOT NULL
 );
 
--- 4. פתיחת הרשאות גישה לטבלאות (לצרכי חיבור קל בדף נחיתה)
+-- 4. יצירת טבלת אוטומציות (automations) עבור לידים בסטטוס סגירה
+CREATE TABLE IF NOT EXISTS automations (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    lead_id UUID REFERENCES leads(id) ON DELETE CASCADE NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    name TEXT NOT NULL,
+    type TEXT,
+    status TEXT DEFAULT 'design'::text,
+    setup_price NUMERIC DEFAULT 0,
+    monthly_maintenance NUMERIC DEFAULT 0,
+    runs_goal INTEGER DEFAULT 0,
+    n8n_workflow_id TEXT,
+    n8n_workflows JSONB DEFAULT '[]'::jsonb
+);
+
+-- 5. יצירת טבלת באגים (bugs) עם מחיקה משורשרת עבור אוטומציות
+CREATE TABLE IF NOT EXISTS bugs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    automation_id UUID REFERENCES automations(id) ON DELETE CASCADE NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    description TEXT NOT NULL,
+    severity TEXT DEFAULT 'medium'::text,
+    status TEXT DEFAULT 'open'::text
+);
+
+-- 6. יצירת טבלת התראות מערכת (system_alerts)
+CREATE TABLE IF NOT EXISTS system_alerts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    lead_id UUID REFERENCES leads(id) ON DELETE SET NULL,
+    automation_id UUID REFERENCES automations(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    message TEXT NOT NULL,
+    type TEXT DEFAULT 'info'::text,
+    read BOOLEAN DEFAULT false NOT NULL,
+    n8n_workflow_id TEXT,
+    duration_ms INTEGER
+);
+
+-- 7. יצירת טבלת ריצות אוטומציה (automation_runs)
+CREATE TABLE IF NOT EXISTS automation_runs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    automation_id UUID REFERENCES automations(id) ON DELETE CASCADE,
+    n8n_workflow_id TEXT,
+    status TEXT NOT NULL,
+    duration_ms INTEGER,
+    error_type TEXT,
+    details JSONB DEFAULT '{}'::jsonb,
+    ai_analysis TEXT
+);
+
+-- 8. הפעלת RLS (Row Level Security) על כל הטבלאות
 ALTER TABLE leads ENABLE ROW LEVEL SECURITY;
 ALTER TABLE tasks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE automations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE bugs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE system_alerts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE automation_runs ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Allow public read access" ON leads FOR SELECT USING (true);
-CREATE POLICY "Allow public insert access" ON leads FOR INSERT WITH CHECK (true);
-CREATE POLICY "Allow public update access" ON leads FOR UPDATE USING (true);
-CREATE POLICY "Allow public delete access" ON leads FOR DELETE USING (true);
+-- 8. פתיחת הרשאות גישה לטבלאות (בדיקה ויצירה בטוחה של מדיניות גישה)
+DO $$
+BEGIN
+    -- פוליסיז לטבלת leads
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow public read access' AND tablename = 'leads') THEN
+        CREATE POLICY "Allow public read access" ON leads FOR SELECT USING (true);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow public insert access' AND tablename = 'leads') THEN
+        CREATE POLICY "Allow public insert access" ON leads FOR INSERT WITH CHECK (true);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow public update access' AND tablename = 'leads') THEN
+        CREATE POLICY "Allow public update access" ON leads FOR UPDATE USING (true);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow public delete access' AND tablename = 'leads') THEN
+        CREATE POLICY "Allow public delete access" ON leads FOR DELETE USING (true);
+    END IF;
 
-CREATE POLICY "Allow public access for tasks" ON tasks FOR ALL USING (true);
-CREATE POLICY "Allow public access for notes" ON notes FOR ALL USING (true);
+    -- פוליסיז לטבלאות הנוספות
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow public access for tasks' AND tablename = 'tasks') THEN
+        CREATE POLICY "Allow public access for tasks" ON tasks FOR ALL USING (true);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow public access for notes' AND tablename = 'notes') THEN
+        CREATE POLICY "Allow public access for notes" ON notes FOR ALL USING (true);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow public access for automations' AND tablename = 'automations') THEN
+        CREATE POLICY "Allow public access for automations" ON automations FOR ALL USING (true);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow public access for bugs' AND tablename = 'bugs') THEN
+        CREATE POLICY "Allow public access for bugs" ON bugs FOR ALL USING (true);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow public access for system_alerts' AND tablename = 'system_alerts') THEN
+        CREATE POLICY "Allow public access for system_alerts" ON system_alerts FOR ALL USING (true);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow public access for automation_runs' AND tablename = 'automation_runs') THEN
+        CREATE POLICY "Allow public access for automation_runs" ON automation_runs FOR ALL USING (true);
+    END IF;
+END
+$$;
+
+-- 9. הפעלת שכפול בזמן אמת (Realtime Replication) עבור כל הטבלאות ב-Supabase
+DO $$
+DECLARE
+    pub_exists BOOLEAN;
+    t_name TEXT;
+    tables_to_add TEXT[] := ARRAY['leads', 'tasks', 'notes', 'automations', 'bugs', 'system_alerts', 'automation_runs'];
+BEGIN
+    -- בדיקה האם פירסום supabase_realtime קיים, ואם לא - יצירתו
+    SELECT EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') INTO pub_exists;
+    IF NOT pub_exists THEN
+        CREATE PUBLICATION supabase_realtime;
+    END IF;
+
+    -- הוספת הטבלאות לפירסום במידה והן לא נמצאות בו כבר
+    FOREACH t_name IN ARRAY tables_to_add LOOP
+        IF NOT EXISTS (
+            SELECT 1 
+            FROM pg_publication_tables 
+            WHERE pubname = 'supabase_realtime' AND tablename = t_name
+        ) THEN
+            EXECUTE format('ALTER PUBLICATION supabase_realtime ADD TABLE %I', t_name);
+        END IF;
+    END LOOP;
+END
+$$;
 `;
 
 export default function Settings() {
     const [copied, setCopied] = useState(false);
+    const [geminiKey, setGeminiKey] = useState(() => localStorage.getItem('gemini_api_key') || '');
+    const [n8nUrl, setN8nUrl] = useState(() => localStorage.getItem('n8n_url') || 'http://localhost:5678');
+    const [n8nApiKey, setN8nApiKey] = useState(() => localStorage.getItem('n8n_api_key') || '');
     
+    // Testing states
+    const [testingGemini, setTestingGemini] = useState(false);
+    const [geminiTestResult, setGeminiTestResult] = useState(null);
+    const [testingN8n, setTestingN8n] = useState(false);
+    const [n8nTestResult, setN8nTestResult] = useState(null);
+
     // Read from environment variables if present
     const envUrl = import.meta.env?.VITE_SUPABASE_URL || '';
     const envKey = import.meta.env?.VITE_SUPABASE_ANON_KEY || '';
@@ -71,6 +219,86 @@ export default function Settings() {
         navigator.clipboard.writeText(SQL_SCRIPT);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
+    };
+
+    const handleSaveGeminiKey = (e) => {
+        e.preventDefault();
+        localStorage.setItem('gemini_api_key', geminiKey.trim());
+        alert('מפתח ה-API של Gemini נשמר בהצלחה בדפדפן!');
+    };
+
+    const handleSaveN8nSettings = (e) => {
+        e.preventDefault();
+        localStorage.setItem('n8n_url', n8nUrl.trim());
+        localStorage.setItem('n8n_api_key', n8nApiKey.trim());
+        alert('הגדרות החיבור ל-N8N נשמרו בהצלחה בדפדפן!');
+    };
+
+    const handleTestGeminiKey = async () => {
+        if (!geminiKey) {
+            setGeminiTestResult({ success: false, message: 'אנא הזן מפתח API של Gemini לפני הבדיקה.' });
+            return;
+        }
+        setTestingGemini(true);
+        setGeminiTestResult(null);
+        try {
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey.trim()}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: 'say ok' }] }]
+                })
+            });
+            const data = await response.json();
+            if (response.ok && data.candidates?.[0]?.content?.parts?.[0]?.text) {
+                setGeminiTestResult({ success: true, message: 'חיבור הצליח! מפתח ה-API תקין לחלוטין.' });
+            } else {
+                const errDetail = data.error?.message || 'מפתח ה-API לא תקין או חסום.';
+                setGeminiTestResult({ success: false, message: `שגיאה: ${errDetail}` });
+            }
+        } catch (err) {
+            setGeminiTestResult({ success: false, message: `שגיאת חיבור: ${err.message}` });
+        } finally {
+            setTestingGemini(false);
+        }
+    };
+
+    const handleTestN8nConnection = async () => {
+        if (!n8nUrl) {
+            setN8nTestResult({ success: false, message: 'אנא הזן את כתובת שרת ה-N8N.' });
+            return;
+        }
+        if (!n8nApiKey) {
+            setN8nTestResult({ success: false, message: 'אנא הזן את מפתח ה-API של N8N.' });
+            return;
+        }
+        setTestingN8n(true);
+        setN8nTestResult(null);
+        try {
+            const cleanUrl = n8nUrl.trim().replace(/\/$/, '');
+            let fetchUrl = `${cleanUrl}/api/v1/workflows?limit=1`;
+            if (cleanUrl.includes('localhost') || cleanUrl.includes('127.0.0.1')) {
+                fetchUrl = `/api-n8n/api/v1/workflows?limit=1`;
+            }
+            const response = await fetch(fetchUrl, {
+                headers: {
+                    'X-N8N-API-KEY': n8nApiKey.trim()
+                }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                setN8nTestResult({ success: true, message: `חיבור הצליח! שרת ה-N8N זמין והמפתח תקין.` });
+            } else {
+                setN8nTestResult({ success: false, message: `שגיאה מ-N8N: קוד תשובה ${response.status} (${response.statusText}). ודא שהמפתח תקין.` });
+            }
+        } catch (err) {
+            setN8nTestResult({ 
+                success: false, 
+                message: `שגיאת חיבור: ${err.message}. ודא ששרת ה-N8N פועל ושהכתובת נכונה. שים לב כי ייתכן שחסימת CORS בדפדפן מונעת את הבדיקה הישירה (במקרה כזה ניתן לבדוק ריצה באוטומציה).` 
+            });
+        } finally {
+            setTestingN8n(false);
+        }
     };
 
     return (
@@ -112,6 +340,127 @@ export default function Settings() {
                 )}
             </div>
 
+            {/* Gemini API Key Configuration */}
+            <div className="glass-card" style={{ marginBottom: '24px', borderRight: '4px solid #a855f7' }}>
+                <h3 style={{ fontSize: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Brain size={18} style={{ color: '#a855f7' }} />
+                    מפתח API של Gemini לדיאגנוסטיקת AI
+                </h3>
+                <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '8px', marginBottom: '14px' }}>
+                    הזן את מפתח ה-API של Gemini כדי לאפשר את כפתור "ניתוח AI חי" בלוג הריצות. המפתח נשמר בדפדפן שלך בלבד באופן מאובטח ומקומי.
+                </p>
+                <form onSubmit={handleSaveGeminiKey} style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+                    <div style={{ flex: '1', minWidth: '280px', position: 'relative' }}>
+                        <Key size={16} style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                        <input 
+                            type="password" 
+                            placeholder="AIzaSy..." 
+                            value={geminiKey} 
+                            onChange={(e) => setGeminiKey(e.target.value)} 
+                            style={{ 
+                                width: '100%', 
+                                padding: '10px 38px 10px 12px', 
+                                background: 'rgba(255, 255, 255, 0.02)', 
+                                border: '1px solid var(--border-color)', 
+                                borderRadius: '6px', 
+                                color: 'var(--text-light)', 
+                                fontSize: '13px',
+                                outline: 'none'
+                            }} 
+                        />
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                        <button type="submit" className="btn btn-primary" style={{ padding: '10px 20px', fontSize: '13px', background: '#a855f7', borderColor: '#a855f7' }}>
+                            שמור מפתח
+                        </button>
+                        <button 
+                            type="button" 
+                            onClick={handleTestGeminiKey} 
+                            disabled={testingGemini}
+                            className="btn btn-secondary" 
+                            style={{ padding: '10px 20px', fontSize: '13px' }}
+                        >
+                            {testingGemini ? 'בודק...' : 'בדוק מפתח'}
+                        </button>
+                    </div>
+                </form>
+                {geminiTestResult && (
+                    <div style={{ marginTop: '10px', padding: '8px 12px', borderRadius: '4px', fontSize: '12px', background: geminiTestResult.success ? 'rgba(16,185,129,0.06)' : 'rgba(239,68,68,0.06)', border: geminiTestResult.success ? '1px solid rgba(16,185,129,0.2)' : '1px solid rgba(239,68,68,0.2)', color: geminiTestResult.success ? '#10b981' : '#ef4444' }}>
+                        {geminiTestResult.message}
+                    </div>
+                )}
+            </div>
+
+            {/* N8N Connection Settings */}
+            <div className="glass-card" style={{ marginBottom: '24px', borderRight: '4px solid #06b6d4' }}>
+                <h3 style={{ fontSize: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Database size={18} style={{ color: '#06b6d4' }} />
+                    הגדרות חיבור ל-N8N (לשליפת מבנה ה-Workflows)
+                </h3>
+                <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '8px', marginBottom: '14px' }}>
+                    הזן את פרטי החיבור ל-N8N כדי לאפשר למערכת לשלוף דינמית את מבנה ה-Workflow (רשימת הקוביות והחיבורים) בזמן אמת עבור כל אוטומציה שתוסיף.
+                </p>
+                <form onSubmit={handleSaveN8nSettings} style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+                    <div style={{ flex: '1', minWidth: '200px' }}>
+                        <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>כתובת שרת ה-N8N</label>
+                        <input 
+                            type="text" 
+                            placeholder="http://localhost:5678" 
+                            value={n8nUrl} 
+                            onChange={(e) => setN8nUrl(e.target.value)} 
+                            style={{ 
+                                width: '100%', 
+                                padding: '10px 12px', 
+                                background: 'rgba(255, 255, 255, 0.02)', 
+                                border: '1px solid var(--border-color)', 
+                                borderRadius: '6px', 
+                                color: 'var(--text-light)', 
+                                fontSize: '13px',
+                                outline: 'none'
+                            }} 
+                        />
+                    </div>
+                    <div style={{ flex: '2', minWidth: '280px' }}>
+                        <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>מפתח API של N8N</label>
+                        <input 
+                            type="password" 
+                            placeholder="n8n_api_key_..." 
+                            value={n8nApiKey} 
+                            onChange={(e) => setN8nApiKey(e.target.value)} 
+                            style={{ 
+                                width: '100%', 
+                                padding: '10px 12px', 
+                                background: 'rgba(255, 255, 255, 0.02)', 
+                                border: '1px solid var(--border-color)', 
+                                borderRadius: '6px', 
+                                color: 'var(--text-light)', 
+                                fontSize: '13px',
+                                outline: 'none'
+                            }} 
+                        />
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px', width: '100%', marginTop: '12px', justifyContent: 'flex-start' }}>
+                        <button type="submit" className="btn btn-primary" style={{ padding: '10px 20px', fontSize: '13px', background: '#06b6d4', borderColor: '#06b6d4' }}>
+                            שמור הגדרות N8N
+                        </button>
+                        <button 
+                            type="button" 
+                            onClick={handleTestN8nConnection} 
+                            disabled={testingN8n}
+                            className="btn btn-secondary" 
+                            style={{ padding: '10px 20px', fontSize: '13px' }}
+                        >
+                            {testingN8n ? 'בודק חיבור...' : 'בדוק חיבור'}
+                        </button>
+                    </div>
+                </form>
+                {n8nTestResult && (
+                    <div style={{ marginTop: '10px', padding: '8px 12px', borderRadius: '4px', fontSize: '12px', background: n8nTestResult.success ? 'rgba(16,185,129,0.06)' : 'rgba(239,68,68,0.06)', border: n8nTestResult.success ? '1px solid rgba(16,185,129,0.2)' : '1px solid rgba(239,68,68,0.2)', color: n8nTestResult.success ? '#10b981' : '#ef4444', direction: 'rtl', width: '100%' }}>
+                        {n8nTestResult.message}
+                    </div>
+                )}
+            </div>
+
             {/* Instructions */}
             <div className="glass-card" style={{ marginBottom: '24px' }}>
                 <h3 style={{ fontSize: '15px', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
@@ -144,6 +493,45 @@ VITE_SUPABASE_ANON_KEY=your-anon-public-key-here`}
                         <strong>הפעל מחדש את שרת הפיתוח:</strong> הרץ מחדש את הפקודה <code>npm run dev</code> כדי שהמפתחות ייקלטו במערכת.
                     </li>
                 </ol>
+            </div>
+
+            {/* N8N Integration Guide */}
+            <div className="glass-card" style={{ marginBottom: '24px' }}>
+                <h3 style={{ fontSize: '15px', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
+                    <Info size={18} style={{ color: '#06b6d4' }} />
+                    חיבור N8N לשליחת התראות בזמן אמת ל-CRM
+                </h3>
+                <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '12px' }}>
+                    ניתן להגדיר שכל שגיאה או סיום ריצה מוצלח ב-N8N ישלחו התראה מיידית ל-CRM (היא תופיע בפעמון ובדשבורד בזמן אמת ללא צורך ברענון).
+                </p>
+                <div style={{ paddingRight: '12px', fontSize: '13px', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <div>
+                        <strong>1. צור צומת HTTP Request ב-N8N:</strong>
+                        <ul style={{ paddingRight: '20px', marginTop: '4px', fontSize: '12.5px', listStyleType: 'disc' }}>
+                            <li><strong>Method:</strong> <code>POST</code></li>
+                            <li><strong>URL:</strong> <code style={{ color: '#06b6d4', direction: 'ltr', display: 'inline-block' }}>{envUrl ? `${envUrl}/rest/v1/system_alerts` : 'https://your-project-id.supabase.co/rest/v1/system_alerts'}</code></li>
+                        </ul>
+                    </div>
+                    <div>
+                        <strong>2. הגדר את ה-Headers:</strong>
+                        <pre style={{ background: '#191c29', padding: '10px', borderRadius: '6px', border: '1px solid var(--border-color)', color: '#06b6d4', direction: 'ltr', textAlign: 'left', marginTop: '4px', fontSize: '12px' }}>
+{`apikey: ${envKey || 'your-supabase-anon-key'}
+Authorization: Bearer ${envKey || 'your-supabase-anon-key'}
+Content-Type: application/json
+Prefer: return=representation`}
+                        </pre>
+                    </div>
+                    <div>
+                        <strong>3. מבנה גוף ההתראה (JSON Body):</strong>
+                        <pre style={{ background: '#191c29', padding: '10px', borderRadius: '6px', border: '1px solid var(--border-color)', color: '#f3f4f6', direction: 'ltr', textAlign: 'left', marginTop: '4px', fontSize: '12px' }}>
+{`{
+  "title": "כותרת ההתראה",
+  "message": "פירוט השגיאה או המידע",
+  "type": "error" // אפשרויות: error, success, warning, info
+}`}
+                        </pre>
+                    </div>
+                </div>
             </div>
 
             {/* SQL Script Box */}

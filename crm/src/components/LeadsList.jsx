@@ -8,11 +8,12 @@ import {
     Calendar, 
     Eye, 
     Trash2,
-    Download
+    Download,
+    Plus
 } from 'lucide-react';
 import { db } from '../services/db';
 
-export default function LeadsList({ onSelectLead, activeTab }) {
+export default function LeadsList({ onSelectLead, activeTab, onAddLead }) {
     const [leads, setLeads] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
@@ -119,7 +120,8 @@ export default function LeadsList({ onSelectLead, activeTab }) {
     const sourceLabels = {
         survey: 'שאלון',
         chatbot: 'צ׳אטבוט',
-        contact_form: 'צור קשר'
+        contact_form: 'צור קשר',
+        manual: 'ידני'
     };
 
     const statusBadges = {
@@ -133,15 +135,21 @@ export default function LeadsList({ onSelectLead, activeTab }) {
     return (
         <div>
             {/* Header */}
-            <header style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <header style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
                 <div>
                     <h1>רשימת לידים מקיפה</h1>
                     <p>צפה בכל הלידים שהתקבלו באתר, סנן לפי ענף, סטטוס או בצע חיפוש מהיר.</p>
                 </div>
-                <button className="btn btn-secondary" onClick={handleExportCSV}>
-                    <Download size={16} />
-                    <span>ייצוא ל-CSV</span>
-                </button>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                    <button className="btn btn-primary" onClick={onAddLead} style={{ padding: '8px 16px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <Plus size={16} />
+                        <span>הוסף ליד ידנית</span>
+                    </button>
+                    <button className="btn btn-secondary" onClick={handleExportCSV}>
+                        <Download size={16} />
+                        <span>ייצוא ל-CSV</span>
+                    </button>
+                </div>
             </header>
 
             {/* Filters Bar */}
