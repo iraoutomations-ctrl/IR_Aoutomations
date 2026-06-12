@@ -1182,6 +1182,13 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
 
                                                                                             return (
                                                                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                                                                                    {consecutiveFailures >= 2 && (
+                                                                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px', background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.25)', borderRadius: '6px', color: '#f87171', fontSize: '11px', fontWeight: '600', marginBottom: '4px' }}>
+                                                                                                            <span>⚠️</span>
+                                                                                                            <span>שים לב: האוטומציה נכשלה ב-{consecutiveFailures} הריצות האחרונות ברצף! מומלץ לבדוק את לשונית \"לוג ריצות\".</span>
+                                                                                                        </div>
+                                                                                                    )}
+
                                                                                                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: '8px' }}>
                                                                                                         <div style={{ background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '8px', textAlign: 'center' }}>
                                                                                                             <span style={{ fontSize: '10px', color: 'var(--text-secondary)', display: 'block' }}>סה"ך הרצות</span>
@@ -1199,7 +1206,24 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
                                                                                                             <span style={{ fontSize: '10px', color: 'var(--text-secondary)', display: 'block' }}>באגים פתוחים</span>
                                                                                                             <strong style={{ fontSize: '16px', color: openBugsCount > 0 ? '#ef4444' : 'var(--text-secondary)', display: 'block', marginTop: '2px' }}>{openBugsCount}</strong>
                                                                                                         </div>
+                                                                                                        <div style={{ background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '8px', textAlign: 'center' }}>
+                                                                                                            <span style={{ fontSize: '10px', color: 'var(--text-secondary)', display: 'block' }}>שעת עומס שיא</span>
+                                                                                                            <strong style={{ fontSize: '16px', color: '#f59e0b', display: 'block', marginTop: '2px' }}>{peakHour !== -1 ? `${String(peakHour).padStart(2, '0')}:00` : '—'}</strong>
+                                                                                                            <span style={{ fontSize: '8.5px', color: 'var(--text-muted)' }}>{peakCount > 0 ? `(${peakCount} הרצות)` : 'אין הרצות'}</span>
+                                                                                                        </div>
                                                                                                     </div>
+
+                                                                                                    {total > 0 && (
+                                                                                                        <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', padding: '8px 10px', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: '6px', fontSize: '10px', marginTop: '4px' }}>
+                                                                                                            <div style={{ display: 'flex', gap: '12px', color: 'var(--text-secondary)' }}>
+                                                                                                                <span>זמן הצלחה ממוצע: <strong style={{ color: '#10b981' }}>{avgSuccessDur > 0 ? formatDuration(avgSuccessDur) : '—'}</strong></span>
+                                                                                                                <span style={{ borderLeft: '1px solid rgba(255,255,255,0.1)', paddingLeft: '12px' }}>זמן שגיאה ממוצע: <strong style={{ color: '#ef4444' }}>{avgFailedDur > 0 ? formatDuration(avgFailedDur) : '—'}</strong></span>
+                                                                                                            </div>
+                                                                                                            <div style={{ color: trendColor, fontWeight: '600' }}>
+                                                                                                                {trendText}
+                                                                                                            </div>
+                                                                                                        </div>
+                                                                                                    )}
 
                                                                                                     {total > 0 && (
                                                                                                         <div style={{ marginTop: '4px' }}>
