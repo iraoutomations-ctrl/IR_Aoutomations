@@ -87,6 +87,12 @@ body {
     padding: 0 24px;
 }
 
+.page-wrapper {
+    width: 100%;
+    overflow: hidden;
+    position: relative;
+}
+
 a {
     text-decoration: none;
     color: inherit;
