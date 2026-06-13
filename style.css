@@ -411,8 +411,8 @@ input, select, textarea, button {
 /* Floating Interactive Robot Mascot */
 .hero-robot-mascot {
     position: absolute;
-    top: -110px;
-    right: -20px;
+    top: -15px;
+    right: 15px;
     width: 100px;
     height: 160px;
     z-index: 10;
