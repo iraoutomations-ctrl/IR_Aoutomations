@@ -2593,6 +2593,43 @@ textarea.survey-input {
     .rating-text {
         font-size: 0.55rem;
     }
+
+    /* ROI Calculator Mobile Overrides */
+    .calculator-section {
+        padding: 60px 0;
+    }
+    .calculator-card-wrapper {
+        padding: 24px 16px;
+        border-radius: 16px;
+    }
+    .calculator-controls {
+        gap: 20px;
+    }
+    .slider-label {
+        font-size: 0.95rem;
+    }
+    .slider-val {
+        font-size: 1.05rem;
+        padding: 4px 10px;
+    }
+    .calculator-results {
+        padding: 24px 16px;
+        gap: 16px;
+    }
+    .results-title {
+        font-size: 1.15rem;
+        padding-bottom: 12px;
+    }
+    .metric-val {
+        font-size: 1.8rem;
+    }
+    .metric-label {
+        font-size: 0.85rem;
+    }
+    .savings-potential-badge {
+        font-size: 0.78rem;
+        padding: 4px 12px;
+    }
 }
 
 /* ==========================================================================
