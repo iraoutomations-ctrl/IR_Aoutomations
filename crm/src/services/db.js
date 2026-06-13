@@ -20,7 +20,9 @@ const STORAGE_KEYS = {
     AUTOMATIONS: 'autoRI_automations',
     BUGS: 'autoRI_bugs',
     SYSTEM_ALERTS: 'autoRI_system_alerts',
-    AUTOMATION_RUNS: 'autoRI_automation_runs'
+    AUTOMATION_RUNS: 'autoRI_automation_runs',
+    AUTOMATION_DAILY_STATS: 'autoRI_automation_daily_stats',
+    DOCUMENTS: 'autoRI_documents'
 };
 
 const INITIAL_MOCK_LEADS = [
@@ -188,7 +190,10 @@ const INITIAL_MOCK_AUTOMATIONS = [
         monthly_maintenance: 200,
         runs_goal: 500,
         n8n_workflow_id: 'mock-workflow-1',
-        n8n_workflows: [{ id: 'mock-workflow-1', name: 'משיכת נכסים מ-יד2' }]
+        n8n_workflows: [{ id: 'mock-workflow-1', name: 'משיכת נכסים מ-יד2' }],
+        block_on_limit: true,
+        extra_runs_allowance: 0,
+        custom_overage_rate: 0.05
     },
     {
         id: 'mock-auto-2',
@@ -204,7 +209,10 @@ const INITIAL_MOCK_AUTOMATIONS = [
         n8n_workflows: [
             { id: 'lyCrWBmsGlRSMJmo', name: 'IR AI Bot' },
             { id: 'bRNz7Lq79wYJ5Dvo', name: 'autoRI - Chatbot Error Monitor' }
-        ]
+        ],
+        block_on_limit: true,
+        extra_runs_allowance: 0,
+        custom_overage_rate: 0.05
     },
     {
         id: 'mock-auto-3',
@@ -217,7 +225,10 @@ const INITIAL_MOCK_AUTOMATIONS = [
         monthly_maintenance: 250,
         runs_goal: 750,
         n8n_workflow_id: 'mock-workflow-3',
-        n8n_workflows: [{ id: 'mock-workflow-3', name: 'מחולל חשבוניות' }]
+        n8n_workflows: [{ id: 'mock-workflow-3', name: 'מחולל חשבוניות' }],
+        block_on_limit: true,
+        extra_runs_allowance: 0,
+        custom_overage_rate: 0.05
     }
 ];
 
@@ -300,6 +311,416 @@ const INITIAL_MOCK_AUTOMATION_RUNS = [
         ai_analysis: 'שגיאת 404 בהתרת כתובת ה-webhook. ודא ששרת ה-N8N פעיל וכתובת ה-URL מעודכנת.'
     }
 ];
+
+function generateInitialMockDailyStats() {
+    const stats = [];
+    const automations = [
+        { id: 'mock-auto-1', workflowId: 'mock-workflow-1' },
+        { id: 'mock-auto-2', workflowId: 'lyCrWBmsGlRSMJmo' },
+        { id: 'mock-auto-3', workflowId: 'mock-workflow-3' }
+    ];
+
+    // Generate stats for the last 45 days
+    for (let d = 45; d >= 0; d--) {
+        const date = new Date();
+        date.setDate(date.getDate() - d);
+        const dateStr = date.toISOString().split('T')[0];
+
+        automations.forEach(auto => {
+            // Generate deterministic but realistic-looking numbers based on date/id
+            const seed = (date.getDate() * 7 + auto.id.charCodeAt(auto.id.length - 1)) % 10;
+            
+            let total = 10 + seed * 3;
+            let success = Math.round(total * 0.9);
+            let error = 0;
+            let warning = 0;
+            
+            if (seed === 3 || seed === 7) {
+                error = 1;
+                success -= 1;
+            }
+            if (seed === 5 || seed === 8) {
+                warning = 2;
+                success -= 2;
+            }
+
+            const avgDur = 500 + seed * 120;
+
+            const hourlySuccess = Array(24).fill(0);
+            const hourlyWarning = Array(24).fill(0);
+            const hourlyError = Array(24).fill(0);
+
+            // Distribute runs across hours (mostly active during business hours 9-18)
+            let sRemaining = success;
+            let wRemaining = warning;
+            let eRemaining = error;
+
+            const activeHours = [9, 10, 11, 12, 13, 14, 15, 16, 17, 18];
+            activeHours.forEach(h => {
+                if (sRemaining > 0) {
+                    const count = Math.min(sRemaining, 2);
+                    hourlySuccess[h] = count;
+                    sRemaining -= count;
+                }
+            });
+            if (sRemaining > 0) hourlySuccess[12] += sRemaining;
+
+            if (wRemaining > 0) {
+                hourlyWarning[14] = wRemaining;
+            }
+            if (eRemaining > 0) {
+                hourlyError[10] = eRemaining;
+            }
+
+            const errorTypes = error > 0 ? { 'שגיאת חיבור (404)': error } : {};
+            const warningTypes = warning > 0 ? { 'גיבוי ChatGPT': warning } : {};
+
+            stats.push({
+                id: `mock-stats-${auto.id}-${dateStr}`,
+                date: dateStr,
+                automation_id: auto.id,
+                n8n_workflow_id: auto.workflowId,
+                total_runs: total,
+                success_runs: success,
+                warning_runs: warning,
+                error_runs: error,
+                avg_duration_ms: avgDur,
+                hourly_success: hourlySuccess,
+                hourly_warning: hourlyWarning,
+                hourly_error: hourlyError,
+                error_types: errorTypes,
+                warning_types: warningTypes
+            });
+        });
+    }
+    return stats;
+}
+
+const INITIAL_MOCK_AUTOMATION_DAILY_STATS = generateInitialMockDailyStats();
+
+const INITIAL_MOCK_DOCUMENTS = [
+    {
+        id: 'mock-doc-1',
+        created_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+        lead_id: 'mock-lead-3', // שימי אלקובי
+        automation_id: null,
+        name: 'הצעת מחיר - מפתח הזהב נדלן',
+        type: 'proposal',
+        file_name: 'proposal_gold_key.pdf',
+        file_size: 245120, // 240 KB
+        file_url: '#'
+    },
+    {
+        id: 'mock-doc-2',
+        created_at: new Date(Date.now() - 9 * 24 * 60 * 60 * 1000).toISOString(),
+        lead_id: 'mock-lead-4', // יפה לוי
+        automation_id: 'mock-auto-2',
+        name: 'חוזה התקשרות חתום',
+        type: 'contract',
+        file_name: 'signed_contract_yafa_levy.pdf',
+        file_size: 512000, // 500 KB
+        file_url: '#'
+    }
+];
+
+function synthesizeRunsFromDailyStats(dailyStats, automationId, workflowIds) {
+    const synthesizedRuns = [];
+    const defaultWorkflowId = workflowIds && workflowIds.length > 0 ? workflowIds[0] : '';
+    
+    dailyStats.forEach(row => {
+        let dateStr = row.date;
+        if (dateStr instanceof Date) {
+            dateStr = dateStr.toISOString().split('T')[0];
+        } else if (typeof dateStr === 'string') {
+            dateStr = dateStr.split('T')[0];
+        } else {
+            return;
+        }
+        
+        const [y, m_num, d_num] = dateStr.split('-').map(Number);
+        
+        // Expand error types and warning types
+        const errorTypesList = [];
+        if (row.error_types) {
+            Object.entries(row.error_types).forEach(([type, count]) => {
+                for (let i = 0; i < count; i++) errorTypesList.push(type);
+            });
+        }
+        const warningTypesList = [];
+        if (row.warning_types) {
+            Object.entries(row.warning_types).forEach(([type, count]) => {
+                for (let i = 0; i < count; i++) warningTypesList.push(type);
+            });
+        }
+
+        // Loop through 24 hours
+        for (let h = 0; h < 24; h++) {
+            const sCount = row.hourly_success ? (row.hourly_success[h] || 0) : 0;
+            const wCount = row.hourly_warning ? (row.hourly_warning[h] || 0) : 0;
+            const eCount = row.hourly_error ? (row.hourly_error[h] || 0) : 0;
+
+            // Generate success runs
+            for (let i = 0; i < sCount; i++) {
+                synthesizedRuns.push({
+                    id: `synth-${row.id}-success-${h}-${i}`,
+                    created_at: new Date(Date.UTC(y, m_num - 1, d_num, h, 0, 0)).toISOString(),
+                    automation_id: automationId,
+                    n8n_workflow_id: row.n8n_workflow_id || defaultWorkflowId,
+                    status: 'success',
+                    duration_ms: row.avg_duration_ms || 0,
+                    error_type: '',
+                    title: '✅ ריצה תקינה (היסטוריה)',
+                    message: 'ריצה תקינה',
+                    details: { message: 'ריצה תקינה' },
+                    ai_analysis: null
+                });
+            }
+
+            // Generate warning runs
+            for (let i = 0; i < wCount; i++) {
+                const errType = warningTypesList.shift() || 'General Warning';
+                synthesizedRuns.push({
+                    id: `synth-${row.id}-warning-${h}-${i}`,
+                    created_at: new Date(Date.UTC(y, m_num - 1, d_num, h, 5, 0)).toISOString(),
+                    automation_id: automationId,
+                    n8n_workflow_id: row.n8n_workflow_id || defaultWorkflowId,
+                    status: 'warning',
+                    duration_ms: row.avg_duration_ms || 0,
+                    error_type: errType,
+                    title: `⚠️ אזהרה: ${errType} (היסטוריה)`,
+                    message: `אזהרה היסטורית: ${errType}`,
+                    details: { warning_message: `אזהרה: ${errType}` },
+                    ai_analysis: null
+                });
+            }
+
+            // Generate error runs
+            for (let i = 0; i < eCount; i++) {
+                const errType = errorTypesList.shift() || 'General Error';
+                synthesizedRuns.push({
+                    id: `synth-${row.id}-error-${h}-${i}`,
+                    created_at: new Date(Date.UTC(y, m_num - 1, d_num, h, 10, 0)).toISOString(),
+                    automation_id: automationId,
+                    n8n_workflow_id: row.n8n_workflow_id || defaultWorkflowId,
+                    status: 'error',
+                    duration_ms: row.avg_duration_ms || 0,
+                    error_type: errType,
+                    title: `🚨 שגיאה: ${errType} (היסטוריה)`,
+                    message: `שגיאה היסטורית: ${errType}`,
+                    details: { error_message: `שגיאה: ${errType}` },
+                    ai_analysis: null
+                });
+            }
+        }
+    });
+
+    return synthesizedRuns;
+}
+
+function simulateLocalRollup() {
+    try {
+        const automations = getLocalData(STORAGE_KEYS.AUTOMATIONS, INITIAL_MOCK_AUTOMATIONS);
+        let runs = getLocalData(STORAGE_KEYS.AUTOMATION_RUNS, INITIAL_MOCK_AUTOMATION_RUNS);
+        let alerts = getLocalData(STORAGE_KEYS.SYSTEM_ALERTS, INITIAL_MOCK_SYSTEM_ALERTS);
+        let dailyStats = getLocalData(STORAGE_KEYS.AUTOMATION_DAILY_STATS, INITIAL_MOCK_AUTOMATION_DAILY_STATS);
+
+        const now = new Date();
+        const cutoff7Days = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        const cutoff30Days = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+        const allItems = [...runs, ...alerts];
+        if (allItems.length === 0) return;
+
+        const groups = {};
+
+        automations.forEach(auto => {
+            const workflowIds = [];
+            if (auto.n8n_workflow_id) {
+                auto.n8n_workflow_id.split(',').forEach(id => {
+                    const trimmed = id.trim();
+                    if (trimmed) workflowIds.push(trimmed);
+                });
+            }
+            let parsedWorkflows = [];
+            if (auto.n8n_workflows) {
+                if (Array.isArray(auto.n8n_workflows)) {
+                    parsedWorkflows = auto.n8n_workflows;
+                } else if (typeof auto.n8n_workflows === 'string') {
+                    try {
+                        const parsed = JSON.parse(auto.n8n_workflows);
+                        if (Array.isArray(parsed)) parsedWorkflows = parsed;
+                    } catch (e) {}
+                }
+            }
+            parsedWorkflows.forEach(w => {
+                if (w && w.id) workflowIds.push(w.id.trim());
+            });
+
+            const autoRuns = runs.filter(r => 
+                r.automation_id === auto.id || 
+                (r.n8n_workflow_id && workflowIds.includes(r.n8n_workflow_id.trim()))
+            );
+
+            const autoAlerts = alerts.filter(alert => {
+                let status = 'success';
+                if (alert.type === 'error') status = 'error';
+                else if (alert.type === 'warning') status = 'warning';
+
+                let wfId = alert.n8n_workflow_id;
+                if (!wfId) {
+                    const textToSearch = ((alert.title || '') + ' ' + (alert.message || '')).toLowerCase();
+                    if (textToSearch.includes("צ'אטבוט") || textToSearch.includes('chatbot') || textToSearch.includes('gemini') || textToSearch.includes('בוט') || textToSearch.includes('מענה')) {
+                        wfId = 'lyCrWBmsGlRSMJmo';
+                    } else if (textToSearch.includes('תקלה') || textToSearch.includes('נכשל') || textToSearch.includes('שגיאה')) {
+                        wfId = 'bRNz7Lq79wYJ5Dvo';
+                    }
+                }
+                return wfId && workflowIds.includes(wfId.trim());
+            }).map(alert => {
+                let status = 'success';
+                if (alert.type === 'error') status = 'error';
+                else if (alert.type === 'warning') status = 'warning';
+                
+                let errType = alert.title || '';
+                errType = errType.replace(/🚨|⚠️|✅/g, '').replace('תקלה:', '').replace('הצלחה:', '').trim();
+
+                return {
+                    id: alert.id,
+                    created_at: alert.created_at,
+                    automation_id: auto.id,
+                    n8n_workflow_id: alert.n8n_workflow_id,
+                    status: status,
+                    duration_ms: alert.duration_ms || null,
+                    error_type: errType
+                };
+            });
+
+            const combined = [...autoRuns, ...autoAlerts];
+
+            combined.forEach(item => {
+                const dateStr = item.created_at.split('T')[0];
+                const todayStr = new Date().toISOString().split('T')[0];
+                
+                if (dateStr >= todayStr) return;
+
+                const key = `${dateStr}_${auto.id}`;
+                if (!groups[key]) {
+                    groups[key] = {
+                        date: dateStr,
+                        automation_id: auto.id,
+                        n8n_workflow_id: auto.n8n_workflow_id || workflowIds[0] || '',
+                        items: []
+                    };
+                }
+                groups[key].items.push(item);
+            });
+        });
+
+        let statsChanged = false;
+        Object.values(groups).forEach(g => {
+            const dateStr = g.date;
+            const autoId = g.automation_id;
+
+            const total = g.items.length;
+            const success = g.items.filter(item => item.status === 'success').length;
+            const warning = g.items.filter(item => item.status === 'warning').length;
+            const error = g.items.filter(item => item.status === 'error').length;
+            
+            const runsWithDuration = g.items.filter(item => item.duration_ms > 0);
+            const avgDuration = runsWithDuration.length > 0 
+                ? Math.round(runsWithDuration.reduce((acc, item) => acc + item.duration_ms, 0) / runsWithDuration.length) 
+                : 0;
+
+            const hourlySuccess = Array(24).fill(0);
+            const hourlyWarning = Array(24).fill(0);
+            const hourlyError = Array(24).fill(0);
+
+            const errorTypes = {};
+            const warningTypes = {};
+
+            g.items.forEach(item => {
+                const hour = new Date(item.created_at).getUTCHours();
+                if (item.status === 'success') {
+                    hourlySuccess[hour]++;
+                } else if (item.status === 'warning') {
+                    hourlyWarning[hour]++;
+                    const type = item.error_type || 'General Warning';
+                    warningTypes[type] = (warningTypes[type] || 0) + 1;
+                } else if (item.status === 'error') {
+                    hourlyError[hour]++;
+                    const type = item.error_type || 'General Error';
+                    errorTypes[type] = (errorTypes[type] || 0) + 1;
+                }
+            });
+
+            const existingIdx = dailyStats.findIndex(s => s.date === dateStr && s.automation_id === autoId);
+            const newRow = {
+                id: existingIdx !== -1 ? dailyStats[existingIdx].id : `mock-stats-${autoId}-${dateStr}`,
+                date: dateStr,
+                automation_id: autoId,
+                n8n_workflow_id: g.n8n_workflow_id,
+                total_runs: total,
+                success_runs: success,
+                warning_runs: warning,
+                error_runs: error,
+                avg_duration_ms: avgDuration,
+                hourly_success: hourlySuccess,
+                hourly_warning: hourlyWarning,
+                hourly_error: hourlyError,
+                error_types: errorTypes,
+                warning_types: warningTypes
+            };
+
+            if (existingIdx !== -1) {
+                dailyStats[existingIdx] = newRow;
+            } else {
+                dailyStats.push(newRow);
+            }
+            statsChanged = true;
+        });
+
+        if (statsChanged) {
+            setLocalData(STORAGE_KEYS.AUTOMATION_DAILY_STATS, dailyStats);
+        }
+
+        let runsPurged = false;
+        const remainingRuns = runs.filter(r => {
+            const created = new Date(r.created_at);
+            if (r.status === 'error') {
+                return created >= cutoff30Days;
+            } else {
+                return created >= cutoff7Days;
+            }
+        });
+        if (remainingRuns.length !== runs.length) {
+            setLocalData(STORAGE_KEYS.AUTOMATION_RUNS, remainingRuns);
+            runsPurged = true;
+        }
+
+        let alertsPurged = false;
+        const remainingAlerts = alerts.filter(alert => {
+            const created = new Date(alert.created_at);
+            if (alert.type === 'error') {
+                return created >= cutoff30Days;
+            } else {
+                return created >= cutoff7Days;
+            }
+        });
+        if (remainingAlerts.length !== alerts.length) {
+            setLocalData(STORAGE_KEYS.SYSTEM_ALERTS, remainingAlerts);
+            alertsPurged = true;
+        }
+    } catch (err) {
+        console.error("[Local Rollup] Error performing local rollup:", err);
+    }
+}
+
+// Run local rollup simulation on startup (async, non-blocking)
+if (!isSupabaseConfigured) {
+    setTimeout(() => {
+        simulateLocalRollup();
+    }, 500);
+}
 
 // Helper to get from localstorage or initialize
 function getLocalData(key, defaultData) {
@@ -708,8 +1129,26 @@ export const db = {
                 if (w && w.id) workflowIds.push(w.id.trim());
             });
 
-            // Fetch runs matching either the automation_id OR any of the workflow IDs
-            let query = supabase.from('automation_runs').select('*');
+            // Calculate cutoff date (7 days ago)
+            const cutoffDate = new Date();
+            cutoffDate.setDate(cutoffDate.getDate() - 7);
+            const cutoffStr = cutoffDate.toISOString().split('T')[0];
+
+            // 1. Fetch historical aggregated stats older than 7 days
+            const { data: dailyStats, error: statsErr } = await supabase
+                .from('automation_daily_stats')
+                .select('*')
+                .eq('automation_id', automationId)
+                .lt('date', cutoffStr);
+            
+            if (statsErr) {
+                console.error("Error fetching daily stats:", statsErr);
+            }
+
+            // 2. Fetch detailed runs in the last 7 days matching either the automation_id OR any of workflow IDs
+            let query = supabase.from('automation_runs')
+                .select('*')
+                .gte('created_at', cutoffDate.toISOString());
             if (workflowIds.length > 0) {
                 query = query.or(`automation_id.eq.${automationId},n8n_workflow_id.in.(${workflowIds.join(',')})`);
             } else {
@@ -726,12 +1165,13 @@ export const db = {
                 message: run.message || (run.details ? (run.details.error_message || run.details.warning_message || '') : '') || ''
             }));
 
-            // Fetch system_alerts matching any of the workflow IDs OR having null workflow ID
+            // Fetch system_alerts matching any of workflow IDs, created in the last 7 days
             let alerts = [];
             if (workflowIds.length > 0) {
                 const { data: alertData, error: alertErr } = await supabase
                     .from('system_alerts')
                     .select('*')
+                    .gte('created_at', cutoffDate.toISOString())
                     .or(`n8n_workflow_id.in.(${workflowIds.join(',')}),n8n_workflow_id.is.null`);
                 if (!alertErr && alertData) {
                     alerts = alertData;
@@ -776,7 +1216,10 @@ export const db = {
                 };
             }).filter(run => run.n8n_workflow_id && workflowIds.includes(run.n8n_workflow_id));
 
-            const merged = [...formattedRuns, ...alertRuns];
+            // Synthesize historical runs
+            const synthesizedRuns = dailyStats ? synthesizeRunsFromDailyStats(dailyStats, automationId, workflowIds) : [];
+
+            const merged = [...formattedRuns, ...alertRuns, ...synthesizedRuns];
             const seenIds = new Set();
             const unique = [];
             merged.forEach(run => {
@@ -790,6 +1233,7 @@ export const db = {
         } else {
             // Local mock fallback
             const runs = getLocalData(STORAGE_KEYS.AUTOMATION_RUNS, INITIAL_MOCK_AUTOMATION_RUNS);
+            const dailyStats = getLocalData(STORAGE_KEYS.AUTOMATION_DAILY_STATS, INITIAL_MOCK_AUTOMATION_DAILY_STATS);
             const automations = getLocalData(STORAGE_KEYS.AUTOMATIONS, INITIAL_MOCK_AUTOMATIONS);
             const auto = automations.find(a => a.id === automationId);
             if (!auto) return [];
@@ -816,18 +1260,31 @@ export const db = {
                 if (w && w.id) workflowIds.push(w.id.trim());
             });
 
+            // Calculate cutoff date (7 days ago)
+            const cutoffDate = new Date();
+            cutoffDate.setDate(cutoffDate.getDate() - 7);
+            const cutoffStr = cutoffDate.toISOString().split('T')[0];
+
+            // Filter historical daily stats older than 7 days
+            const filteredStats = dailyStats.filter(s => 
+                s.automation_id === automationId && s.date < cutoffStr
+            );
+
+            // Filter detailed runs in the last 7 days
             const filteredRuns = runs.filter(r => 
-                r.automation_id === automationId || 
-                (r.n8n_workflow_id && workflowIds.includes(r.n8n_workflow_id.trim()))
+                (r.automation_id === automationId || (r.n8n_workflow_id && workflowIds.includes(r.n8n_workflow_id.trim()))) &&
+                r.created_at >= cutoffDate.toISOString()
             ).map(run => ({
                 ...run,
                 title: run.title || run.error_type || 'ריצת אוטומציה',
                 message: run.message || (run.details ? (run.details.error_message || run.details.warning_message || '') : '') || ''
             }));
 
-            // Fetch local alerts to merge
+            // Fetch local alerts to merge (last 7 days)
             const alerts = getLocalData(STORAGE_KEYS.SYSTEM_ALERTS, INITIAL_MOCK_SYSTEM_ALERTS);
-            const alertRuns = alerts.map(alert => {
+            const alertRuns = alerts.filter(alert => 
+                alert.created_at >= cutoffDate.toISOString()
+            ).map(alert => {
                 let status = 'success';
                 if (alert.type === 'error') status = 'error';
                 else if (alert.type === 'warning') status = 'warning';
@@ -864,7 +1321,10 @@ export const db = {
                 };
             }).filter(run => run.n8n_workflow_id && workflowIds.includes(run.n8n_workflow_id));
 
-            const merged = [...filteredRuns, ...alertRuns];
+            // Synthesize historical runs
+            const synthesizedRuns = synthesizeRunsFromDailyStats(filteredStats, automationId, workflowIds);
+
+            const merged = [...filteredRuns, ...alertRuns, ...synthesizedRuns];
             const seenIds = new Set();
             const unique = [];
             merged.forEach(run => {
@@ -1128,6 +1588,141 @@ export const db = {
             return true;
         } else {
             setLocalData(STORAGE_KEYS.SYSTEM_ALERTS, []);
+            return true;
+        }
+    },
+
+    // --------------------------------------------------
+    // AUTOMATION DAILY STATS ACTIONS
+    // --------------------------------------------------
+    async getAutomationDailyStats(automationId) {
+        if (isSupabaseConfigured) {
+            const { data, error } = await supabase
+                .from('automation_daily_stats')
+                .select('*')
+                .eq('automation_id', automationId)
+                .order('date', { ascending: true });
+            if (error) throw error;
+            return data;
+        } else {
+            const stats = getLocalData(STORAGE_KEYS.AUTOMATION_DAILY_STATS, INITIAL_MOCK_AUTOMATION_DAILY_STATS);
+            return stats.filter(s => s.automation_id === automationId).sort((a, b) => a.date.localeCompare(b.date));
+        }
+    },
+
+    // --------------------------------------------------
+    // DOCUMENTS ACTIONS
+    // --------------------------------------------------
+    async getDocuments(leadId = null, automationId = null) {
+        if (isSupabaseConfigured) {
+            let query = supabase.from('documents').select('*');
+            if (leadId && automationId) {
+                query = query.or(`lead_id.eq.${leadId},automation_id.eq.${automationId}`);
+            } else if (leadId) {
+                query = query.eq('lead_id', leadId);
+            } else if (automationId) {
+                query = query.eq('automation_id', automationId);
+            }
+            const { data, error } = await query.order('created_at', { ascending: false });
+            if (error) throw error;
+            return data;
+        } else {
+            const docs = getLocalData(STORAGE_KEYS.DOCUMENTS, INITIAL_MOCK_DOCUMENTS);
+            if (leadId && automationId) {
+                return docs.filter(d => d.lead_id === leadId || d.automation_id === automationId).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+            } else if (leadId) {
+                return docs.filter(d => d.lead_id === leadId).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+            } else if (automationId) {
+                return docs.filter(d => d.automation_id === automationId).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+            }
+            return docs.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        }
+    },
+
+    async uploadDocument(docData, file) {
+        if (isSupabaseConfigured) {
+            // Upload to Supabase Storage bucket 'documents'
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
+            const filePath = `${docData.lead_id || docData.automation_id || 'general'}/${fileName}`;
+            
+            const { data: uploadData, error: uploadErr } = await supabase.storage
+                .from('documents')
+                .upload(filePath, file);
+                
+            if (uploadErr) throw uploadErr;
+            
+            // Get public URL
+            const { data: urlData } = supabase.storage
+                .from('documents')
+                .getPublicUrl(filePath);
+                
+            const fileUrl = urlData.publicUrl;
+
+            // Insert into public.documents table
+            const { data, error } = await supabase
+                .from('documents')
+                .insert([{
+                    lead_id: docData.lead_id || null,
+                    automation_id: docData.automation_id || null,
+                    name: docData.name,
+                    type: docData.type,
+                    file_name: file.name,
+                    file_size: file.size,
+                    file_url: fileUrl
+                }])
+                .select();
+                
+            if (error) throw error;
+            return data[0];
+        } else {
+            const newDoc = {
+                id: 'doc-' + Math.random().toString(36).substr(2, 9),
+                created_at: new Date().toISOString(),
+                lead_id: docData.lead_id || null,
+                automation_id: docData.automation_id || null,
+                name: docData.name,
+                type: docData.type,
+                file_name: file.name,
+                file_size: file.size,
+                file_url: '#'
+            };
+            const docs = getLocalData(STORAGE_KEYS.DOCUMENTS, INITIAL_MOCK_DOCUMENTS);
+            docs.unshift(newDoc);
+            setLocalData(STORAGE_KEYS.DOCUMENTS, docs);
+            return newDoc;
+        }
+    },
+
+    async deleteDocument(id) {
+        if (isSupabaseConfigured) {
+            // First fetch document row to remove from Storage
+            const { data: doc, error: getErr } = await supabase
+                .from('documents')
+                .select('file_url')
+                .eq('id', id)
+                .single();
+                
+            if (!getErr && doc && doc.file_url) {
+                const parts = doc.file_url.split('/public/documents/');
+                if (parts.length > 1) {
+                    const filePath = decodeURIComponent(parts[1]);
+                    await supabase.storage.from('documents').remove([filePath]);
+                }
+            }
+
+            // Delete from database
+            const { error } = await supabase
+                .from('documents')
+                .delete()
+                .eq('id', id);
+                
+            if (error) throw error;
+            return true;
+        } else {
+            const docs = getLocalData(STORAGE_KEYS.DOCUMENTS, INITIAL_MOCK_DOCUMENTS);
+            const updated = docs.filter(d => d.id !== id);
+            setLocalData(STORAGE_KEYS.DOCUMENTS, updated);
             return true;
         }
     },

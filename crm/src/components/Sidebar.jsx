@@ -13,7 +13,10 @@ import {
     Bell,
     Trash2,
     CheckCheck,
-    X
+    X,
+    Calculator,
+    BookOpen,
+    Map
 } from 'lucide-react';
 import { isSupabaseConfigured } from '../services/db';
 
@@ -34,6 +37,9 @@ export default function Sidebar({
         { id: 'kanban', label: 'לוח קנבן', icon: Columns },
         { id: 'leads', label: 'רשימת לידים', icon: Users },
         { id: 'projects', label: 'פרויקטים ואוטומציות', icon: Briefcase },
+        { id: 'calculator', label: 'מחשבון תמחור ו-ROI', icon: Calculator },
+        { id: 'docs', label: 'מדריך ודוקומנטציה', icon: BookOpen },
+        { id: 'roadmap', label: 'מפת דרכים לאוטומציה', icon: Map },
         { id: 'settings', label: 'הגדרות חיבור', icon: SettingsIcon }
     ];
 

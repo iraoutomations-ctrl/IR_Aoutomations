@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { db } from '../services/db';
 
-export default function LeadsList({ onSelectLead, activeTab, onAddLead }) {
+export default function LeadsList({ onSelectLead, activeTab, onAddLead, refreshTrigger }) {
     const [leads, setLeads] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
@@ -23,7 +23,9 @@ export default function LeadsList({ onSelectLead, activeTab, onAddLead }) {
     useEffect(() => {
         async function loadLeads() {
             try {
-                setLoading(true);
+                if (leads.length === 0) {
+                    setLoading(true);
+                }
                 const fetchedLeads = await db.getLeads();
                 setLeads(fetchedLeads);
             } catch (err) {
@@ -33,7 +35,7 @@ export default function LeadsList({ onSelectLead, activeTab, onAddLead }) {
             }
         }
         loadLeads();
-    }, [activeTab]);
+    }, [activeTab, refreshTrigger]);
 
     const handleDeleteLead = async (id, name, e) => {
         e.stopPropagation(); // Prevent opening modal

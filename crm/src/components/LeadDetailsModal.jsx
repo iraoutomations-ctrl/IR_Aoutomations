@@ -403,6 +403,17 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
                 steps: ['אין צורך בפעולה.']
             };
         }
+        if (run.status === 'warning' || run.status === 'fallback') {
+            return {
+                title: 'הריצה הושלמה עם אזהרה / גיבוי (Fallback Model Active)',
+                desc: "הצ'אטבוט ענה למשתמש בהצלחה, אך המערכת נאלצה להשתמש במודל הגיבוי (Gemini Pro) עקב עיכוב או כשל זמני במודל הראשי (Gemini Flash).",
+                steps: [
+                    'אין צורך בפעולה מיידית מכיוון שהמשתמש קיבל מענה תקין.',
+                    'מומלץ לבדוק את זמני התגובה או זמינות ה-API של Gemini Flash ב-N8N.',
+                    'וודא שמפתח ה-API של גוגל מוגדר ותקין.'
+                ]
+            };
+        }
         
         let errType = '';
         if (run.error_type) {
@@ -1464,16 +1475,164 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
                                                                                 {(activeAutoTabs[auto.id] || 'ops') === 'stats' && (
                                                                                     <div onClick={(e) => e.stopPropagation()}>
                                                                                         {(() => {
+                                                                                            const getWeeksOfMonth = (year, month) => {
+                                                                                                const firstDayIndex = new Date(year, month, 1).getDay();
+                                                                                                const firstSaturdayDate = 1 + (6 - firstDayIndex);
+                                                                                                const lastDay = new Date(year, month + 1, 0).getDate();
+                                                                                                const weeks = [];
+                                                                                                weeks.push({ weekNum: 1, startDay: 1, endDay: Math.min(firstSaturdayDate, lastDay) });
+                                                                                                let currentStart = firstSaturdayDate + 1;
+                                                                                                let wNum = 2;
+                                                                                                while (currentStart <= lastDay) {
+                                                                                                    const currentEnd = Math.min(currentStart + 6, lastDay);
+                                                                                                    weeks.push({ weekNum: wNum, startDay: currentStart, endDay: currentEnd });
+                                                                                                    currentStart = currentEnd + 1;
+                                                                                                    wNum++;
+                                                                                                }
+                                                                                                return weeks;
+                                                                                            };
+
                                                                                             const runs = autoRuns[auto.id] || [];
                                                                                             const total = runs.length;
                                                                                             const success = runs.filter(r => r.status === 'success').length;
                                                                                             const warning = runs.filter(r => r.status === 'warning').length;
                                                                                             const error = runs.filter(r => r.status === 'error').length;
-                                                                                            const successRate = total > 0 ? Math.round((success / total) * 100) : 100;
+                                                                                            const blocked = runs.filter(r => r.error_type && r.error_type.includes('נחסמה')).length;
+                                                                                            const realErrors = error - blocked;
+                                                                                            
+                                                                                            const activeTotal = total - blocked;
+                                                                                            const successRate = activeTotal > 0 ? Math.round((success / activeTotal) * 100) : 100;
                                                                                             const runsWithDuration = runs.filter(r => r.duration_ms > 0);
                                                                                             const avgDuration = runsWithDuration.length > 0 ? Math.round(runsWithDuration.reduce((acc, r) => acc + r.duration_ms, 0) / runsWithDuration.length) : 0;
+
+                                                                                            // Calculate consecutive failures (from most recent, excluding blocked runs)
+                                                                                            const sortedRuns = [...runs].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+                                                                                            let consecutiveFailures = 0;
+                                                                                            for (const r of sortedRuns) {
+                                                                                                if (r.status === 'error') {
+                                                                                                    if (r.error_type && r.error_type.includes('נחסמה')) {
+                                                                                                        continue; // Ignore blocked runs for consecutive failures
+                                                                                                    }
+                                                                                                    consecutiveFailures++;
+                                                                                                } else {
+                                                                                                    break;
+                                                                                                }
+                                                                                              }
+
+                                                                                            // Calculate open bugs count (mapped to this auto)
+                                                                                            const openBugsCount = bugs.filter(b => b.automation_id === auto.id && b.status !== 'resolved').length;
+
+                                                                                            // Calculate Health Score (excluding blocked runs)
+                                                                                            const runs30 = runs.filter(r => new Date(r.created_at) >= new Date(Date.now() - 30 * 24 * 60 * 60 * 1000));
+                                                                                            const total30 = runs30.length;
+                                                                                            const blocked30 = runs30.filter(r => r.error_type && r.error_type.includes('נחסמה')).length;
+                                                                                            const activeTotal30 = total30 - blocked30;
+                                                                                            const errors30 = runs30.filter(r => r.status === 'error' && !(r.error_type && r.error_type.includes('נחסמה'))).length;
+                                                                                            const failRate = activeTotal30 > 0 ? (errors30 / activeTotal30) : 0;
+                                                                                            const healthDeductions = (failRate * 40) + Math.min(30, consecutiveFailures * 15) + Math.min(30, openBugsCount * 10);
+                                                                                            const healthScore = Math.max(0, Math.min(100, Math.round(100 - healthDeductions)));
+
+                                                                                            // Calculate MTTR (Mean Time to Repair)
+                                                                                            const bugResolutions = JSON.parse(localStorage.getItem('bug_resolution_times') || '{}');
+                                                                                            const resolvedBugs = bugs.filter(b => b.automation_id === auto.id && b.status === 'resolved');
+                                                                                            let totalMTTRMs = 0;
+                                                                                            let resolvedCountWithTime = 0;
+                                                                                            resolvedBugs.forEach(bug => {
+                                                                                                const resTimeStr = bugResolutions[bug.id];
+                                                                                                const resTime = resTimeStr ? new Date(resTimeStr).getTime() : new Date(bug.created_at).getTime() + 12 * 60 * 60 * 1000; // default 12 hours
+                                                                                                const createdTime = new Date(bug.created_at).getTime();
+                                                                                                if (resTime > createdTime) {
+                                                                                                    totalMTTRMs += (resTime - createdTime);
+                                                                                                    resolvedCountWithTime++;
+                                                                                                }
+                                                                                            });
+                                                                                            const avgMTTR = resolvedCountWithTime > 0 ? Math.round(totalMTTRMs / resolvedCountWithTime) : 0;
+
+                                                                                            // Calculate ROI & Savings
+                                                                                            const storedRoi = JSON.parse(localStorage.getItem('auto_roi_settings') || '{}');
+                                                                                            const autoRoi = storedRoi[auto.id] || { manualMins: 5, hourlyWage: 50 };
+                                                                                            const hoursSaved = Math.round(((success * autoRoi.manualMins) / 60) * 10) / 10;
+                                                                                            const moneySaved = Math.round(hoursSaved * autoRoi.hourlyWage);
+
+                                                                                            // Calculate Monthly Goal & Forecast
+                                                                                            const startOfMonth = new Date();
+                                                                                            startOfMonth.setDate(1);
+                                                                                            startOfMonth.setHours(0,0,0,0);
+                                                                                            const currentMonthRuns = runs.filter(r => new Date(r.created_at) >= startOfMonth && !(r.error_type && r.error_type.includes('נחסמה')));
+                                                                                            const currentMonthTotal = currentMonthRuns.length;
                                                                                             
-                                                                                            const errorTypes = {};
+                                                                                            const totalAllowed = (auto.runs_goal || 0) + (auto.extra_runs_allowance || 0);
+                                                                                            const goalPercent = totalAllowed > 0 ? Math.round((currentMonthTotal / totalAllowed) * 100) : 0;
+
+                                                                                            // Forecast based on elapsed days in month
+                                                                                            const today = new Date();
+                                                                                            const elapsedDays = today.getDate();
+                                                                                            const totalDaysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+                                                                                            const runsPerDay = currentMonthTotal / elapsedDays;
+                                                                                            const forecastRuns = Math.round(runsPerDay * totalDaysInMonth);
+                                                                                            const forecastPercent = totalAllowed > 0 ? Math.round((forecastRuns / totalAllowed) * 100) : 0;
+                                                                                            
+                                                                                            const overageRuns = Math.max(0, currentMonthTotal - totalAllowed);
+                                                                                            const overageRate = auto.custom_overage_rate === undefined ? 0.05 : auto.custom_overage_rate;
+                                                                                            const overageCost = overageRuns * overageRate;
+
+                                                                                            // Calculate peak hour
+                                                                                            const hourlyRunCounts = Array(24).fill(0);
+                                                                                            runs.forEach(r => {
+                                                                                                const d = new Date(r.created_at);
+                                                                                                hourlyRunCounts[d.getHours()]++;
+                                                                                            });
+                                                                                            let peakHour = -1;
+                                                                                            let peakCount = 0;
+                                                                                            hourlyRunCounts.forEach((count, hr) => {
+                                                                                                if (count > peakCount) {
+                                                                                                    peakCount = count;
+                                                                                                    peakHour = hr;
+                                                                                                }
+                                                                                            });
+
+                                                                                            // Calculate average success vs failed duration
+                                                                                            const successRunsWithDuration = runs.filter(r => r.status === 'success' && r.duration_ms > 0);
+                                                                                            const avgSuccessDur = successRunsWithDuration.length > 0 ? Math.round(successRunsWithDuration.reduce((acc, r) => acc + r.duration_ms, 0) / successRunsWithDuration.length) : 0;
+
+                                                                                            const failedRunsWithDuration = runs.filter(r => r.status === 'error' && r.duration_ms > 0);
+                                                                                            const avgFailedDur = failedRunsWithDuration.length > 0 ? Math.round(failedRunsWithDuration.reduce((acc, r) => acc + r.duration_ms, 0) / failedRunsWithDuration.length) : 0;
+
+                                                                                            // Calculate weekly performance trend (last 7 days vs preceding 7 days)
+                                                                                            const now = new Date();
+                                                                                            const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                                                                                            const fourteenDaysAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+
+                                                                                            const recentRuns = runs.filter(r => {
+                                                                                                const date = new Date(r.created_at);
+                                                                                                return date >= sevenDaysAgo && r.duration_ms > 0;
+                                                                                            });
+                                                                                            const priorRuns = runs.filter(r => {
+                                                                                                const date = new Date(r.created_at);
+                                                                                                return date >= fourteenDaysAgo && date < sevenDaysAgo && r.duration_ms > 0;
+                                                                                            });
+
+                                                                                            const avgRecent = recentRuns.length > 0 ? recentRuns.reduce((acc, r) => acc + r.duration_ms, 0) / recentRuns.length : 0;
+                                                                                            const avgPrior = priorRuns.length > 0 ? priorRuns.reduce((acc, r) => acc + r.duration_ms, 0) / priorRuns.length : 0;
+
+                                                                                            let trendText = 'אין מספיק נתונים להשוואת מגמה';
+                                                                                            let trendColor = 'var(--text-muted)';
+
+                                                                                            if (avgRecent > 0 && avgPrior > 0) {
+                                                                                                const diffPercent = Math.round(((avgRecent - avgPrior) / avgPrior) * 100);
+                                                                                                if (diffPercent > 5) {
+                                                                                                    trendText = `📈 האטה של ${diffPercent}% בזמני הריצה בהשוואה לשבוע שעבר`;
+                                                                                                    trendColor = '#ef4444';
+                                                                                                } else if (diffPercent < -5) {
+                                                                                                    trendText = `📉 שיפור של ${Math.abs(diffPercent)}% בזמני הריצה בהשוואה לשבוע שעבר`;
+                                                                                                    trendColor = '#10b981';
+                                                                                                } else {
+                                                                                                    trendText = `📊 זמני הריצה יציבים בהשוואה לשבוע שעבר`;
+                                                                                                    trendColor = 'var(--accent-cyan)';
+                                                                                                }
+                                                                                            }
+
+                                                                                            const errorTypes = {};;
                                                                                             const warningTypes = {};
                                                                                             runs.forEach(r => {
                                                                                                 if (r.status === 'error') {
@@ -1485,26 +1644,355 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
                                                                                                 }
                                                                                             });
 
+                                                                                            // Calculate hourly, weekly, monthly and yearly distributions for time-based statistics
+                                                                                            const hourlyErrors = Array(24).fill(0);
+                                                                                            const hourlyWarnings = Array(24).fill(0);
+                                                                                            
+                                                                                            const dayNames = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
+                                                                                            const dayIssues = Array(7).fill(0).map((_, i) => ({ name: dayNames[i], errors: 0, warnings: 0 }));
+
+                                                                                            const monthNames = ['ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני', 'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר'];
+                                                                                            const monthlyIssues = Array(12).fill(0).map((_, i) => ({ name: monthNames[i], errors: 0, warnings: 0 }));
+                                                                                            
+                                                                                            const yearlyIssues = {};
+
+                                                                                            runs.forEach(r => {
+                                                                                                const date = new Date(r.created_at);
+                                                                                                const hour = date.getHours();
+                                                                                                const day = date.getDay();
+                                                                                                const month = date.getMonth();
+                                                                                                const year = date.getFullYear();
+
+                                                                                                if (r.status === 'error') {
+                                                                                                    hourlyErrors[hour]++;
+                                                                                                    dayIssues[day].errors++;
+                                                                                                    monthlyIssues[month].errors++;
+                                                                                                    if (!yearlyIssues[year]) yearlyIssues[year] = { errors: 0, warnings: 0 };
+                                                                                                    yearlyIssues[year].errors++;
+                                                                                                } else if (r.status === 'warning') {
+                                                                                                    hourlyWarnings[hour]++;
+                                                                                                    dayIssues[day].warnings++;
+                                                                                                    monthlyIssues[month].warnings++;
+                                                                                                    if (!yearlyIssues[year]) yearlyIssues[year] = { errors: 0, warnings: 0 };
+                                                                                                    yearlyIssues[year].warnings++;
+                                                                                                }
+                                                                                            });
+
+                                                                                            const timeBlocks = [
+                                                                                                { name: 'בוקר (06:00 - 12:00)', start: 6, end: 12, errors: 0, warnings: 0 },
+                                                                                                { name: 'צהריים (12:00 - 18:00)', start: 12, end: 18, errors: 0, warnings: 0 },
+                                                                                                { name: 'ערב (18:00 - 00:00)', start: 18, end: 24, errors: 0, warnings: 0 },
+                                                                                                { name: 'לילה (00:00 - 06:00)', start: 0, end: 6, errors: 0, warnings: 0 }
+                                                                                            ];
+
+                                                                                            timeBlocks.forEach(block => {
+                                                                                                for (let h = block.start; h < block.end; h++) {
+                                                                                                    block.errors += hourlyErrors[h];
+                                                                                                    block.warnings += hourlyWarnings[h];
+                                                                                                }
+                                                                                            });
+
+                                                                                            const totalIssues = error + warning;
+                                                                                            const activeDays = dayIssues.filter(d => (d.errors + d.warnings) > 0);
+                                                                                            const activeMonths = monthlyIssues.filter(m => (m.errors + m.warnings) > 0);
+                                                                                            const activeYears = Object.entries(yearlyIssues).filter(([_, data]) => (data.errors + data.warnings) > 0);
+
+                                                                                            // Calculate interactive chart volume data based on resolution toggle and drill-down filters
+                                                                                            const state = chartStates[auto.id] || {
+                                                                                                resolution: 'yearly',
+                                                                                                year: null,
+                                                                                                month: null,
+                                                                                                week: null,
+                                                                                                day: null
+                                                                                            };
+                                                                                            const resolution = state.resolution;
+                                                                                            let chartData = [];
+                                                                                            
+                                                                                            if (resolution === 'yearly') {
+                                                                                                const years = {};
+                                                                                                runs.forEach(r => {
+                                                                                                    const year = new Date(r.created_at).getFullYear();
+                                                                                                    years[year] = (years[year] || 0) + 1;
+                                                                                                });
+                                                                                                const sortedYears = Object.keys(years).sort();
+                                                                                                if (sortedYears.length === 0) {
+                                                                                                    chartData = [{ label: String(new Date().getFullYear()), count: 0, year: new Date().getFullYear() }];
+                                                                                                } else {
+                                                                                                    chartData = sortedYears.map(y => ({ label: String(y), count: years[y], year: Number(y) }));
+                                                                                                }
+                                                                                            } else if (resolution === 'monthly') {
+                                                                                                const yearFilter = state.year || new Date().getFullYear();
+                                                                                                chartData = monthNames.map((name, idx) => ({ label: name, count: 0, year: yearFilter, month: idx }));
+                                                                                                runs.forEach(r => {
+                                                                                                    const d = new Date(r.created_at);
+                                                                                                    if (d.getFullYear() === yearFilter) {
+                                                                                                        const month = d.getMonth();
+                                                                                                        chartData[month].count++;
+                                                                                                    }
+                                                                                                });
+                                                                                            } else if (resolution === 'weekly') {
+                                                                                                const yearFilter = state.year || new Date().getFullYear();
+                                                                                                const monthFilter = state.month !== null ? state.month : new Date().getMonth();
+                                                                                                
+                                                                                                // Get correct Sunday-Saturday weeks
+                                                                                                const weeks = getWeeksOfMonth(yearFilter, monthFilter);
+                                                                                                chartData = weeks.map(w => ({
+                                                                                                    label: `שבוע ${w.weekNum} (${w.startDay}/${monthFilter + 1}-${w.endDay}/${monthFilter + 1})`,
+                                                                                                    count: 0,
+                                                                                                    year: yearFilter,
+                                                                                                    month: monthFilter,
+                                                                                                    week: w.weekNum,
+                                                                                                    startDay: w.startDay,
+                                                                                                    endDay: w.endDay
+                                                                                                }));
+                                                                                                
+                                                                                                runs.forEach(r => {
+                                                                                                    const d = new Date(r.created_at);
+                                                                                                    if (d.getFullYear() === yearFilter && d.getMonth() === monthFilter) {
+                                                                                                        const dayOfMonth = d.getDate();
+                                                                                                        // Find which week this day belongs to
+                                                                                                        const matchedWeekIdx = weeks.findIndex(w => dayOfMonth >= w.startDay && dayOfMonth <= w.endDay);
+                                                                                                        if (matchedWeekIdx !== -1) {
+                                                                                                            chartData[matchedWeekIdx].count++;
+                                                                                                        }
+                                                                                                    }
+                                                                                                });
+                                                                                            } else if (resolution === 'daily') {
+                                                                                                const yearFilter = state.year || new Date().getFullYear();
+                                                                                                const monthFilter = state.month !== null ? state.month : new Date().getMonth();
+                                                                                                const weekFilter = state.week || 1;
+                                                                                                
+                                                                                                // Get correct Sunday-Saturday weeks
+                                                                                                const weeks = getWeeksOfMonth(yearFilter, monthFilter);
+                                                                                                const selectedWeekObj = weeks.find(w => w.weekNum === weekFilter) || weeks[0];
+                                                                                                
+                                                                                                const startDay = selectedWeekObj.startDay;
+                                                                                                const endDay = selectedWeekObj.endDay;
+                                                                                                
+                                                                                                const days = [];
+                                                                                                for (let day = startDay; day <= endDay; day++) {
+                                                                                                    const dateObj = new Date(yearFilter, monthFilter, day);
+                                                                                                    if (dateObj.getMonth() === monthFilter) {
+                                                                                                        const dayNameHeb = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'][dateObj.getDay()];
+                                                                                                        days.push({
+                                                                                                            label: `${dayNameHeb}' - ${day}/${monthFilter + 1}`,
+                                                                                                            count: 0,
+                                                                                                            year: yearFilter,
+                                                                                                            month: monthFilter,
+                                                                                                            week: weekFilter,
+                                                                                                            day: day
+                                                                                                        });
+                                                                                                    }
+                                                                                                }
+                                                                                                
+                                                                                                runs.forEach(r => {
+                                                                                                    const d = new Date(r.created_at);
+                                                                                                    if (d.getFullYear() === yearFilter && d.getMonth() === monthFilter) {
+                                                                                                        const dayOfMonth = d.getDate();
+                                                                                                        if (dayOfMonth >= startDay && dayOfMonth <= endDay) {
+                                                                                                            const dayIdx = dayOfMonth - startDay;
+                                                                                                            if (days[dayIdx]) {
+                                                                                                                days[dayIdx].count++;
+                                                                                                            }
+                                                                                                        }
+                                                                                                    }
+                                                                                                });
+                                                                                                chartData = days;
+                                                                                            } else if (resolution === 'hourly') {
+                                                                                                const yearFilter = state.year || new Date().getFullYear();
+                                                                                                const monthFilter = state.month !== null ? state.month : new Date().getMonth();
+                                                                                                const dayFilter = state.day || new Date().getDate();
+                                                                                                
+                                                                                                chartData = Array(12).fill(0).map((_, i) => {
+                                                                                                    const start = i * 2;
+                                                                                                    const end = start + 2;
+                                                                                                    const label = `${String(start).padStart(2, '0')}-${String(end).padStart(2, '0')}`;
+                                                                                                    return {
+                                                                                                        label,
+                                                                                                        count: 0,
+                                                                                                        year: yearFilter,
+                                                                                                        month: monthFilter,
+                                                                                                        day: dayFilter,
+                                                                                                        hourBlock: i
+                                                                                                    };
+                                                                                                });
+                                                                                                
+                                                                                                runs.forEach(r => {
+                                                                                                    const d = new Date(r.created_at);
+                                                                                                    if (d.getFullYear() === yearFilter && d.getMonth() === monthFilter && d.getDate() === dayFilter) {
+                                                                                                        const hour = d.getHours();
+                                                                                                        const blockIdx = Math.floor(hour / 2);
+                                                                                                        if (blockIdx >= 0 && blockIdx < 12) {
+                                                                                                            chartData[blockIdx].count++;
+                                                                                                        }
+                                                                                                    }
+                                                                                                });
+                                                                                            }
+
                                                                                             return (
                                                                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                                                                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: '8px' }}>
-                                                                                                        <div style={{ background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '8px', textAlign: 'center' }}>
-                                                                                                            <span style={{ fontSize: '10px', color: 'var(--text-secondary)', display: 'block' }}>סה"ך הרצות</span>
-                                                                                                            <strong style={{ fontSize: '16px', color: 'var(--text-light)', display: 'block', marginTop: '2px' }}>{total}</strong>
+                                                                                                    {consecutiveFailures >= 2 && (
+                                                                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px', background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.25)', borderRadius: '6px', color: '#f87171', fontSize: '11px', fontWeight: '600', marginBottom: '4px' }}>
+                                                                                                            <span>⚠️</span>
+                                                                                                            <span>שים לב: האוטומציה נכשלה ב-{consecutiveFailures} הריצות האחרונות ברצף! מומלץ לבדוק את לשונית "לוג ריצות".</span>
                                                                                                         </div>
-                                                                                                        <div style={{ background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '8px', textAlign: 'center' }}>
-                                                                                                            <span style={{ fontSize: '10px', color: 'var(--text-secondary)', display: 'block' }}>שיעור הצלחה</span>
-                                                                                                            <strong style={{ fontSize: '16px', color: successRate > 80 ? '#10b981' : '#f59e0b', display: 'block', marginTop: '2px' }}>{successRate}%</strong>
+                                                                                                    )}
+
+                                                                                                    <div className="premium-stats-grid">
+                                                                                                        {/* Health Score Card */}
+                                                                                                        <div className="premium-stats-card" style={{ '--hover-glow-color': healthScore > 80 ? 'rgba(16, 185, 129, 0.15)' : healthScore > 50 ? 'rgba(245, 158, 11, 0.15)' : 'rgba(239, 68, 68, 0.15)' }}>
+                                                                                                            <span className="card-title">ציון בריאות</span>
+                                                                                                            {(() => {
+                                                                                                                const radius = 18;
+                                                                                                                const stroke = 3;
+                                                                                                                const normalizedRadius = radius - stroke;
+                                                                                                                const circumference = normalizedRadius * 2 * Math.PI;
+                                                                                                                const strokeDashoffset = circumference - (healthScore / 100) * circumference;
+                                                                                                                const gaugeColor = healthScore > 80 ? '#10b981' : healthScore > 50 ? '#f59e0b' : '#ef4444';
+                                                                                                                return (
+                                                                                                                    <div style={{ position: 'relative', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                                                                                        <svg width="40" height="40" style={{ transform: 'rotate(-90deg)' }}>
+                                                                                                                            <circle stroke="rgba(255,255,255,0.05)" fill="transparent" strokeWidth={stroke} r={normalizedRadius} cx="20" cy="20" />
+                                                                                                                            <circle stroke={gaugeColor} fill="transparent" strokeWidth={stroke} strokeDasharray={circumference + ' ' + circumference} style={{ strokeDashoffset }} r={normalizedRadius} cx="20" cy="20" strokeLinecap="round" />
+                                                                                                                        </svg>
+                                                                                                                        <span style={{ position: 'absolute', fontSize: '10px', fontWeight: 'bold', color: '#fff' }}>{healthScore}%</span>
+                                                                                                                    </div>
+                                                                                                                );
+                                                                                                            })()}
                                                                                                         </div>
-                                                                                                        <div style={{ background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '8px', textAlign: 'center' }}>
-                                                                                                            <span style={{ fontSize: '10px', color: 'var(--text-secondary)', display: 'block' }}>זמן תגובה ממוצע</span>
-                                                                                                            <strong style={{ fontSize: '16px', color: 'var(--accent-cyan)', display: 'block', marginTop: '2px' }}>{formatDuration(avgDuration)}</strong>
+                                                                                                        {/* Total Runs Card */}
+                                                                                                        <div className="premium-stats-card" style={{ '--hover-glow-color': 'rgba(255, 255, 255, 0.08)' }}>
+                                                                                                            <span className="card-title">סה"ך הרצות</span>
+                                                                                                            <strong className="card-value">{total}</strong>
+                                                                                                            <span style={{ fontSize: '9px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                                                                                                                {success} הצלחות | {blocked} חסומות | {realErrors} שגיאות
+                                                                                                            </span>
                                                                                                         </div>
-                                                                                                        <div style={{ background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '8px', textAlign: 'center' }}>
-                                                                                                            <span style={{ fontSize: '10px', color: 'var(--text-secondary)', display: 'block' }}>באגים פתוחים</span>
-                                                                                                            <strong style={{ fontSize: '16px', color: openBugsCount > 0 ? '#ef4444' : 'var(--text-secondary)', display: 'block', marginTop: '2px' }}>{openBugsCount}</strong>
+                                                                                                        {/* Success Rate Card */}
+                                                                                                        <div className="premium-stats-card" style={{ '--hover-glow-color': successRate > 80 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(245, 158, 11, 0.15)' }}>
+                                                                                                            <span className="card-title">שיעור הצלחה</span>
+                                                                                                            <strong className="card-value" style={{ color: successRate > 80 ? '#10b981' : '#f59e0b' }}>{successRate}%</strong>
+                                                                                                        </div>
+                                                                                                        {/* Avg Duration Card */}
+                                                                                                        <div className="premium-stats-card" style={{ '--hover-glow-color': 'rgba(6, 182, 212, 0.15)' }}>
+                                                                                                            <span className="card-title">זמן תגובה ממוצע</span>
+                                                                                                            <strong className="card-value" style={{ color: 'var(--accent-cyan)' }}>{formatDuration(avgDuration)}</strong>
+                                                                                                        </div>
+                                                                                                        {/* Open Bugs Card */}
+                                                                                                        <div className="premium-stats-card" style={{ '--hover-glow-color': openBugsCount > 0 ? 'rgba(239, 68, 68, 0.15)' : 'rgba(255, 255, 255, 0.05)' }}>
+                                                                                                            <span className="card-title">באגים פתוחים</span>
+                                                                                                            <strong className="card-value" style={{ color: openBugsCount > 0 ? '#ef4444' : 'var(--text-secondary)' }}>{openBugsCount}</strong>
+                                                                                                        </div>
+                                                                                                        {/* Peak Hour Card */}
+                                                                                                        <div className="premium-stats-card" style={{ '--hover-glow-color': 'rgba(245, 158, 11, 0.15)' }}>
+                                                                                                            <span className="card-title">שעת עומס שיא</span>
+                                                                                                            <strong className="card-value" style={{ color: '#f59e0b' }}>{peakHour !== -1 ? `${String(peakHour).padStart(2, '0')}:00` : '—'}</strong>
+                                                                                                            <span className="card-subtext">{peakCount > 0 ? `(${peakCount} הרצות)` : 'אין הרצות'}</span>
+                                                                                                        </div>
+                                                                                                        {/* MTTR Card */}
+                                                                                                        <div className="premium-stats-card" style={{ '--hover-glow-color': 'rgba(6, 182, 212, 0.15)' }}>
+                                                                                                            <span className="card-title">זמן פתרון באג</span>
+                                                                                                            <strong className="card-value" style={{ color: 'var(--accent-cyan)', fontSize: '15px' }}>{formatMTTR(avgMTTR)}</strong>
+                                                                                                            <span className="card-subtext">MTTR ממוצע</span>
+                                                                                                        </div>
+                                                                                                        {/* ROI Card */}
+                                                                                                        <div className="premium-stats-card" style={{ '--hover-glow-color': 'rgba(16, 185, 129, 0.15)' }}>
+                                                                                                            <button 
+                                                                                                                type="button"
+                                                                                                                onClick={() => setRoiSettingsOpen(prev => ({ ...prev, [auto.id]: !prev[auto.id] }))}
+                                                                                                                style={{ position: 'absolute', top: '4px', left: '4px', background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '9px', padding: '2px' }}
+                                                                                                                title="הגדרות ROI"
+                                                                                                            >
+                                                                                                                ⚙️
+                                                                                                            </button>
+                                                                                                            <span style={{ fontSize: '10px', color: 'var(--text-secondary)', display: 'block' }}>חיסכון ו-ROI</span>
+                                                                                                            <strong style={{ fontSize: '16px', color: '#10b981', display: 'block', marginTop: '2px' }}>₪{moneySaved}</strong>
+                                                                                                            <span style={{ fontSize: '8.5px', color: 'var(--text-muted)' }}>{hoursSaved > 0 ? `(${hoursSaved} ש' נחסכו)` : 'אין נתונים'}</span>
                                                                                                         </div>
                                                                                                     </div>
+
+                                                                                                    {/* ROI inline configuration panel */}
+                                                                                                    {roiSettingsOpen[auto.id] && (
+                                                                                                        <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '6px', padding: '10px', display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '2px' }}>
+                                                                                                            <span style={{ fontSize: '10.5px', fontWeight: '600', color: 'var(--text-light)', display: 'block' }}>⚙️ הגדרות חיסכון ו-ROI עבור {auto.name}:</span>
+                                                                                                            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+                                                                                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', flex: '1 1 120px' }}>
+                                                                                                                    <label style={{ fontSize: '9px', color: 'var(--text-secondary)' }}>זמן טיפול ידני משוער להרצה (דקות):</label>
+                                                                                                                    <input 
+                                                                                                                        type="number" 
+                                                                                                                        min="1"
+                                                                                                                        value={tempRoiMins[auto.id] !== undefined ? tempRoiMins[auto.id] : autoRoi.manualMins} 
+                                                                                                                        onChange={(e) => setTempRoiMins({ ...tempRoiMins, [auto.id]: parseInt(e.target.value) || 0 })}
+                                                                                                                        style={{ padding: '4px 8px', fontSize: '11px', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '4px', color: 'var(--text-light)' }}
+                                                                                                                    />
+                                                                                                                </div>
+                                                                                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', flex: '1 1 120px' }}>
+                                                                                                                    <label style={{ fontSize: '9px', color: 'var(--text-secondary)' }}>עלות שעת עבודה ממוצעת לעובד (₪):</label>
+                                                                                                                    <input 
+                                                                                                                        type="number" 
+                                                                                                                        min="1"
+                                                                                                                        value={tempRoiWage[auto.id] !== undefined ? tempRoiWage[auto.id] : autoRoi.hourlyWage} 
+                                                                                                                        onChange={(e) => setTempRoiWage({ ...tempRoiWage, [auto.id]: parseInt(e.target.value) || 0 })}
+                                                                                                                        style={{ padding: '4px 8px', fontSize: '11px', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '4px', color: 'var(--text-light)' }}
+                                                                                                                    />
+                                                                                                                </div>
+                                                                                                                <button 
+                                                                                                                    type="button"
+                                                                                                                    onClick={() => {
+                                                                                                                        const mins = tempRoiMins[auto.id] !== undefined ? tempRoiMins[auto.id] : autoRoi.manualMins;
+                                                                                                                        const wage = tempRoiWage[auto.id] !== undefined ? tempRoiWage[auto.id] : autoRoi.hourlyWage;
+                                                                                                                        const current = JSON.parse(localStorage.getItem('auto_roi_settings') || '{}');
+                                                                                                                        current[auto.id] = { manualMins: mins, hourlyWage: wage };
+                                                                                                                        localStorage.setItem('auto_roi_settings', JSON.stringify(current));
+                                                                                                                        setRoiSettingsOpen({ ...roiSettingsOpen, [auto.id]: false });
+                                                                                                                    }}
+                                                                                                                    className="btn btn-secondary"
+                                                                                                                    style={{ padding: '4px 12px', fontSize: '11px', height: '26px' }}
+                                                                                                                >
+                                                                                                                    שמור הגדרות
+                                                                                                                </button>
+                                                                                                            </div>
+                                                                                                        </div>
+                                                                                                    )}
+
+                                                                                                    {/* Monthly Goal & Forecast Progress bar */}
+                                                                                                    {auto.runs_goal > 0 && (
+                                                                                                        <div style={{ background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '10px', marginTop: '2px' }}>
+                                                                                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '10.5px', marginBottom: '6px', flexWrap: 'wrap', gap: '4px' }}>
+                                                                                                                <span style={{ color: 'var(--text-light)', fontWeight: '600' }}>🎯 התקדמות מול יעד הרצות חודשי:</span>
+                                                                                                                <span style={{ color: 'var(--text-secondary)' }}>
+                                                                                                                    {currentMonthTotal} מתוך {totalAllowed} הרצות 
+                                                                                                                    {auto.extra_runs_allowance > 0 && ` (כולל ${auto.extra_runs_allowance} בונוס)`} ({goalPercent}%)
+                                                                                                                </span>
+                                                                                                            </div>
+                                                                                                            <div style={{ height: '6px', background: 'rgba(255,255,255,0.05)', borderRadius: '3px', overflow: 'hidden', marginBottom: '6px' }}>
+                                                                                                                <div style={{ width: `${Math.min(100, goalPercent)}%`, height: '100%', background: overageRuns > 0 ? '#ef4444' : 'var(--accent-cyan)' }} />
+                                                                                                            </div>
+                                                                                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '9px', color: 'var(--text-muted)', flexWrap: 'wrap', gap: '4px' }}>
+                                                                                                                <span>
+                                                                                                                    🔮 תחזית לסוף החודש הנוכחי: כ-<strong>{forecastRuns}</strong> הרצות ({totalAllowed > 0 ? Math.round((forecastRuns / totalAllowed) * 100) : 0}% מהיעד)
+                                                                                                                </span>
+                                                                                                                {overageRuns > 0 && (
+                                                                                                                    <span style={{ color: '#ef4444', fontWeight: 'bold' }}>
+                                                                                                                        ⚠️ חיוב חריגה: {overageRuns} הרצות ({overageCost.toFixed(2)} ₪)
+                                                                                                                    </span>
+                                                                                                                )}
+                                                                                                            </div>
+                                                                                                        </div>
+                                                                                                    )}
+
+                                                                                                    {total > 0 && (
+                                                                                                        <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', padding: '8px 10px', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: '6px', fontSize: '10px', marginTop: '2px' }}>
+                                                                                                            <div style={{ display: 'flex', gap: '12px', color: 'var(--text-secondary)' }}>
+                                                                                                                <span>זמן הצלחה ממוצע: <strong style={{ color: '#10b981' }}>{avgSuccessDur > 0 ? formatDuration(avgSuccessDur) : '—'}</strong></span>
+                                                                                                                <span style={{ borderLeft: '1px solid rgba(255,255,255,0.1)', paddingLeft: '12px' }}>זמן שגיאה ממוצע: <strong style={{ color: '#ef4444' }}>{avgFailedDur > 0 ? formatDuration(avgFailedDur) : '—'}</strong></span>
+                                                                                                            </div>
+                                                                                                            <div style={{ color: trendColor, fontWeight: '600' }}>
+                                                                                                                {trendText}
+                                                                                                            </div>
+                                                                                                        </div>
+                                                                                                    )}
+
 
                                                                                                     {total > 0 && (
                                                                                                         <div style={{ marginTop: '4px' }}>
@@ -1512,12 +2000,239 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
                                                                                                             <div style={{ display: 'flex', height: '8px', borderRadius: '4px', overflow: 'hidden', background: 'rgba(255,255,255,0.05)' }}>
                                                                                                                 <div style={{ width: `${(success / total) * 100}%`, background: '#10b981' }} title={`הצלחה: ${success}`} />
                                                                                                                 <div style={{ width: `${(warning / total) * 100}%`, background: '#f59e0b' }} title={`אזהרה: ${warning}`} />
-                                                                                                                <div style={{ width: `${(error / total) * 100}%`, background: '#ef4444' }} title={`שגיאה: ${error}`} />
+                                                                                                                <div style={{ width: `${(realErrors / total) * 100}%`, background: '#ef4444' }} title={`שגיאה: ${realErrors}`} />
+                                                                                                                <div style={{ width: `${(blocked / total) * 100}%`, background: '#8b5cf6' }} title={`נחסמו: ${blocked}`} />
                                                                                                             </div>
-                                                                                                            <div style={{ display: 'flex', gap: '10px', marginTop: '4px', fontSize: '9.5px', color: 'var(--text-muted)', justifyContent: 'center' }}>
+                                                                                                            <div style={{ display: 'flex', gap: '10px', marginTop: '4px', fontSize: '9.5px', color: 'var(--text-muted)', justifyContent: 'center', flexWrap: 'wrap' }}>
                                                                                                                 <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981' }} />תקין ({success})</span>
                                                                                                                 <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#f59e0b' }} />אזהרה ({warning})</span>
-                                                                                                                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#ef4444' }} />שגיאה ({error})</span>
+                                                                                                                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#ef4444' }} />שגיאה ({realErrors})</span>
+                                                                                                                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#8b5cf6' }} />נחסם ({blocked})</span>
+                                                                                                            </div>
+                                                                                                        </div>
+                                                                                                    )}
+
+                                                                                                    {/* Interactive Volume Chart Widget */}
+                                                                                                    {total > 0 && (
+                                                                                                        <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '12px', marginTop: '4px' }}>
+                                                                                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
+                                                                                                                <span style={{ fontSize: '11px', fontWeight: '600', color: 'var(--text-light)' }}>
+                                                                                                                    נפח שימוש באוטומציה לפי זמן:
+                                                                                                                </span>
+                                                                                                                <div style={{ display: 'flex', gap: '4px' }}>
+                                                                                                                    {[
+                                                                                                                        { id: 'yearly', label: 'שנתי' },
+                                                                                                                        { id: 'monthly', label: 'חודשי' },
+                                                                                                                        { id: 'weekly', label: 'שבועי' },
+                                                                                                                        { id: 'daily', label: 'יומי' },
+                                                                                                                        { id: 'hourly', label: 'שעתי' }
+                                                                                                                    ].map(res => (
+                                                                                                                        <button
+                                                                                                                            key={res.id}
+                                                                                                                            onClick={() => {
+                                                                                                                                let nextYear = state.year;
+                                                                                                                                let nextMonth = state.month;
+                                                                                                                                let nextWeek = state.week;
+                                                                                                                                let nextDay = state.day;
+                                                                                                                                
+                                                                                                                                if (res.id === 'yearly') {
+                                                                                                                                    nextYear = null; nextMonth = null; nextWeek = null; nextDay = null;
+                                                                                                                                } else if (res.id === 'monthly') {
+                                                                                                                                    nextYear = nextYear || new Date().getFullYear();
+                                                                                                                                    nextMonth = null; nextWeek = null; nextDay = null;
+                                                                                                                                } else if (res.id === 'weekly') {
+                                                                                                                                    nextYear = nextYear || new Date().getFullYear();
+                                                                                                                                    nextMonth = nextMonth !== null ? nextMonth : new Date().getMonth();
+                                                                                                                                    nextWeek = null; nextDay = null;
+                                                                                                                                } else if (res.id === 'daily') {
+                                                                                                                                    nextYear = nextYear || new Date().getFullYear();
+                                                                                                                                    nextMonth = nextMonth !== null ? nextMonth : new Date().getMonth();
+                                                                                                                                    nextWeek = nextWeek || 1;
+                                                                                                                                    nextDay = null;
+                                                                                                                                } else if (res.id === 'hourly') {
+                                                                                                                                    nextYear = nextYear || new Date().getFullYear();
+                                                                                                                                    nextMonth = nextMonth !== null ? nextMonth : new Date().getMonth();
+                                                                                                                                    nextWeek = nextWeek || 1;
+                                                                                                                                    nextDay = nextDay || new Date().getDate();
+                                                                                                                                }
+                                                                                                                                
+                                                                                                                                setChartStates({
+                                                                                                                                    ...chartStates,
+                                                                                                                                    [auto.id]: {
+                                                                                                                                        resolution: res.id,
+                                                                                                                                        year: nextYear,
+                                                                                                                                        month: nextMonth,
+                                                                                                                                        week: nextWeek,
+                                                                                                                                        day: nextDay
+                                                                                                                                    }
+                                                                                                                                });
+                                                                                                                            }}
+                                                                                                                            style={{
+                                                                                                                                padding: '2px 6px',
+                                                                                                                                fontSize: '9px',
+                                                                                                                                borderRadius: '4px',
+                                                                                                                                border: '1px solid',
+                                                                                                                                borderColor: resolution === res.id ? 'var(--accent-violet)' : 'rgba(255,255,255,0.1)',
+                                                                                                                                background: resolution === res.id ? 'rgba(139, 92, 246, 0.15)' : 'none',
+                                                                                                                                color: resolution === res.id ? 'var(--accent-cyan)' : 'var(--text-secondary)',
+                                                                                                                                cursor: 'pointer',
+                                                                                                                                fontWeight: resolution === res.id ? '600' : 'normal',
+                                                                                                                                transition: 'all 0.2s'
+                                                                                                                            }}
+                                                                                                                        >
+                                                                                                                            {res.label}
+                                                                                                                        </button>
+                                                                                                                    ))}
+                                                                                                                </div>
+                                                                                                            </div>
+
+                                                                                                            {/* Navigation Breadcrumbs */}
+                                                                                                            <div style={{ display: 'flex', gap: '6px', alignItems: 'center', fontSize: '10px', color: 'var(--text-secondary)', marginBottom: '8px', flexWrap: 'wrap' }}>
+                                                                                                                <span style={{ color: 'var(--text-muted)' }}>ניווט:</span>
+                                                                                                                <span
+                                                                                                                    style={{ cursor: 'pointer', color: resolution === 'yearly' ? 'var(--accent-cyan)' : 'var(--text-secondary)', textDecoration: resolution !== 'yearly' ? 'underline' : 'none' }}
+                                                                                                                    onClick={() => setChartStates({ ...chartStates, [auto.id]: { resolution: 'yearly', year: null, month: null, week: null, day: null } })}
+                                                                                                                >
+                                                                                                                    שנתי
+                                                                                                                </span>
+                                                                                                                {state.year && (
+                                                                                                                    <>
+                                                                                                                        <span style={{ color: 'var(--text-muted)' }}>&gt;</span>
+                                                                                                                        <span
+                                                                                                                            style={{ cursor: 'pointer', color: resolution === 'monthly' ? 'var(--accent-cyan)' : 'var(--text-secondary)', textDecoration: resolution !== 'monthly' ? 'underline' : 'none' }}
+                                                                                                                            onClick={() => setChartStates({ ...chartStates, [auto.id]: { resolution: 'monthly', year: state.year, month: null, week: null, day: null } })}
+                                                                                                                        >
+                                                                                                                            {state.year}
+                                                                                                                        </span>
+                                                                                                                    </>
+                                                                                                                )}
+                                                                                                                {state.month !== null && (
+                                                                                                                    <>
+                                                                                                                        <span style={{ color: 'var(--text-muted)' }}>&gt;</span>
+                                                                                                                        <span
+                                                                                                                            style={{ cursor: 'pointer', color: resolution === 'weekly' ? 'var(--accent-cyan)' : 'var(--text-secondary)', textDecoration: resolution !== 'weekly' ? 'underline' : 'none' }}
+                                                                                                                            onClick={() => setChartStates({ ...chartStates, [auto.id]: { resolution: 'weekly', year: state.year, month: state.month, week: null, day: null } })}
+                                                                                                                        >
+                                                                                                                            {monthNames[state.month]}
+                                                                                                                        </span>
+                                                                                                                    </>
+                                                                                                                )}
+                                                                                                                {state.week && (
+                                                                                                                    <>
+                                                                                                                        <span style={{ color: 'var(--text-muted)' }}>&gt;</span>
+                                                                                                                        <span
+                                                                                                                            style={{ cursor: 'pointer', color: resolution === 'daily' ? 'var(--accent-cyan)' : 'var(--text-secondary)', textDecoration: resolution !== 'daily' ? 'underline' : 'none' }}
+                                                                                                                            onClick={() => setChartStates({ ...chartStates, [auto.id]: { resolution: 'daily', year: state.year, month: state.month, week: state.week, day: null } })}
+                                                                                                                        >
+                                                                                                                            שבוע {state.week}
+                                                                                                                        </span>
+                                                                                                                    </>
+                                                                                                                )}
+                                                                                                                {state.day && (
+                                                                                                                    <>
+                                                                                                                        <span style={{ color: 'var(--text-muted)' }}>&gt;</span>
+                                                                                                                        <span
+                                                                                                                            style={{ cursor: 'pointer', color: resolution === 'hourly' ? 'var(--accent-cyan)' : 'var(--text-secondary)' }}
+                                                                                                                            onClick={() => setChartStates({ ...chartStates, [auto.id]: { resolution: 'hourly', year: state.year, month: state.month, week: state.week, day: state.day } })}
+                                                                                                                        >
+                                                                                                                            {['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'][new Date(state.year, state.month, state.day).getDay()]}' - {state.day}/{state.month + 1}
+                                                                                                                        </span>
+                                                                                                                    </>
+                                                                                                                )}
+                                                                                                            </div>
+
+                                                                                                            <div style={{ position: 'relative', width: '100%' }}>
+                                                                                                                {(() => {
+                                                                                                                    const maxVal = Math.max(...chartData.map(d => d.count), 1);
+                                                                                                                    const h = 110;
+                                                                                                                    const padBottom = 26;
+                                                                                                                    const padTop = 10;
+                                                                                                                    const innerH = h - padBottom - padTop;
+                                                                                                                    return (
+                                                                                                                        <svg viewBox={`0 0 500 ${h}`} style={{ width: '100%', height: 'auto', overflow: 'visible' }}>
+                                                                                                                            <defs>
+                                                                                                                                <linearGradient id={`chartGrad-${auto.id}`} x1="0" y1="0" x2="0" y2="1">
+                                                                                                                                    <stop offset="0%" stopColor="#8b5cf6" stopOpacity="0.85" />
+                                                                                                                                    <stop offset="100%" stopColor="#06b6d4" stopOpacity="0.4" />
+                                                                                                                                </linearGradient>
+                                                                                                                            </defs>
+
+                                                                                                                            {/* Grid Lines */}
+                                                                                                                            {[0, 0.5, 1].map((ratio, idx) => {
+                                                                                                                                const y = padTop + innerH * (1 - ratio);
+                                                                                                                                return (
+                                                                                                                                    <g key={idx}>
+                                                                                                                                        <line x1="0" y1={y} x2="500" y2={y} stroke="rgba(255, 255, 255, 0.05)" strokeWidth="1" strokeDasharray="3 3" />
+                                                                                                                                        <text x="5" y={y - 3} fill="var(--text-muted)" fontSize="8px">{Math.round(maxVal * ratio)}</text>
+                                                                                                                                    </g>
+                                                                                                                                );
+                                                                                                                            })}
+
+                                                                                                                            {/* Bars */}
+                                                                                                                            {chartData.map((d, idx) => {
+                                                                                                                                const barWidth = 400 / chartData.length;
+                                                                                                                                const gap = 100 / chartData.length;
+                                                                                                                                const x = idx * (barWidth + gap) + gap / 2;
+                                                                                                                                const barHeight = (d.count / maxVal) * innerH;
+                                                                                                                                const y = padTop + innerH - barHeight;
+
+                                                                                                                                return (
+                                                                                                                                    <g
+                                                                                                                                        key={idx}
+                                                                                                                                        style={{ cursor: 'pointer' }}
+                                                                                                                                        className="svg-chart-bar"
+                                                                                                                                        onClick={() => {
+                                                                                                                                            if (resolution === 'yearly') {
+                                                                                                                                                setChartStates({
+                                                                                                                                                    ...chartStates,
+                                                                                                                                                    [auto.id]: { resolution: 'monthly', year: d.year, month: null, week: null, day: null }
+                                                                                                                                                });
+                                                                                                                                            } else if (resolution === 'monthly') {
+                                                                                                                                                setChartStates({
+                                                                                                                                                    ...chartStates,
+                                                                                                                                                    [auto.id]: { resolution: 'weekly', year: d.year, month: d.month, week: null, day: null }
+                                                                                                                                                });
+                                                                                                                                            } else if (resolution === 'weekly') {
+                                                                                                                                                setChartStates({
+                                                                                                                                                    ...chartStates,
+                                                                                                                                                    [auto.id]: { resolution: 'daily', year: d.year, month: d.month, week: d.week, day: null }
+                                                                                                                                                });
+                                                                                                                                            } else if (resolution === 'daily') {
+                                                                                                                                                setChartStates({
+                                                                                                                                                    ...chartStates,
+                                                                                                                                                    [auto.id]: { resolution: 'hourly', year: d.year, month: d.month, week: d.week, day: d.day }
+                                                                                                                                                });
+                                                                                                                                            }
+                                                                                                                                        }}
+                                                                                                                                    >
+                                                                                                                                        <title>{`${d.label}: ${d.count} שימושים`}</title>
+                                                                                                                                        <rect x={x} y={y} width={barWidth} height={barHeight} rx="2" ry="2" fill={`url(#chartGrad-${auto.id})`} />
+                                                                                                                                        
+                                                                                                                                        {/* Hover overlay */}
+                                                                                                                                        <rect x={x} y={y} width={barWidth} height={barHeight} rx="2" ry="2" fill="#06b6d4" opacity="0" style={{ transition: 'opacity 0.2s' }} onMouseEnter={(e) => e.target.setAttribute('opacity', '0.2')} onMouseLeave={(e) => e.target.setAttribute('opacity', '0')} />
+                                                                                                                                        
+                                                                                                                                        {/* Value label */}
+                                                                                                                                        {d.count > 0 && (
+                                                                                                                                            <text x={x + barWidth / 2} y={y - 3} textAnchor="middle" fill="var(--text-light)" fontSize="7px" fontWeight="600">{d.count}</text>
+                                                                                                                                        )}
+                                                                                                                                        
+                                                                                                                                        {/* X Axis Label */}
+                                                                                                                                        <text
+                                                                                                                                            x={x + barWidth / 2}
+                                                                                                                                            y={h - 8}
+                                                                                                                                            textAnchor="middle"
+                                                                                                                                            fill="var(--text-muted)"
+                                                                                                                                            fontSize="7.5px"
+                                                                                                                                            transform={resolution === 'hourly' ? `rotate(-25, ${x + barWidth / 2}, ${h - 8})` : undefined}
+                                                                                                                                        >
+                                                                                                                                            {d.label}
+                                                                                                                                        </text>
+                                                                                                                                    </g>
+                                                                                                                                );
+                                                                                                                            })}
+                                                                                                                        </svg>
+                                                                                                                    );
+                                                                                                                })()}
                                                                                                             </div>
                                                                                                         </div>
                                                                                                     )}
@@ -1525,13 +2240,21 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
                                                                                                     {warning > 0 && (
                                                                                                         <div style={{ background: 'rgba(245,158,11,0.03)', border: '1px solid rgba(245,158,11,0.15)', borderRadius: '6px', padding: '10px', marginTop: '4px' }}>
                                                                                                             <span style={{ fontSize: '11px', fontWeight: '600', color: '#f59e0b', display: 'block', marginBottom: '6px' }}>אזהרות לפי קטגוריה:</span>
-                                                                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                                                                                                {Object.entries(warningTypes).map(([type, count]) => (
-                                                                                                                    <div key={type} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10.5px' }}>
-                                                                                                                        <span style={{ color: 'var(--text-secondary)' }}>{type}</span>
-                                                                                                                        <strong style={{ color: '#f59e0b' }}>{count} מקרים</strong>
-                                                                                                                    </div>
-                                                                                                                ))}
+                                                                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                                                                                {Object.entries(warningTypes).map(([type, count]) => {
+                                                                                                                    const pct = Math.round((count / warning) * 100);
+                                                                                                                    return (
+                                                                                                                        <div key={type} style={{ display: 'flex', flexDirection: 'column', gap: '3px', fontSize: '10.5px' }}>
+                                                                                                                            <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
+                                                                                                                                <span>{type}</span>
+                                                                                                                                <strong style={{ color: '#f59e0b' }}>{count} מקרים ({pct}%)</strong>
+                                                                                                                            </div>
+                                                                                                                            <div style={{ height: '4px', background: 'rgba(255,255,255,0.05)', borderRadius: '2px', overflow: 'hidden' }}>
+                                                                                                                                <div style={{ width: `${pct}%`, height: '100%', background: '#f59e0b' }} />
+                                                                                                                            </div>
+                                                                                                                        </div>
+                                                                                                                    );
+                                                                                                                })}
                                                                                                             </div>
                                                                                                         </div>
                                                                                                     )}
@@ -1539,16 +2262,118 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
                                                                                                     {error > 0 && (
                                                                                                         <div style={{ background: 'rgba(239,68,68,0.03)', border: '1px solid rgba(239,68,68,0.1)', borderRadius: '6px', padding: '10px', marginTop: '4px' }}>
                                                                                                             <span style={{ fontSize: '11px', fontWeight: '600', color: '#f87171', display: 'block', marginBottom: '6px' }}>שגיאות לפי קטגוריה:</span>
-                                                                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                                                                                                {Object.entries(errorTypes).map(([type, count]) => (
-                                                                                                                    <div key={type} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10.5px' }}>
-                                                                                                                        <span style={{ color: 'var(--text-secondary)' }}>{type}</span>
-                                                                                                                        <strong style={{ color: '#f87171' }}>{count} מקרים</strong>
-                                                                                                                    </div>
-                                                                                                                ))}
+                                                                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                                                                                {Object.entries(errorTypes).map(([type, count]) => {
+                                                                                                                    const pct = Math.round((count / error) * 100);
+                                                                                                                    return (
+                                                                                                                        <div key={type} style={{ display: 'flex', flexDirection: 'column', gap: '3px', fontSize: '10.5px' }}>
+                                                                                                                            <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
+                                                                                                                                <span>{type}</span>
+                                                                                                                                <strong style={{ color: '#f87171' }}>{count} מקרים ({pct}%)</strong>
+                                                                                                                            </div>
+                                                                                                                            <div style={{ height: '4px', background: 'rgba(255,255,255,0.05)', borderRadius: '2px', overflow: 'hidden' }}>
+                                                                                                                                <div style={{ width: `${pct}%`, height: '100%', background: '#ef4444' }} />
+                                                                                                                            </div>
+                                                                                                                        </div>
+                                                                                                                    );
+                                                                                                                })}
                                                                                                             </div>
                                                                                                         </div>
                                                                                                     )}
+
+                                                                                                    {/* Time-Based Metrics */}
+                                                                                                    {totalIssues > 0 && (
+                                                                                                        <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '10px', marginTop: '4px' }}>
+                                                                                                            <span style={{ fontSize: '11px', fontWeight: '600', color: 'var(--text-light)', display: 'block', marginBottom: '6px' }}>ריכוז תקלות ואזהרות לפי שעות:</span>
+                                                                                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '8px' }}>
+                                                                                                                {timeBlocks.map(block => {
+                                                                                                                    const blockIssues = block.errors + block.warnings;
+                                                                                                                    const percentage = totalIssues > 0 ? Math.round((blockIssues / totalIssues) * 100) : 0;
+                                                                                                                    return (
+                                                                                                                        <div key={block.name} style={{ background: 'rgba(0,0,0,0.15)', padding: '8px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.03)' }}>
+                                                                                                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', marginBottom: '4px' }}>
+                                                                                                                                <span style={{ color: 'var(--text-secondary)' }}>{block.name}</span>
+                                                                                                                                <strong style={{ color: blockIssues > 0 ? '#f87171' : 'var(--text-muted)' }}>{blockIssues} ({percentage}%)</strong>
+                                                                                                                            </div>
+                                                                                                                            <div style={{ display: 'flex', height: '4px', borderRadius: '2px', overflow: 'hidden', background: 'rgba(255,255,255,0.05)', marginBottom: '4px' }}>
+                                                                                                                                <div style={{ width: `${blockIssues > 0 ? (block.errors / blockIssues) * 100 : 0}%`, background: '#ef4444' }} />
+                                                                                                                                <div style={{ width: `${blockIssues > 0 ? (block.warnings / blockIssues) * 100 : 0}%`, background: '#f59e0b' }} />
+                                                                                                                            </div>
+                                                                                                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '8.5px', color: 'var(--text-muted)' }}>
+                                                                                                                                <span>שגיאות: {block.errors}</span>
+                                                                                                                                <span>אזהרות: {block.warnings}</span>
+                                                                                                                            </div>
+                                                                                                                        </div>
+                                                                                                                    );
+                                                                                                                })}
+                                                                                                            </div>
+                                                                                                        </div>
+                                                                                                    )}
+
+                                                                                                     {/* Day of Week Metrics */}
+                                                                                                     {activeDays.length > 0 && (
+                                                                                                         <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '10px', marginTop: '4px' }}>
+                                                                                                             <span style={{ fontSize: '11px', fontWeight: '600', color: 'var(--text-light)', display: 'block', marginBottom: '6px' }}>ריכוז תקלות ואזהרות לפי ימי השבוע:</span>
+                                                                                                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                                                                                                                 {dayIssues.map(day => {
+                                                                                                                     const total = day.errors + day.warnings;
+                                                                                                                     if (total === 0) return null;
+                                                                                                                     return (
+                                                                                                                         <div key={day.name} style={{ background: 'rgba(0,0,0,0.15)', padding: '6px 10px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.03)', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '10px' }}>
+                                                                                                                             <strong style={{ color: 'var(--text-light)' }}>יום {day.name}</strong>
+                                                                                                                             <span style={{ display: 'flex', gap: '6px', fontSize: '9px' }}>
+                                                                                                                                 {day.errors > 0 && <span style={{ color: '#f87171' }}>שגיאות: {day.errors}</span>}
+                                                                                                                                 {day.warnings > 0 && <span style={{ color: '#f59e0b' }}>אזהרות: {day.warnings}</span>}
+                                                                                                                             </span>
+                                                                                                                         </div>
+                                                                                                                     );
+                                                                                                                 })}
+                                                                                                             </div>
+                                                                                                         </div>
+                                                                                                     )}
+
+                                                                                                     {/* Monthly Metrics */}
+                                                                                                     {activeMonths.length > 0 && (
+                                                                                                         <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '10px', marginTop: '4px' }}>
+                                                                                                             <span style={{ fontSize: '11px', fontWeight: '600', color: 'var(--text-light)', display: 'block', marginBottom: '6px' }}>ריכוז תקלות ואזהרות לפי חודשים:</span>
+                                                                                                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                                                                                                                 {monthlyIssues.map(month => {
+                                                                                                                     const total = month.errors + month.warnings;
+                                                                                                                     if (total === 0) return null;
+                                                                                                                     return (
+                                                                                                                         <div key={month.name} style={{ background: 'rgba(0,0,0,0.15)', padding: '6px 10px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.03)', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '10px' }}>
+                                                                                                                             <strong style={{ color: 'var(--text-light)' }}>{month.name}</strong>
+                                                                                                                             <span style={{ display: 'flex', gap: '6px', fontSize: '9px' }}>
+                                                                                                                                 {month.errors > 0 && <span style={{ color: '#f87171' }}>שגיאות: {month.errors}</span>}
+                                                                                                                                 {month.warnings > 0 && <span style={{ color: '#f59e0b' }}>אזהרות: {month.warnings}</span>}
+                                                                                                                             </span>
+                                                                                                                         </div>
+                                                                                                                     );
+                                                                                                                 })}
+                                                                                                             </div>
+                                                                                                         </div>
+                                                                                                     )}
+
+                                                                                                     {/* Yearly Metrics */}
+                                                                                                     {activeYears.length > 0 && (
+                                                                                                         <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '10px', marginTop: '4px' }}>
+                                                                                                             <span style={{ fontSize: '11px', fontWeight: '600', color: 'var(--text-light)', display: 'block', marginBottom: '6px' }}>ריכוז תקלות ואזהרות לפי שנים:</span>
+                                                                                                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                                                                                                                 {activeYears.map(([year, data]) => {
+                                                                                                                     return (
+                                                                                                                         <div key={year} style={{ background: 'rgba(0,0,0,0.15)', padding: '6px 10px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.03)', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '10px' }}>
+                                                                                                                             <strong style={{ color: 'var(--text-light)' }}>שנת {year}</strong>
+                                                                                                                             <span style={{ display: 'flex', gap: '6px', fontSize: '9px' }}>
+                                                                                                                                 {data.errors > 0 && <span style={{ color: '#f87171' }}>שגיאות: {data.errors}</span>}
+                                                                                                                                 {data.warnings > 0 && <span style={{ color: '#f59e0b' }}>אזהרות: {data.warnings}</span>}
+                                                                                                                             </span>
+                                                                                                                         </div>
+                                                                                                                     );
+                                                                                                                 })}
+                                                                                                             </div>
+                                                                                                         </div>
+                                                                                                     )}
+
                                                                                                 </div>
                                                                                             );
                                                                                         })()}
@@ -1696,7 +2521,8 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
                                                                                                     const colors = {
                                                                                                         success: { bg: 'rgba(16, 185, 129, 0.03)', border: 'rgba(16, 185, 129, 0.1)', text: '#10b981', label: 'הצלחה' },
                                                                                                         error: { bg: 'rgba(239, 68, 68, 0.03)', border: 'rgba(239, 68, 68, 0.1)', text: '#ef4444', label: 'שגיאה' },
-                                                                                                        warning: { bg: 'rgba(245, 158, 11, 0.03)', border: 'rgba(245, 158, 11, 0.1)', text: '#f59e0b', label: 'אזהרה' }
+                                                                                                        warning: { bg: 'rgba(245, 158, 11, 0.03)', border: 'rgba(245, 158, 11, 0.1)', text: '#f59e0b', label: 'אזהרה' },
+                                                                                                        fallback: { bg: 'rgba(245, 158, 11, 0.03)', border: 'rgba(245, 158, 11, 0.1)', text: '#f59e0b', label: 'אזהרה (גיבוי)' }
                                                                                                     };
                                                                                                     const theme = colors[run.status] || colors.success;
                                                                                                     const isRunExpanded = !!expandedRun[run.id];

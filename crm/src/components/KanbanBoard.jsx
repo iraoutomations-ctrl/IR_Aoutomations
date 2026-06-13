@@ -22,14 +22,49 @@ const COLUMNS = [
     { id: 'lost', title: 'אבוד (Lost)', color: '#ef4444', icon: XCircle }
 ];
 
-export default function KanbanBoard({ onSelectLead, activeTab, onAddLead }) {
+export default function KanbanBoard({ onSelectLead, activeTab, onAddLead, refreshTrigger }) {
     const [leads, setLeads] = useState([]);
     const [loading, setLoading] = useState(true);
+
+    // Validation for Lead Status Transitions (Hard Gating)
+    const validateStatusTransition = (targetStatus, currentDocs) => {
+        if (targetStatus === 'lost' || targetStatus === 'new' || targetStatus === 'contacted') return { valid: true };
+
+        // 1. To move to 'proposal' or higher: requires 'proposal' doc
+        if (targetStatus === 'proposal' || targetStatus === 'won') {
+            const hasProposal = currentDocs.some(d => d.type === 'proposal');
+            if (!hasProposal) {
+                return {
+                    valid: false,
+                    error: "חסימת שלב: חסר מסמך 'הצעת מחיר'. אנא העלה אותו בלשונית 'מסמכים וקבצים' לפני העברת הסטטוס."
+                };
+            }
+        }
+
+        // 2. To move to 'won' (development): requires 'contract' and 'nda'
+        if (targetStatus === 'won') {
+            const hasContract = currentDocs.some(d => d.type === 'contract');
+            const hasNDA = currentDocs.some(d => d.type === 'nda');
+            if (!hasContract || !hasNDA) {
+                let missing = [];
+                if (!hasContract) missing.push("'חוזה חתום'");
+                if (!hasNDA) missing.push("'הסכם סודיות NDA'");
+                return {
+                    valid: false,
+                    error: `חסימת שלב: חסרים מסמכי חובה לחתימה: ${missing.join(" וכן ") || ''}. אנא העלה אותם בלשונית 'מסמכים' לפני סגירת הליד.`
+                };
+            }
+        }
+
+        return { valid: true };
+    };
 
     useEffect(() => {
         async function loadLeads() {
             try {
-                setLoading(true);
+                if (leads.length === 0) {
+                    setLoading(true);
+                }
                 const fetchedLeads = await db.getLeads();
                 setLeads(fetchedLeads);
             } catch (err) {
@@ -39,7 +74,7 @@ export default function KanbanBoard({ onSelectLead, activeTab, onAddLead }) {
             }
         }
         loadLeads();
-    }, [activeTab]);
+    }, [activeTab, refreshTrigger]);
 
     // HTML5 Drag and Drop handlers
     const handleDragStart = (e, leadId) => {
@@ -59,10 +94,18 @@ export default function KanbanBoard({ onSelectLead, activeTab, onAddLead }) {
         // Find the lead in local state
         const lead = leads.find(l => l.id === leadId);
         if (lead && lead.status !== targetStatus) {
-            // Optimistic UI update
-            setLeads(prev => prev.map(l => l.id === leadId ? { ...l, status: targetStatus } : l));
-            
             try {
+                // Fetch documents for gating validation
+                const currentDocs = await db.getDocuments(leadId);
+                const validation = validateStatusTransition(targetStatus, currentDocs);
+                if (!validation.valid) {
+                    alert(validation.error);
+                    return;
+                }
+
+                // Optimistic UI update
+                setLeads(prev => prev.map(l => l.id === leadId ? { ...l, status: targetStatus } : l));
+                
                 // Update in database
                 await db.updateLeadStatus(leadId, targetStatus);
             } catch (err) {

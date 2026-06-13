@@ -5,8 +5,11 @@ import KanbanBoard from './components/KanbanBoard';
 import LeadsList from './components/LeadsList';
 import Projects from './components/Projects';
 import Settings from './components/Settings';
+import PricingCalculator from './components/PricingCalculator';
 import LeadDetailsModal from './components/LeadDetailsModal';
 import AddLeadModal from './components/AddLeadModal';
+import Documentation from './components/Documentation';
+import Roadmap from './components/Roadmap';
 import { db } from './services/db';
 
 export default function App() {
@@ -102,7 +105,8 @@ export default function App() {
             case 'dashboard':
                 return (
                     <Dashboard 
-                        key={`dashboard-${refreshTrigger}`} 
+                        key="dashboard"
+                        refreshTrigger={refreshTrigger}
                         onSelectLead={handleSelectLead} 
                         activeTab={activeTab}
                         alerts={alerts}
@@ -111,7 +115,8 @@ export default function App() {
             case 'kanban':
                 return (
                     <KanbanBoard 
-                        key={`kanban-${refreshTrigger}`} 
+                        key="kanban"
+                        refreshTrigger={refreshTrigger}
                         onSelectLead={handleSelectLead} 
                         activeTab={activeTab}
                         onAddLead={() => setShowAddLeadModal(true)}
@@ -120,7 +125,8 @@ export default function App() {
             case 'leads':
                 return (
                     <LeadsList 
-                        key={`leads-${refreshTrigger}`} 
+                        key="leads"
+                        refreshTrigger={refreshTrigger}
                         onSelectLead={handleSelectLead} 
                         activeTab={activeTab}
                         onAddLead={() => setShowAddLeadModal(true)}
@@ -134,6 +140,12 @@ export default function App() {
                         activeTab={activeTab}
                     />
                 );
+            case 'calculator':
+                return <PricingCalculator />;
+            case 'docs':
+                return <Documentation />;
+            case 'roadmap':
+                return <Roadmap />;
             case 'settings':
                 return <Settings />;
             default:

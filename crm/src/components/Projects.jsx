@@ -23,9 +23,25 @@ import {
     Brain,
     Sparkles,
     Check,
-    Trash2
+    Trash2,
+    FileText,
+    Upload,
+    Download,
+    Settings as SettingsIcon
 } from 'lucide-react';
 import { db } from '../services/db';
+import { downloadTemplate } from '../services/templates';
+
+const DOC_DESCRIPTIONS = {
+    proposal: 'פירוט עלויות ההקמה, התחזוקה החודשית ותנאי הפיתוח של האוטומציות המתוכננות.',
+    contract: 'הסכם ההתקשרות המשפטי והכלכלי החתום המסדיר את התשלום החודשי והתחייבויות הצדדים.',
+    nda: 'הסכם שמירת סודיות להגנה על המידע העסקי הרגיש של הלקוח במהלך הפיתוח והתחזוקה.',
+    spec: 'תרשים זרימה ואפיון מפורט של שלבי האוטומציה, ה-Nodes ב-N8N, והמערכות המקושרות.',
+    credentials: 'פרטי גישה מאובטחים לחשבונות ומערכות הלקוח הדרושים לביצוע החיבורים והאינטגרציות.',
+    handover: 'מסמך אישור חתום על ידי הלקוח המעיד כי האוטומציה נבדקה, נמסרה ועובדת בצורה תקינה.',
+    sla: 'הסכם רמת שירות המפרט את זמני המענה, שעות התמיכה במקרה של תקלות ותנאי התחזוקה השוטפת.',
+    invoice: 'חשבונית מס / קבלה רשמית המאשרת את קבלת התשלום עבור עלויות ההקמה של האוטומציה.'
+};
 
 const parseWorkflows = (workflowsData) => {
     if (!workflowsData) return [];
@@ -122,6 +138,16 @@ const formatDuration = (ms) => {
     return `${hr}h ${remainingMin}m ${remainingSec}.${msecStr}s`;
 };
 
+const formatMTTR = (ms) => {
+    if (ms === null || ms === undefined || ms <= 0) return '—';
+    const hours = ms / (1000 * 60 * 60);
+    if (hours < 24) {
+        return `${Math.round(hours * 10) / 10} שעות`;
+    }
+    const days = Math.round((hours / 24) * 10) / 10;
+    return `${days} ימים`;
+};
+
 export default function Projects({ onSelectLead, activeTab }) {
     const [projects, setProjects] = useState([]);
     const [automations, setAutomations] = useState([]);
@@ -143,6 +169,9 @@ export default function Projects({ onSelectLead, activeTab }) {
     const [expandedRun, setExpandedRun] = useState({});
     const [analyzingRun, setAnalyzingRun] = useState({});
     const [aiAnalysisText, setAiAnalysisText] = useState({});
+    const [roiSettingsOpen, setRoiSettingsOpen] = useState({});
+    const [tempRoiMins, setTempRoiMins] = useState({});
+    const [tempRoiWage, setTempRoiWage] = useState({});
     
     // Mapped by autoId for inline bugs reporting
     const [newBugDesc, setNewBugDesc] = useState({});
@@ -151,6 +180,275 @@ export default function Projects({ onSelectLead, activeTab }) {
     // Inline workflow input states
     const [wfNameInput, setWfNameInput] = useState({});
     const [wfIdInput, setWfIdInput] = useState({});
+
+    // Document Gating and Management states
+    const [documents, setDocuments] = useState([]);
+    const [dragActive, setDragActive] = useState({});
+
+    // Validation for Automation Status Transitions (Hard Gating to Live)
+    const validateAutoStatusTransition = (targetStatus, autoId, currentDocs) => {
+        if (targetStatus === 'live') {
+            const autoDocs = currentDocs.filter(d => d.automation_id === autoId);
+            const hasSpec = autoDocs.some(d => d.type === 'spec');
+            const hasCredentials = autoDocs.some(d => d.type === 'credentials');
+            const hasHandover = autoDocs.some(d => d.type === 'handover');
+
+            if (!hasSpec || !hasCredentials || !hasHandover) {
+                let missing = [];
+                if (!hasSpec) missing.push("'מסמך אפיון טכני'");
+                if (!hasCredentials) missing.push("'גישות וסיסמאות מאובטחות (Credentials)'");
+                if (!hasHandover) missing.push("'פרוטוקול מסירה חתום'");
+                return {
+                    valid: false,
+                    error: `חסימת שלב: לא ניתן להעלות את האוטומציה לאוויר (Live) ללא מסמכי החובה הבאים: ${missing.join(", ") || ''}. אנא העלה אותם בלשונית 'מסמכים' שבפאנל האוטומציה.`
+                };
+            }
+        }
+        return { valid: true };
+    };
+
+    // Update automation status handler with gating
+    const handleUpdateAutoStatus = async (autoId, status) => {
+        const validation = validateAutoStatusTransition(status, autoId, documents);
+        if (!validation.valid) {
+            alert(validation.error);
+            return;
+        }
+        try {
+            const updated = await db.updateAutomation(autoId, { status });
+            setAutomations(prev => prev.map(a => a.id === autoId ? updated : a));
+        } catch (err) {
+            console.error("Error updating automation status:", err);
+            alert("שגיאה בעדכון סטטוס אוטומציה: " + (err.message || err));
+        }
+    };
+
+    // HTML5 Drag and Drop handlers
+    const handleDrag = (e, type) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (e.type === "dragenter" || e.type === "dragover") {
+            setDragActive(prev => ({ ...prev, [type]: true }));
+        } else if (e.type === "dragleave") {
+            setDragActive(prev => ({ ...prev, [type]: false }));
+        }
+    };
+
+    const handleDrop = async (e, type, automationId = null) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setDragActive(prev => ({ ...prev, [type]: false }));
+        
+        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+            const file = e.dataTransfer.files[0];
+            await handleFileUpload(file, type, automationId);
+        }
+    };
+
+    const handleFileUpload = async (file, type, automationId = null) => {
+        if (!file) return;
+        
+        const auto = automations.find(a => a.id === automationId);
+        const leadId = auto ? auto.lead_id : null;
+        
+        const docNames = {
+            proposal: 'הצעת מחיר',
+            contract: 'חוזה התקשרות חתום',
+            nda: 'הסכם סודיות NDA',
+            spec: 'מסמך אפיון טכני',
+            credentials: 'פרטי גישות וסיסמאות',
+            handover: 'פרוטוקול מסירה חתום',
+            sla: 'תנאי תחזוקה SLA',
+            invoice: 'חשבונית מס'
+        };
+
+        try {
+            const added = await db.uploadDocument({
+                lead_id: leadId,
+                automation_id: automationId,
+                name: docNames[type] || 'מסמך כללי',
+                type: type
+            }, file);
+            
+            setDocuments(prev => [added, ...prev]);
+            
+            if (leadId) {
+                await db.addNote({
+                    lead_id: leadId,
+                    content: `הועלה מסמך חדש מסוג ${docNames[type] || 'כללי'} לאוטומציה ${auto?.name || ''}: ${file.name}`
+                });
+            }
+        } catch (err) {
+            console.error("Error uploading document:", err);
+            alert("שגיאה בהעלאת הקובץ: " + (err.message || err));
+        }
+    };
+
+    const handleDeleteDoc = async (docId, docName) => {
+        if (window.confirm(`האם למחוק את המסמך "${docName}"?`)) {
+            try {
+                const doc = documents.find(d => d.id === docId);
+                const leadId = doc ? doc.lead_id : null;
+
+                await db.deleteDocument(docId);
+                setDocuments(prev => prev.filter(d => d.id !== docId));
+                
+                if (leadId) {
+                    await db.addNote({
+                        lead_id: leadId,
+                        content: `נמחק מסמך: ${docName}`
+                    });
+                }
+            } catch (err) {
+                console.error("Error deleting document:", err);
+                alert("שגיאה במחיקת המסמך: " + (err.message || err));
+            }
+        }
+    };
+
+    const renderAutoDocumentSlot = (auto, type, label, requiredForStatus) => {
+        const doc = documents.find(d => d.automation_id === auto.id && d.type === type);
+        const uniqueKey = `${auto.id}_${type}`;
+        const lead = projects.find(p => p.id === auto.lead_id);
+        const isDragActive = dragActive[uniqueKey];
+        
+        return (
+            <div 
+                key={type} 
+                className={`glass-card ${isDragActive ? 'drag-active' : ''}`}
+                style={{
+                    padding: '12px',
+                    border: isDragActive ? '2px dashed #8b5cf6' : '1px solid rgba(255,255,255,0.05)',
+                    borderRadius: '6px',
+                    background: isDragActive ? 'rgba(139, 92, 246, 0.04)' : 'rgba(255,255,255,0.01)',
+                    position: 'relative',
+                    transition: 'all 0.2s ease',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '8px'
+                }}
+                onDragEnter={(e) => handleDrag(e, uniqueKey)}
+                onDragOver={(e) => handleDrag(e, uniqueKey)}
+                onDragLeave={(e) => handleDrag(e, uniqueKey)}
+                onDrop={(e) => handleDrop(e, uniqueKey, auto.id)}
+            >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '11px', fontWeight: '600', color: 'var(--text-light)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        {label}
+                        {requiredForStatus && (
+                            <span style={{ fontSize: '9px', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', padding: '1px 4px', borderRadius: '3px' }}>
+                                חובה ל-{requiredForStatus}
+                            </span>
+                        )}
+                    </span>
+                    {doc && (
+                        <span style={{ fontSize: '9px', color: '#10b981', background: 'rgba(16, 185, 129, 0.1)', padding: '1px 4px', borderRadius: '3px' }}>
+                            קיים
+                        </span>
+                    )}
+                </div>
+                <span style={{ fontSize: '9.5px', color: 'var(--text-secondary)', lineHeight: '1.3', marginTop: '-2px' }}>
+                    {DOC_DESCRIPTIONS[type]}
+                </span>
+
+                {doc ? (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(255,255,255,0.02)', padding: '6px 8px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.03)' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', overflow: 'hidden', maxWidth: '75%' }}>
+                            <span style={{ fontSize: '11px', color: 'var(--text-light)', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }} title={doc.file_name}>
+                                {doc.file_name}
+                            </span>
+                            <span style={{ fontSize: '9px', color: 'var(--text-secondary)' }}>
+                                {(doc.file_size / 1024).toFixed(1)} KB
+                            </span>
+                        </div>
+                        <div style={{ display: 'flex', gap: '4px' }}>
+                            <a 
+                                href={doc.file_url} 
+                                target="_blank" 
+                                rel="noopener noreferrer" 
+                                className="btn btn-secondary btn-icon" 
+                                style={{ width: '22px', height: '22px', padding: '0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                title="הורד/צפה"
+                            >
+                                <Download size={10} />
+                            </a>
+                            <button 
+                                className="btn btn-danger btn-icon" 
+                                style={{ width: '22px', height: '22px', padding: '0', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: 'none' }}
+                                onClick={() => handleDeleteDoc(doc.id, doc.name)}
+                                title="מחק מסמך"
+                            >
+                                <Trash2 size={10} />
+                            </button>
+                        </div>
+                    </div>
+                ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1 }}>
+                        <label 
+                            style={{ 
+                                border: '1px dashed rgba(255,255,255,0.1)', 
+                                borderRadius: '4px', 
+                                padding: '12px 6px', 
+                                textAlign: 'center', 
+                                cursor: 'pointer', 
+                                display: 'flex', 
+                                flexDirection: 'column', 
+                                alignItems: 'center', 
+                                justifyContent: 'center', 
+                                gap: '4px', 
+                                background: 'transparent',
+                                transition: 'all 0.2s ease'
+                            }}
+                        >
+                            <Upload size={14} style={{ color: 'var(--text-secondary)' }} />
+                            <span style={{ fontSize: '9.5px', color: 'var(--text-secondary)' }}>
+                                גרור קובץ או <span style={{ color: '#c084fc', textDecoration: 'underline' }}>לחץ לבחירה</span>
+                            </span>
+                            <input 
+                                type="file" 
+                                style={{ display: 'none' }} 
+                                onChange={(e) => {
+                                    if (e.target.files && e.target.files[0]) {
+                                        handleFileUpload(e.target.files[0], type, auto.id);
+                                    }
+                                }}
+                            />
+                        </label>
+                        <button
+                            type="button"
+                            onClick={() => downloadTemplate(type, lead)}
+                            className="btn btn-secondary"
+                            style={{
+                                fontSize: '9.5px',
+                                padding: '3px 6px',
+                                background: 'rgba(255,255,255,0.02)',
+                                border: '1px solid rgba(255,255,255,0.04)',
+                                borderRadius: '4px',
+                                color: 'var(--text-secondary)',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '4px',
+                                width: '100%',
+                                transition: 'all 0.2s ease'
+                            }}
+                            onMouseEnter={(e) => {
+                                e.target.style.background = 'rgba(255,255,255,0.06)';
+                                e.target.style.color = 'var(--text-light)';
+                            }}
+                            onMouseLeave={(e) => {
+                                e.target.style.background = 'rgba(255,255,255,0.02)';
+                                e.target.style.color = 'var(--text-secondary)';
+                            }}
+                        >
+                            <FileText size={10} /> הורד תבנית שבלונה
+                        </button>
+                    </div>
+                )}
+            </div>
+        );
+    };
 
     // Add workflow to JSONB workflows list
     const handleAddWorkflow = async (autoId) => {
@@ -204,6 +502,15 @@ export default function Projects({ onSelectLead, activeTab }) {
         try {
             const updated = await db.updateBug(bugId, { status });
             setBugs(prev => prev.map(b => b.id === bugId ? updated : b));
+            
+            // Handle bug resolution timestamping
+            const resolutions = JSON.parse(localStorage.getItem('bug_resolution_times') || '{}');
+            if (status === 'resolved') {
+                resolutions[bugId] = new Date().toISOString();
+            } else {
+                delete resolutions[bugId];
+            }
+            localStorage.setItem('bug_resolution_times', JSON.stringify(resolutions));
         } catch (err) {
             console.error("Error updating bug status:", err);
             alert("שגיאה בעדכון סטטוס באג: " + (err.message || err));
@@ -387,6 +694,17 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
                 steps: ['אין צורך בפעולה.']
             };
         }
+        if (run.status === 'warning' || run.status === 'fallback') {
+            return {
+                title: 'הריצה הושלמה עם אזהרה / גיבוי (Fallback Model Active)',
+                desc: "הצ'אטבוט ענה למשתמש בהצלחה, אך המערכת נאלצה להשתמש במודל הגיבוי (Gemini Pro) עקב עיכוב או כשל זמני במודל הראשי (Gemini Flash).",
+                steps: [
+                    'אין צורך בפעולה מיידית מכיוון שהמשתמש קיבל מענה תקין.',
+                    'מומלץ לבדוק את זמני התגובה או זמינות ה-API של Gemini Flash ב-N8N.',
+                    'וודא שמפתח ה-API של גוגל מוגדר ותקין.'
+                ]
+            };
+        }
         
         let errType = '';
         if (run.error_type) {
@@ -473,10 +791,12 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
                 const autos = await db.getAutomations();
                 const bugList = await db.getBugs();
                 const alerts = await db.getSystemAlerts();
+                const docsData = await db.getDocuments();
                 
                 setAutomations(autos);
                 setBugs(bugList);
                 setSystemAlerts(alerts);
+                setDocuments(docsData);
             } catch (err) {
                 console.error("Error loading projects dashboard:", err);
             } finally {
@@ -487,7 +807,7 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
     }, [activeTab]);
 
     useEffect(() => {
-        const cleanups = ['leads', 'automations', 'bugs', 'system_alerts', 'automation_runs'].map(table => 
+        const cleanups = ['leads', 'automations', 'bugs', 'system_alerts', 'automation_runs', 'documents'].map(table => 
             db.subscribeChanges(table, async () => {
                 try {
                     const leads = await db.getLeads();
@@ -497,10 +817,12 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
                     const autos = await db.getAutomations();
                     const bugList = await db.getBugs();
                     const alerts = await db.getSystemAlerts();
+                    const docsData = await db.getDocuments();
                     
                     setAutomations(autos);
                     setBugs(bugList);
                     setSystemAlerts(alerts);
+                    setDocuments(docsData);
 
                     for (const autoId of Object.keys(expandedAutos)) {
                         if (expandedAutos[autoId]) {
@@ -753,8 +1075,19 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
                                                                     <td style={{ padding: '8px 12px', color: openBugsCount > 0 ? '#ef4444' : 'var(--text-secondary)', fontWeight: openBugsCount > 0 ? '600' : 'normal' }}>
                                                                         {openBugsCount > 0 ? `🐛 ${openBugsCount} באגים` : 'אין תקלות'}
                                                                     </td>
-                                                                    <td style={{ padding: '8px 12px', textAlign: 'left' }}>
-                                                                        {statusBadges[auto.status] || auto.status}
+                                                                    <td style={{ padding: '8px 12px', textAlign: 'left' }} onClick={(e) => e.stopPropagation()}>
+                                                                        <select
+                                                                            value={auto.status || 'design'}
+                                                                            onChange={(e) => handleUpdateAutoStatus(auto.id, e.target.value)}
+                                                                            className="form-control"
+                                                                            style={{ padding: '2px 6px', fontSize: '11px', height: '24px', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '4px', color: 'var(--text-light)', width: '90px' }}
+                                                                        >
+                                                                            <option value="design">אפיון</option>
+                                                                            <option value="development">פיתוח</option>
+                                                                            <option value="testing">בדיקות QA</option>
+                                                                            <option value="live">באוויר (Live)</option>
+                                                                            <option value="stopped">מושבת</option>
+                                                                        </select>
                                                                     </td>
                                                                 </tr>
                                                                 {isExpanded && (
@@ -764,12 +1097,13 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
                                                                                 
                                                                                 {/* Tabs Row */}
                                                                                 <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '6px', marginBottom: '10px' }} onClick={(e) => e.stopPropagation()}>
-                                                                                    {['ops', 'stats', 'runs'].map(tab => {
+                                                                                    {['ops', 'stats', 'runs', 'docs'].map(tab => {
                                                                                         const runsCount = (autoRuns[auto.id] || []).length;
                                                                                         const labels = { 
                                                                                             ops: 'תפעול ואפיון', 
                                                                                             stats: 'מדדים וסטטיסטיקות', 
-                                                                                            runs: `לוג ריצות (${runsCount})` 
+                                                                                            runs: `לוג ריצות (${runsCount})`,
+                                                                                            docs: 'מסמכים'
                                                                                         };
                                                                                         const isActive = (activeAutoTabs[auto.id] || 'ops') === tab;
                                                                                         return (
@@ -858,6 +1192,153 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
                                                                                                 >
                                                                                                     שייך
                                                                                                 </button>
+                                                                                            </div>
+                                                                                        </div>
+
+                                                                                        {/* Run Capping & Exceptions Controls */}
+                                                                                        <div style={{ background: 'rgba(255, 255, 255, 0.01)', border: '1px solid rgba(255, 255, 255, 0.03)', borderRadius: '6px', padding: '10px', marginBottom: '12px' }}>
+                                                                                            <span style={{ fontSize: '11px', fontWeight: '600', color: 'var(--text-light)', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+                                                                                                <SettingsIcon size={12} style={{ color: '#8b5cf6' }} />
+                                                                                                הגדרות בקרת ריצות והחרגות (VIP/Overage)
+                                                                                            </span>
+                                                                                            
+                                                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                                                                                {/* Row 1: Quota Limit & SLA Package */}
+                                                                                                <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '10px', alignItems: 'flex-end' }}>
+                                                                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                                                                                        <label style={{ fontSize: '9px', color: 'var(--text-muted)' }}>חבילת ריטיינר (מכסת בסיס)</label>
+                                                                                                        <select
+                                                                                                            value={[1000, 5000, 20000].includes(auto.runs_goal) ? String(auto.runs_goal) : 'custom'}
+                                                                                                            onChange={async (e) => {
+                                                                                                                try {
+                                                                                                                    const val = e.target.value;
+                                                                                                                    if (val !== 'custom') {
+                                                                                                                        const numLimit = parseInt(val);
+                                                                                                                        const updated = await db.updateAutomation(auto.id, { runs_goal: numLimit });
+                                                                                                                        setAutomations(prev => prev.map(a => a.id === auto.id ? updated : a));
+                                                                                                                        if (typeof onLeadUpdated === 'function') onLeadUpdated();
+                                                                                                                    }
+                                                                                                                } catch (err) {
+                                                                                                                    console.error("Error updating runs_goal package:", err);
+                                                                                                                }
+                                                                                                            }}
+                                                                                                            style={{ padding: '3px 6px', fontSize: '10.5px', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '4px', color: 'var(--text-light)', width: '100%', height: '26px' }}
+                                                                                                        >
+                                                                                                            <option value="1000">Standard (1,000 הרצות)</option>
+                                                                                                            <option value="5000">Premium (5,000 הרצות)</option>
+                                                                                                            <option value="20000">Enterprise (20,000 הרצות)</option>
+                                                                                                            <option value="custom">מכסה ידנית...</option>
+                                                                                                        </select>
+                                                                                                    </div>
+
+                                                                                                    {/* Custom limit input */}
+                                                                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                                                                                        <label style={{ fontSize: '9px', color: 'var(--text-muted)' }}>יעד ריצות ידני</label>
+                                                                                                        <input 
+                                                                                                            type="number" 
+                                                                                                            defaultValue={auto.runs_goal || 0}
+                                                                                                            key={`goal_${auto.id}_${auto.runs_goal || 0}`}
+                                                                                                            disabled={[1000, 5000, 20000].includes(auto.runs_goal)}
+                                                                                                            onBlur={async (e) => {
+                                                                                                                try {
+                                                                                                                    const val = parseInt(e.target.value);
+                                                                                                                    if (!isNaN(val) && val !== auto.runs_goal) {
+                                                                                                                        const updated = await db.updateAutomation(auto.id, { runs_goal: val });
+                                                                                                                        setAutomations(prev => prev.map(a => a.id === auto.id ? updated : a));
+                                                                                                                        if (typeof onLeadUpdated === 'function') onLeadUpdated();
+                                                                                                                    }
+                                                                                                                } catch (err) {
+                                                                                                                    console.error("Error updating runs_goal manually:", err);
+                                                                                                                }
+                                                                                                            }}
+                                                                                                            style={{ 
+                                                                                                                padding: '3px 6px', 
+                                                                                                                fontSize: '10.5px', 
+                                                                                                                background: [1000, 5000, 20000].includes(auto.runs_goal) ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.2)', 
+                                                                                                                border: '1px solid rgba(255,255,255,0.05)', 
+                                                                                                                borderRadius: '4px', 
+                                                                                                                color: [1000, 5000, 20000].includes(auto.runs_goal) ? 'var(--text-muted)' : 'var(--text-light)', 
+                                                                                                                width: '100%',
+                                                                                                                height: '26px'
+                                                                                                            }}
+                                                                                                            placeholder="יעד ריצות..."
+                                                                                                        />
+                                                                                                    </div>
+                                                                                                </div>
+
+                                                                                                {/* Row 2: Controls */}
+                                                                                                <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr', gap: '10px', alignItems: 'center' }}>
+                                                                                                    {/* Toggle: Block on limit */}
+                                                                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                                                                        <input 
+                                                                                                            type="checkbox" 
+                                                                                                            id={`block_limit_${auto.id}`}
+                                                                                                            checked={auto.block_on_limit !== false} // Default to true
+                                                                                                            onChange={async (e) => {
+                                                                                                                try {
+                                                                                                                    const updated = await db.updateAutomation(auto.id, { block_on_limit: e.target.checked });
+                                                                                                                    setAutomations(prev => prev.map(a => a.id === auto.id ? updated : a));
+                                                                                                                    if (typeof onLeadUpdated === 'function') onLeadUpdated();
+                                                                                                                } catch (err) {
+                                                                                                                    console.error("Error updating block_on_limit:", err);
+                                                                                                                }
+                                                                                                            }}
+                                                                                                            style={{ width: '14px', height: '14px', cursor: 'pointer', accentColor: '#8b5cf6' }}
+                                                                                                        />
+                                                                                                        <label htmlFor={`block_limit_${auto.id}`} style={{ fontSize: '10.5px', color: 'var(--text-secondary)', cursor: 'pointer' }}>
+                                                                                                            אכוף חסימה בחריגה
+                                                                                                        </label>
+                                                                                                    </div>
+
+                                                                                                    {/* Input: Extra runs allowance */}
+                                                                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                                                                                        <label style={{ fontSize: '9px', color: 'var(--text-muted)' }}>תוספת ריצות (בונוס)</label>
+                                                                                                        <input 
+                                                                                                            type="number" 
+                                                                                                            defaultValue={auto.extra_runs_allowance || 0}
+                                                                                                            key={`allowance_${auto.id}_${auto.extra_runs_allowance || 0}`}
+                                                                                                            onBlur={async (e) => {
+                                                                                                                try {
+                                                                                                                    const val = parseInt(e.target.value);
+                                                                                                                    if (!isNaN(val) && val !== auto.extra_runs_allowance) {
+                                                                                                                        const updated = await db.updateAutomation(auto.id, { extra_runs_allowance: val });
+                                                                                                                        setAutomations(prev => prev.map(a => a.id === auto.id ? updated : a));
+                                                                                                                        if (typeof onLeadUpdated === 'function') onLeadUpdated();
+                                                                                                                    }
+                                                                                                                } catch (err) {
+                                                                                                                    console.error("Error updating allowance:", err);
+                                                                                                                }
+                                                                                                            }}
+                                                                                                            style={{ padding: '3px 6px', fontSize: '10.5px', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '4px', color: 'var(--text-light)', width: '100%', height: '26px' }}
+                                                                                                            placeholder="0"
+                                                                                                        />
+                                                                                                    </div>
+
+                                                                                                    {/* Input: Custom overage rate */}
+                                                                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                                                                                        <label style={{ fontSize: '9px', color: 'var(--text-muted)' }}>תעריף חריגה מותאם (₪)</label>
+                                                                                                        <input 
+                                                                                                            type="number" 
+                                                                                                            step="0.01"
+                                                                                                            defaultValue={auto.custom_overage_rate === undefined ? 0.05 : auto.custom_overage_rate}
+                                                                                                            key={`rate_${auto.id}_${auto.custom_overage_rate === undefined ? 0.05 : auto.custom_overage_rate}`}
+                                                                                                            onBlur={async (e) => {
+                                                                                                                try {
+                                                                                                                    const val = parseFloat(e.target.value);
+                                                                                                                    if (!isNaN(val) && val !== auto.custom_overage_rate) {
+                                                                                                                        const updated = await db.updateAutomation(auto.id, { custom_overage_rate: val });
+                                                                                                                        setAutomations(prev => prev.map(a => a.id === auto.id ? updated : a));
+                                                                                                                        if (typeof onLeadUpdated === 'function') onLeadUpdated();
+                                                                                                                    }
+                                                                                                                } catch (err) {
+                                                                                                                    console.error("Error updating overage rate:", err);
+                                                                                                                }
+                                                                                                            }}
+                                                                                                            style={{ padding: '3px 6px', fontSize: '10.5px', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '4px', color: 'var(--text-light)', width: '100%', height: '26px' }}
+                                                                                                            placeholder="0.05"
+                                                                                                        />
+                                                                                                    </div>
+                                                                                                </div>
                                                                                             </div>
                                                                                         </div>
 
@@ -978,21 +1459,84 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
                                                                                             const success = runs.filter(r => r.status === 'success').length;
                                                                                             const warning = runs.filter(r => r.status === 'warning').length;
                                                                                             const error = runs.filter(r => r.status === 'error').length;
+                                                                                            const blocked = runs.filter(r => r.error_type && r.error_type.includes('נחסמה')).length;
+                                                                                            const realErrors = error - blocked;
                                                                                             
-                                                                                            const successRate = total > 0 ? Math.round((success / total) * 100) : 100;
+                                                                                            const activeTotal = total - blocked;
+                                                                                            const successRate = activeTotal > 0 ? Math.round((success / activeTotal) * 100) : 100;
                                                                                             const runsWithDuration = runs.filter(r => r.duration_ms > 0);
                                                                                             const avgDuration = runsWithDuration.length > 0 ? Math.round(runsWithDuration.reduce((acc, r) => acc + r.duration_ms, 0) / runsWithDuration.length) : 0;
 
-                                                                                            // Calculate consecutive failures (from most recent)
+                                                                                            // Calculate consecutive failures (from most recent, excluding blocked runs)
                                                                                             const sortedRuns = [...runs].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
                                                                                             let consecutiveFailures = 0;
                                                                                             for (const r of sortedRuns) {
                                                                                                 if (r.status === 'error') {
+                                                                                                    if (r.error_type && r.error_type.includes('נחסמה')) {
+                                                                                                        continue; // Ignore blocked runs for consecutive failures
+                                                                                                    }
                                                                                                     consecutiveFailures++;
                                                                                                 } else {
                                                                                                     break;
                                                                                                 }
-                                                                                            }
+                                                                                              }
+
+                                                                                            // Calculate open bugs count (mapped to this auto)
+                                                                                            const openBugsCount = bugs.filter(b => b.automation_id === auto.id && b.status !== 'resolved').length;
+
+                                                                                            // Calculate Health Score (excluding blocked runs)
+                                                                                            const runs30 = runs.filter(r => new Date(r.created_at) >= new Date(Date.now() - 30 * 24 * 60 * 60 * 1000));
+                                                                                            const total30 = runs30.length;
+                                                                                            const blocked30 = runs30.filter(r => r.error_type && r.error_type.includes('נחסמה')).length;
+                                                                                            const activeTotal30 = total30 - blocked30;
+                                                                                            const errors30 = runs30.filter(r => r.status === 'error' && !(r.error_type && r.error_type.includes('נחסמה'))).length;
+                                                                                            const failRate = activeTotal30 > 0 ? (errors30 / activeTotal30) : 0;
+                                                                                            const healthDeductions = (failRate * 40) + Math.min(30, consecutiveFailures * 15) + Math.min(30, openBugsCount * 10);
+                                                                                            const healthScore = Math.max(0, Math.min(100, Math.round(100 - healthDeductions)));
+
+                                                                                            // Calculate MTTR (Mean Time to Repair)
+                                                                                            const bugResolutions = JSON.parse(localStorage.getItem('bug_resolution_times') || '{}');
+                                                                                            const resolvedBugs = bugs.filter(b => b.automation_id === auto.id && b.status === 'resolved');
+                                                                                            let totalMTTRMs = 0;
+                                                                                            let resolvedCountWithTime = 0;
+                                                                                            resolvedBugs.forEach(bug => {
+                                                                                                const resTimeStr = bugResolutions[bug.id];
+                                                                                                const resTime = resTimeStr ? new Date(resTimeStr).getTime() : new Date(bug.created_at).getTime() + 12 * 60 * 60 * 1000; // default 12 hours
+                                                                                                const createdTime = new Date(bug.created_at).getTime();
+                                                                                                if (resTime > createdTime) {
+                                                                                                    totalMTTRMs += (resTime - createdTime);
+                                                                                                    resolvedCountWithTime++;
+                                                                                                }
+                                                                                            });
+                                                                                            const avgMTTR = resolvedCountWithTime > 0 ? Math.round(totalMTTRMs / resolvedCountWithTime) : 0;
+
+                                                                                            // Calculate ROI & Savings
+                                                                                            const storedRoi = JSON.parse(localStorage.getItem('auto_roi_settings') || '{}');
+                                                                                            const autoRoi = storedRoi[auto.id] || { manualMins: 5, hourlyWage: 50 };
+                                                                                            const hoursSaved = Math.round(((success * autoRoi.manualMins) / 60) * 10) / 10;
+                                                                                            const moneySaved = Math.round(hoursSaved * autoRoi.hourlyWage);
+
+                                                                                            // Calculate Monthly Goal & Forecast
+                                                                                            const startOfMonth = new Date();
+                                                                                            startOfMonth.setDate(1);
+                                                                                            startOfMonth.setHours(0,0,0,0);
+                                                                                            const currentMonthRuns = runs.filter(r => new Date(r.created_at) >= startOfMonth && !(r.error_type && r.error_type.includes('נחסמה')));
+                                                                                            const currentMonthTotal = currentMonthRuns.length;
+                                                                                            
+                                                                                            const totalAllowed = (auto.runs_goal || 0) + (auto.extra_runs_allowance || 0);
+                                                                                            const goalPercent = totalAllowed > 0 ? Math.round((currentMonthTotal / totalAllowed) * 100) : 0;
+
+                                                                                            // Forecast based on elapsed days in month
+                                                                                            const today = new Date();
+                                                                                            const elapsedDays = today.getDate();
+                                                                                            const totalDaysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+                                                                                            const runsPerDay = currentMonthTotal / elapsedDays;
+                                                                                            const forecastRuns = Math.round(runsPerDay * totalDaysInMonth);
+                                                                                            const forecastPercent = totalAllowed > 0 ? Math.round((forecastRuns / totalAllowed) * 100) : 0;
+                                                                                            
+                                                                                            const overageRuns = Math.max(0, currentMonthTotal - totalAllowed);
+                                                                                            const overageRate = auto.custom_overage_rate === undefined ? 0.05 : auto.custom_overage_rate;
+                                                                                            const overageCost = overageRuns * overageRate;
 
                                                                                             // Calculate peak hour
                                                                                             const hourlyRunCounts = Array(24).fill(0);
@@ -1252,36 +1796,155 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
                                                                                                     {consecutiveFailures >= 2 && (
                                                                                                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px', background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.25)', borderRadius: '6px', color: '#f87171', fontSize: '11px', fontWeight: '600', marginBottom: '4px' }}>
                                                                                                             <span>⚠️</span>
-                                                                                                            <span>שים לב: האוטומציה נכשלה ב-{consecutiveFailures} הריצות האחרונות ברצף! מומלץ לבדוק את לשונית \"לוג ריצות\".</span>
+                                                                                                            <span>שים לב: האוטומציה נכשלה ב-{consecutiveFailures} הריצות האחרונות ברצף! מומלץ לבדוק את לשונית "לוג ריצות".</span>
                                                                                                         </div>
                                                                                                     )}
 
-                                                                                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: '8px' }}>
-                                                                                                        <div style={{ background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '8px', textAlign: 'center' }}>
-                                                                                                            <span style={{ fontSize: '10px', color: 'var(--text-secondary)', display: 'block' }}>סה"ך הרצות</span>
-                                                                                                            <strong style={{ fontSize: '16px', color: 'var(--text-light)', display: 'block', marginTop: '2px' }}>{total}</strong>
+                                                                                                    <div className="premium-stats-grid">
+                                                                                                        {/* Health Score Card */}
+                                                                                                        <div className="premium-stats-card" style={{ '--hover-glow-color': healthScore > 80 ? 'rgba(16, 185, 129, 0.15)' : healthScore > 50 ? 'rgba(245, 158, 11, 0.15)' : 'rgba(239, 68, 68, 0.15)' }}>
+                                                                                                            <span className="card-title">ציון בריאות</span>
+                                                                                                            {(() => {
+                                                                                                                const radius = 18;
+                                                                                                                const stroke = 3;
+                                                                                                                const normalizedRadius = radius - stroke;
+                                                                                                                const circumference = normalizedRadius * 2 * Math.PI;
+                                                                                                                const strokeDashoffset = circumference - (healthScore / 100) * circumference;
+                                                                                                                const gaugeColor = healthScore > 80 ? '#10b981' : healthScore > 50 ? '#f59e0b' : '#ef4444';
+                                                                                                                return (
+                                                                                                                    <div style={{ position: 'relative', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                                                                                        <svg width="40" height="40" style={{ transform: 'rotate(-90deg)' }}>
+                                                                                                                            <circle stroke="rgba(255,255,255,0.05)" fill="transparent" strokeWidth={stroke} r={normalizedRadius} cx="20" cy="20" />
+                                                                                                                            <circle stroke={gaugeColor} fill="transparent" strokeWidth={stroke} strokeDasharray={circumference + ' ' + circumference} style={{ strokeDashoffset }} r={normalizedRadius} cx="20" cy="20" strokeLinecap="round" />
+                                                                                                                        </svg>
+                                                                                                                        <span style={{ position: 'absolute', fontSize: '10px', fontWeight: 'bold', color: '#fff' }}>{healthScore}%</span>
+                                                                                                                    </div>
+                                                                                                                );
+                                                                                                            })()}
                                                                                                         </div>
-                                                                                                        <div style={{ background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '8px', textAlign: 'center' }}>
-                                                                                                            <span style={{ fontSize: '10px', color: 'var(--text-secondary)', display: 'block' }}>שיעור הצלחה</span>
-                                                                                                            <strong style={{ fontSize: '16px', color: successRate > 80 ? '#10b981' : '#f59e0b', display: 'block', marginTop: '2px' }}>{successRate}%</strong>
+                                                                                                        {/* Total Runs Card */}
+                                                                                                        <div className="premium-stats-card" style={{ '--hover-glow-color': 'rgba(255, 255, 255, 0.08)' }}>
+                                                                                                            <span className="card-title">סה"ך הרצות</span>
+                                                                                                            <strong className="card-value">{total}</strong>
+                                                                                                            <span style={{ fontSize: '9px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                                                                                                                {success} הצלחות | {blocked} חסומות | {realErrors} שגיאות
+                                                                                                            </span>
                                                                                                         </div>
-                                                                                                        <div style={{ background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '8px', textAlign: 'center' }}>
-                                                                                                            <span style={{ fontSize: '10px', color: 'var(--text-secondary)', display: 'block' }}>זמן תגובה ממוצע</span>
-                                                                                                            <strong style={{ fontSize: '16px', color: 'var(--accent-cyan)', display: 'block', marginTop: '2px' }}>{formatDuration(avgDuration)}</strong>
+                                                                                                        {/* Success Rate Card */}
+                                                                                                        <div className="premium-stats-card" style={{ '--hover-glow-color': successRate > 80 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(245, 158, 11, 0.15)' }}>
+                                                                                                            <span className="card-title">שיעור הצלחה</span>
+                                                                                                            <strong className="card-value" style={{ color: successRate > 80 ? '#10b981' : '#f59e0b' }}>{successRate}%</strong>
                                                                                                         </div>
-                                                                                                        <div style={{ background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '8px', textAlign: 'center' }}>
-                                                                                                            <span style={{ fontSize: '10px', color: 'var(--text-secondary)', display: 'block' }}>באגים פתוחים</span>
-                                                                                                            <strong style={{ fontSize: '16px', color: openBugsCount > 0 ? '#ef4444' : 'var(--text-secondary)', display: 'block', marginTop: '2px' }}>{openBugsCount}</strong>
+                                                                                                        {/* Avg Duration Card */}
+                                                                                                        <div className="premium-stats-card" style={{ '--hover-glow-color': 'rgba(6, 182, 212, 0.15)' }}>
+                                                                                                            <span className="card-title">זמן תגובה ממוצע</span>
+                                                                                                            <strong className="card-value" style={{ color: 'var(--accent-cyan)' }}>{formatDuration(avgDuration)}</strong>
                                                                                                         </div>
-                                                                                                        <div style={{ background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '8px', textAlign: 'center' }}>
-                                                                                                            <span style={{ fontSize: '10px', color: 'var(--text-secondary)', display: 'block' }}>שעת עומס שיא</span>
-                                                                                                            <strong style={{ fontSize: '16px', color: '#f59e0b', display: 'block', marginTop: '2px' }}>{peakHour !== -1 ? `${String(peakHour).padStart(2, '0')}:00` : '—'}</strong>
-                                                                                                            <span style={{ fontSize: '8.5px', color: 'var(--text-muted)' }}>{peakCount > 0 ? `(${peakCount} הרצות)` : 'אין הרצות'}</span>
+                                                                                                        {/* Open Bugs Card */}
+                                                                                                        <div className="premium-stats-card" style={{ '--hover-glow-color': openBugsCount > 0 ? 'rgba(239, 68, 68, 0.15)' : 'rgba(255, 255, 255, 0.05)' }}>
+                                                                                                            <span className="card-title">באגים פתוחים</span>
+                                                                                                            <strong className="card-value" style={{ color: openBugsCount > 0 ? '#ef4444' : 'var(--text-secondary)' }}>{openBugsCount}</strong>
+                                                                                                        </div>
+                                                                                                        {/* Peak Hour Card */}
+                                                                                                        <div className="premium-stats-card" style={{ '--hover-glow-color': 'rgba(245, 158, 11, 0.15)' }}>
+                                                                                                            <span className="card-title">שעת עומס שיא</span>
+                                                                                                            <strong className="card-value" style={{ color: '#f59e0b' }}>{peakHour !== -1 ? `${String(peakHour).padStart(2, '0')}:00` : '—'}</strong>
+                                                                                                            <span className="card-subtext">{peakCount > 0 ? `(${peakCount} הרצות)` : 'אין הרצות'}</span>
+                                                                                                        </div>
+                                                                                                        {/* MTTR Card */}
+                                                                                                        <div className="premium-stats-card" style={{ '--hover-glow-color': 'rgba(6, 182, 212, 0.15)' }}>
+                                                                                                            <span className="card-title">זמן פתרון באג</span>
+                                                                                                            <strong className="card-value" style={{ color: 'var(--accent-cyan)', fontSize: '15px' }}>{formatMTTR(avgMTTR)}</strong>
+                                                                                                            <span className="card-subtext">MTTR ממוצע</span>
+                                                                                                        </div>
+                                                                                                        {/* ROI Card */}
+                                                                                                        <div className="premium-stats-card" style={{ '--hover-glow-color': 'rgba(16, 185, 129, 0.15)' }}>
+                                                                                                            <button 
+                                                                                                                type="button"
+                                                                                                                onClick={() => setRoiSettingsOpen(prev => ({ ...prev, [auto.id]: !prev[auto.id] }))}
+                                                                                                                style={{ position: 'absolute', top: '4px', left: '4px', background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '9px', padding: '2px' }}
+                                                                                                                title="הגדרות ROI"
+                                                                                                            >
+                                                                                                                ⚙️
+                                                                                                            </button>
+                                                                                                            <span style={{ fontSize: '10px', color: 'var(--text-secondary)', display: 'block' }}>חיסכון ו-ROI</span>
+                                                                                                            <strong style={{ fontSize: '16px', color: '#10b981', display: 'block', marginTop: '2px' }}>₪{moneySaved}</strong>
+                                                                                                            <span style={{ fontSize: '8.5px', color: 'var(--text-muted)' }}>{hoursSaved > 0 ? `(${hoursSaved} ש' נחסכו)` : 'אין נתונים'}</span>
                                                                                                         </div>
                                                                                                     </div>
 
+                                                                                                    {/* ROI inline configuration panel */}
+                                                                                                    {roiSettingsOpen[auto.id] && (
+                                                                                                        <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '6px', padding: '10px', display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '2px' }}>
+                                                                                                            <span style={{ fontSize: '10.5px', fontWeight: '600', color: 'var(--text-light)', display: 'block' }}>⚙️ הגדרות חיסכון ו-ROI עבור {auto.name}:</span>
+                                                                                                            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+                                                                                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', flex: '1 1 120px' }}>
+                                                                                                                    <label style={{ fontSize: '9px', color: 'var(--text-secondary)' }}>זמן טיפול ידני משוער להרצה (דקות):</label>
+                                                                                                                    <input 
+                                                                                                                        type="number" 
+                                                                                                                        min="1"
+                                                                                                                        value={tempRoiMins[auto.id] !== undefined ? tempRoiMins[auto.id] : autoRoi.manualMins} 
+                                                                                                                        onChange={(e) => setTempRoiMins({ ...tempRoiMins, [auto.id]: parseInt(e.target.value) || 0 })}
+                                                                                                                        style={{ padding: '4px 8px', fontSize: '11px', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '4px', color: 'var(--text-light)' }}
+                                                                                                                    />
+                                                                                                                </div>
+                                                                                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', flex: '1 1 120px' }}>
+                                                                                                                    <label style={{ fontSize: '9px', color: 'var(--text-secondary)' }}>עלות שעת עבודה ממוצעת לעובד (₪):</label>
+                                                                                                                    <input 
+                                                                                                                        type="number" 
+                                                                                                                        min="1"
+                                                                                                                        value={tempRoiWage[auto.id] !== undefined ? tempRoiWage[auto.id] : autoRoi.hourlyWage} 
+                                                                                                                        onChange={(e) => setTempRoiWage({ ...tempRoiWage, [auto.id]: parseInt(e.target.value) || 0 })}
+                                                                                                                        style={{ padding: '4px 8px', fontSize: '11px', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '4px', color: 'var(--text-light)' }}
+                                                                                                                    />
+                                                                                                                </div>
+                                                                                                                <button 
+                                                                                                                    type="button"
+                                                                                                                    onClick={() => {
+                                                                                                                        const mins = tempRoiMins[auto.id] !== undefined ? tempRoiMins[auto.id] : autoRoi.manualMins;
+                                                                                                                        const wage = tempRoiWage[auto.id] !== undefined ? tempRoiWage[auto.id] : autoRoi.hourlyWage;
+                                                                                                                        const current = JSON.parse(localStorage.getItem('auto_roi_settings') || '{}');
+                                                                                                                        current[auto.id] = { manualMins: mins, hourlyWage: wage };
+                                                                                                                        localStorage.setItem('auto_roi_settings', JSON.stringify(current));
+                                                                                                                        setRoiSettingsOpen({ ...roiSettingsOpen, [auto.id]: false });
+                                                                                                                    }}
+                                                                                                                    className="btn btn-secondary"
+                                                                                                                    style={{ padding: '4px 12px', fontSize: '11px', height: '26px' }}
+                                                                                                                >
+                                                                                                                    שמור הגדרות
+                                                                                                                </button>
+                                                                                                            </div>
+                                                                                                        </div>
+                                                                                                    )}
+
+                                                                                                    {/* Monthly Goal & Forecast Progress bar */}
+                                                                                                    {auto.runs_goal > 0 && (
+                                                                                                        <div style={{ background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '10px', marginTop: '2px' }}>
+                                                                                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '10.5px', marginBottom: '6px', flexWrap: 'wrap', gap: '4px' }}>
+                                                                                                                <span style={{ color: 'var(--text-light)', fontWeight: '600' }}>🎯 התקדמות מול יעד הרצות חודשי:</span>
+                                                                                                                <span style={{ color: 'var(--text-secondary)' }}>
+                                                                                                                    {currentMonthTotal} מתוך {totalAllowed} הרצות 
+                                                                                                                    {auto.extra_runs_allowance > 0 && ` (כולל ${auto.extra_runs_allowance} בונוס)`} ({goalPercent}%)
+                                                                                                                </span>
+                                                                                                            </div>
+                                                                                                            <div style={{ height: '6px', background: 'rgba(255,255,255,0.05)', borderRadius: '3px', overflow: 'hidden', marginBottom: '6px' }}>
+                                                                                                                <div style={{ width: `${Math.min(100, goalPercent)}%`, height: '100%', background: overageRuns > 0 ? '#ef4444' : 'var(--accent-cyan)' }} />
+                                                                                                            </div>
+                                                                                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '9px', color: 'var(--text-muted)', flexWrap: 'wrap', gap: '4px' }}>
+                                                                                                                <span>
+                                                                                                                    🔮 תחזית לסוף החודש הנוכחי: כ-<strong>{forecastRuns}</strong> הרצות ({totalAllowed > 0 ? Math.round((forecastRuns / totalAllowed) * 100) : 0}% מהיעד)
+                                                                                                                </span>
+                                                                                                                {overageRuns > 0 && (
+                                                                                                                    <span style={{ color: '#ef4444', fontWeight: 'bold' }}>
+                                                                                                                        ⚠️ חיוב חריגה: {overageRuns} הרצות ({overageCost.toFixed(2)} ₪)
+                                                                                                                    </span>
+                                                                                                                )}
+                                                                                                            </div>
+                                                                                                        </div>
+                                                                                                    )}
+
                                                                                                     {total > 0 && (
-                                                                                                        <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', padding: '8px 10px', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: '6px', fontSize: '10px', marginTop: '4px' }}>
+                                                                                                        <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', padding: '8px 10px', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: '6px', fontSize: '10px', marginTop: '2px' }}>
                                                                                                             <div style={{ display: 'flex', gap: '12px', color: 'var(--text-secondary)' }}>
                                                                                                                 <span>זמן הצלחה ממוצע: <strong style={{ color: '#10b981' }}>{avgSuccessDur > 0 ? formatDuration(avgSuccessDur) : '—'}</strong></span>
                                                                                                                 <span style={{ borderLeft: '1px solid rgba(255,255,255,0.1)', paddingLeft: '12px' }}>זמן שגיאה ממוצע: <strong style={{ color: '#ef4444' }}>{avgFailedDur > 0 ? formatDuration(avgFailedDur) : '—'}</strong></span>
@@ -1292,18 +1955,21 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
                                                                                                         </div>
                                                                                                     )}
 
+
                                                                                                     {total > 0 && (
                                                                                                         <div style={{ marginTop: '4px' }}>
                                                                                                             <span style={{ fontSize: '10.5px', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>התפלגות הרצות:</span>
                                                                                                             <div style={{ display: 'flex', height: '8px', borderRadius: '4px', overflow: 'hidden', background: 'rgba(255,255,255,0.05)' }}>
                                                                                                                 <div style={{ width: `${(success / total) * 100}%`, background: '#10b981' }} title={`הצלחה: ${success}`} />
                                                                                                                 <div style={{ width: `${(warning / total) * 100}%`, background: '#f59e0b' }} title={`אזהרה: ${warning}`} />
-                                                                                                                <div style={{ width: `${(error / total) * 100}%`, background: '#ef4444' }} title={`שגיאה: ${error}`} />
+                                                                                                                <div style={{ width: `${(realErrors / total) * 100}%`, background: '#ef4444' }} title={`שגיאה: ${realErrors}`} />
+                                                                                                                <div style={{ width: `${(blocked / total) * 100}%`, background: '#8b5cf6' }} title={`נחסמו: ${blocked}`} />
                                                                                                             </div>
-                                                                                                            <div style={{ display: 'flex', gap: '10px', marginTop: '4px', fontSize: '9.5px', color: 'var(--text-muted)', justifyContent: 'center' }}>
+                                                                                                            <div style={{ display: 'flex', gap: '10px', marginTop: '4px', fontSize: '9.5px', color: 'var(--text-muted)', justifyContent: 'center', flexWrap: 'wrap' }}>
                                                                                                                 <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981' }} />תקין ({success})</span>
                                                                                                                 <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#f59e0b' }} />אזהרה ({warning})</span>
-                                                                                                                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#ef4444' }} />שגיאה ({error})</span>
+                                                                                                                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#ef4444' }} />שגיאה ({realErrors})</span>
+                                                                                                                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#8b5cf6' }} />נחסם ({blocked})</span>
                                                                                                             </div>
                                                                                                         </div>
                                                                                                     )}
@@ -1536,13 +2202,21 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
                                                                                                     {warning > 0 && (
                                                                                                         <div style={{ background: 'rgba(245,158,11,0.03)', border: '1px solid rgba(245,158,11,0.15)', borderRadius: '6px', padding: '10px', marginTop: '4px' }}>
                                                                                                             <span style={{ fontSize: '11px', fontWeight: '600', color: '#f59e0b', display: 'block', marginBottom: '6px' }}>אזהרות לפי קטגוריה:</span>
-                                                                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                                                                                                {Object.entries(warningTypes).map(([type, count]) => (
-                                                                                                                    <div key={type} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10.5px' }}>
-                                                                                                                        <span style={{ color: 'var(--text-secondary)' }}>{type}</span>
-                                                                                                                        <strong style={{ color: '#f59e0b' }}>{count} מקרים</strong>
-                                                                                                                    </div>
-                                                                                                                ))}
+                                                                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                                                                                {Object.entries(warningTypes).map(([type, count]) => {
+                                                                                                                    const pct = Math.round((count / warning) * 100);
+                                                                                                                    return (
+                                                                                                                        <div key={type} style={{ display: 'flex', flexDirection: 'column', gap: '3px', fontSize: '10.5px' }}>
+                                                                                                                            <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
+                                                                                                                                <span>{type}</span>
+                                                                                                                                <strong style={{ color: '#f59e0b' }}>{count} מקרים ({pct}%)</strong>
+                                                                                                                            </div>
+                                                                                                                            <div style={{ height: '4px', background: 'rgba(255,255,255,0.05)', borderRadius: '2px', overflow: 'hidden' }}>
+                                                                                                                                <div style={{ width: `${pct}%`, height: '100%', background: '#f59e0b' }} />
+                                                                                                                            </div>
+                                                                                                                        </div>
+                                                                                                                    );
+                                                                                                                })}
                                                                                                             </div>
                                                                                                         </div>
                                                                                                     )}
@@ -1550,13 +2224,21 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
                                                                                                     {error > 0 && (
                                                                                                         <div style={{ background: 'rgba(239,68,68,0.03)', border: '1px solid rgba(239,68,68,0.1)', borderRadius: '6px', padding: '10px', marginTop: '4px' }}>
                                                                                                             <span style={{ fontSize: '11px', fontWeight: '600', color: '#f87171', display: 'block', marginBottom: '6px' }}>שגיאות לפי קטגוריה:</span>
-                                                                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                                                                                                {Object.entries(errorTypes).map(([type, count]) => (
-                                                                                                                    <div key={type} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10.5px' }}>
-                                                                                                                        <span style={{ color: 'var(--text-secondary)' }}>{type}</span>
-                                                                                                                        <strong style={{ color: '#f87171' }}>{count} מקרים</strong>
-                                                                                                                    </div>
-                                                                                                                ))}
+                                                                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                                                                                {Object.entries(errorTypes).map(([type, count]) => {
+                                                                                                                    const pct = Math.round((count / error) * 100);
+                                                                                                                    return (
+                                                                                                                        <div key={type} style={{ display: 'flex', flexDirection: 'column', gap: '3px', fontSize: '10.5px' }}>
+                                                                                                                            <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
+                                                                                                                                <span>{type}</span>
+                                                                                                                                <strong style={{ color: '#f87171' }}>{count} מקרים ({pct}%)</strong>
+                                                                                                                            </div>
+                                                                                                                            <div style={{ height: '4px', background: 'rgba(255,255,255,0.05)', borderRadius: '2px', overflow: 'hidden' }}>
+                                                                                                                                <div style={{ width: `${pct}%`, height: '100%', background: '#ef4444' }} />
+                                                                                                                            </div>
+                                                                                                                        </div>
+                                                                                                                    );
+                                                                                                                })}
                                                                                                             </div>
                                                                                                         </div>
                                                                                                     )}
@@ -1801,7 +2483,8 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
                                                                                                     const colors = {
                                                                                                         success: { bg: 'rgba(16, 185, 129, 0.03)', border: 'rgba(16, 185, 129, 0.1)', text: '#10b981', label: 'הצלחה' },
                                                                                                         error: { bg: 'rgba(239, 68, 68, 0.03)', border: 'rgba(239, 68, 68, 0.1)', text: '#ef4444', label: 'שגיאה' },
-                                                                                                        warning: { bg: 'rgba(245, 158, 11, 0.03)', border: 'rgba(245, 158, 11, 0.1)', text: '#f59e0b', label: 'אזהרה' }
+                                                                                                        warning: { bg: 'rgba(245, 158, 11, 0.03)', border: 'rgba(245, 158, 11, 0.1)', text: '#f59e0b', label: 'אזהרה' },
+                                                                                                        fallback: { bg: 'rgba(245, 158, 11, 0.03)', border: 'rgba(245, 158, 11, 0.1)', text: '#f59e0b', label: 'אזהרה (גיבוי)' }
                                                                                                     };
                                                                                                     const theme = colors[run.status] || colors.success;
                                                                                                     const isRunExpanded = !!expandedRun[run.id];
@@ -1896,6 +2579,24 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
                                                                                                     );
                                                                                                 });
                                                                                             })()}
+                                                                                        </div>
+                                                                                    </div>
+                                                                                )}
+
+                                                                                {(activeAutoTabs[auto.id] || 'ops') === 'docs' && (
+                                                                                    <div onClick={(e) => e.stopPropagation()} style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '10px 0' }}>
+                                                                                        <div style={{ display: 'flex', gap: '8px', background: 'rgba(139,92,246,0.03)', border: '1px solid rgba(139,92,246,0.1)', borderRadius: '6px', padding: '10px 12px', alignItems: 'flex-start' }}>
+                                                                                            <Info size={14} style={{ color: '#c084fc', marginTop: '2px', flexShrink: 0 }} />
+                                                                                            <span style={{ fontSize: '11px', color: 'var(--text-secondary)', lineHeight: '1.4' }}>
+                                                                                                <strong>מצב Live (באוויר):</strong> האוטומציה פועלת באופן רציף בסביבת הייצור (ייצור/פרודקשן) ומבצעת משימות אמיתיות עבור הלקוח. העברה ל-Live חסומה עד להעלאת שלושת מסמכי החובה הטכניים (אפיון טכני, כרטיס גישות מאובטח ופרוטוקול מסירה חתום).
+                                                                                            </span>
+                                                                                        </div>
+                                                                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px' }}>
+                                                                                            {renderAutoDocumentSlot(auto, 'spec', 'מסמך אפיון טכני', 'Live')}
+                                                                                            {renderAutoDocumentSlot(auto, 'credentials', 'כרטיס גישות מאובטח', 'Live')}
+                                                                                            {renderAutoDocumentSlot(auto, 'handover', 'פרוטוקול מסירה', 'Live')}
+                                                                                            {renderAutoDocumentSlot(auto, 'sla', 'תנאי תחזוקה SLA', null)}
+                                                                                            {renderAutoDocumentSlot(auto, 'invoice', 'חשבונית מס', null)}
                                                                                         </div>
                                                                                     </div>
                                                                                 )}

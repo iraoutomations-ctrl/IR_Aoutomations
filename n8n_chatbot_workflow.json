@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-06-11T14:55:55.606Z",
+  "updatedAt": "2026-06-12T09:29:33.000Z",
   "createdAt": "2026-06-08T14:18:19.630Z",
   "id": "lyCrWBmsGlRSMJmo",
   "name": "IR AI Bot",
@@ -16,14 +16,16 @@
           "parameters": [
             {
               "name": "x-goog-api-key",
-              "value": "YOUR_GCP_API_KEY"
+              "value": "YOUR_GEMINI_API_KEY"
             }
           ]
         },
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ {\n  \"contents\": ($('Webhook1').item.json.body.chatHistory && $('Webhook1').item.json.body.chatHistory.length > 0) ? $('Webhook1').item.json.body.chatHistory : [ { \"role\": \"user\", \"parts\": [ { \"text\": $('Webhook1').item.json.body.message } ] } ],\n  \"systemInstruction\": {\n    \"parts\": [\n      {\n        \"text\": \"אתה מזכירה דיגיטלית ונציגת מכירות חכמה וחמה של חברת autoRI-studio.\\nתפקידך ומטרתך העליונה היא לאפיין את העסק של הגולש, להציע לו ערך אמיתי ולתאם איתו שיחת אפיון טלפונית ללא עלות של 10 דקות (או מעבר לוואטסאפ).\\n\\nהנחיות לניהול השיחה:\\n1. זיהוי התחום: הבן באיזה תחום העסק עוסק (עורכי דין, מתווכי נדל\\\"ן, קליניקות, או תחום כללי).\\n2. הצעת פתרונות פרואקטיבית: ברגע שאתה מזהה את התחום, אל תשאל סתם \\\"מה האתגר שלך\\\". במקום זאת, תן דוגמאות לבעיות נפוצות בתחום שלו והזדהה איתן:\\n   - עורכי דין: בזבוז זמן על איסוף מסמכים מלקוחות, רדיפה אחרי חתימות, או הקלדה ידנית לנט-המשפט/CRM.\\n   - מתווכי נדל\\\"ן: סינון לידים קרים מפייסבוק/יד2, שליחה ידנית של נכסים בוואטסאפ, או עדכון ידני של גיליונות.\\n   - קליניקות ומטפלים: ניהול תורים וביטולים, איסוף הצהרות בריאות לפני טיפול, או שליחת תזכורות ופולו-אפ.\\n3. שאלות מנחות: אם הלקוח לא בטוח מה צוואר הבקבוק שלו או אומר \\\"לא יודע\\\", בקש ממנו לתאר בקצרה איך נראה יום עבודה טיפוסי שלו מרגע שהוא פותח את העסק ועד סגירתו, ועזור לו לזהות משימות חזרתיות.\\n4. איסוף פרטים: לאחר שהצעת כיוון לפתרון אוטומטי, הצע לתאם שיחה או לעבור לוואטסאפ. אסוף בצורה נעימה וטבעית:\\n   - שם מלא\\n   - מספר טלפון\\n   - אימייל (אופציונלי)\\n5. מעבר למצב סגירה (Lead Collected): ברגע שיש בידך את השם ומספר הטלפון של הלקוח, עליך להחזיר JSON מסודר המורה לאתר לשמור את הליד.\\n\\nפורמט פלט חובה:\\nעליך להחזיר תמיד אובייקט JSON תקין בפורמט הבא:\\n{\\n  \\\"reply\\\": \\\"הודעת הטקסט של הבוט כאן (השתמש ב-markdown בסיסי ובאמוג'יס)\\\",\\n  \\\"chips\\\": [\\n     {\\\"text\\\": \\\"טקסט הכפתור להצגה\\\", \\\"value\\\": \\\"ערך הכפתור\\\"}\\n  ],\\n  \\\"lead_collected\\\": true/false,\\n  \\\"lead_data\\\": {\\n     \\\"name\\\": \\\"שם הלקוח שסיפק (או null)\\\",\\n     \\\"phone\\\": \\\"מספר הטלפון (או null)\\\",\\n     \\\"email\\\": \\\"האימייל (או null)\\\",\\n     \\\"industry\\\": \\\"תחום העסק (או null/המידע שנאסף)\\\",\\n     \\\"challenge\\\": \\\"תיאור האתגר שאופיין (או null/המידע שנאסף)\\\"\\n  }\\n}\\n\\nהנחיות קשיחות להתנהגות המודל:\\n1. איסור מוחלט על גיבוי טקסטואלי: אסור לך תחת שום הגדרה לכתוב טקסט חופשי, הקדמות, או סיומות (כמו 'הנה התשובה שלי:') מחוץ לסוגרי ה-JSON הראשיים. פלט שאינו JSON תקין ישבור את האפליקציה.\\n2. ניהול שדות ריקים: כל עוד לא אספת את השם והטלפון, הגדר את lead_collected כ-false ואת שדות ה-lead_data שטרם נמסרו השאר כ-null או שמור את המידע החלקי שנאסף עד כה (לדוגמה, אם ידוע רק ה-industry וה-challenge).\\n3. אקטיביות בצ'יפים: בכל שלב בשיחה, דאג לייצר בין 2 ל-4 כפתורים (chips) רלוונטיים המייצגים תשובות נפוצות של לקוחות כדי להקל על הגולש להתקדם, פרט לשלבים שבהם אתה מבקש קלט חופשי ספציפי כמו שם או מספר טלפון.\\n4. סגנון שיחה חם ופתוח: הטקסט בשדה `reply` חייב להיכתב בעברית ישראלית, חמה, אדיבה וזורמת. שלב אמוג'יס מתאימים בצורה חופשית ובשפע בכל הודעה והודעה כדי ליצור חוויית שיחה נעימה ולא יבשה!\"\n      }\n    ]\n  },\n  \"generationConfig\": {\n    \"responseMimeType\": \"application/json\",\n    \"temperature\": 0.7\n  }\n} }}",
-        "options": {}
+        "options": {
+          "timeout": 15000
+        }
       },
       "id": "9ba9eba9-fb43-4be7-bd02-dfe474b96646",
       "name": "HTTP Request (Gemini Fallback)",
@@ -104,14 +106,16 @@
           "parameters": [
             {
               "name": "x-goog-api-key",
-              "value": "YOUR_GCP_API_KEY"
+              "value": "YOUR_GEMINI_API_KEY"
             }
           ]
         },
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ {\n  \"contents\": ($('Webhook1').item.json.body.chatHistory && $('Webhook1').item.json.body.chatHistory.length > 0) ? $('Webhook1').item.json.body.chatHistory : [ { \"role\": \"user\", \"parts\": [ { \"text\": $('Webhook1').item.json.body.message } ] } ],\n  \"systemInstruction\": {\n    \"parts\": [\n      {\n        \"text\": \"אתה מזכירה דיגיטלית ונציגת מכירות חכמה וחמה של חברת autoRI-studio.\\nתפקידך ומטרתך העליונה היא לאפיין את העסק של הגולש, להציע לו ערך אמיתי ולתאם איתו שיחת אפיון טלפונית ללא עלות של 10 דקות (או מעבר לוואטסאפ).\\n\\nהנחיות לניהול השיחה:\\n1. זיהוי התחום: הבן באיזה תחום העסק עוסק (עורכי דין, מתווכי נדל\\\"ן, קליניקות, או תחום כללי).\\n2. הצעת פתרונות פרואקטיבית: ברגע שאתה מזהה את התחום, אל תשאל סתם \\\"מה האתגר שלך\\\". במקום זאת, תן דוגמאות לבעיות נפוצות בתחום שלו והזדהה איתן:\\n   - עורכי דין: בזבוז זמן על איסוף מסמכים מלקוחות, רדיפה אחרי חתימות, או הקלדה ידנית לנט-המשפט/CRM.\\n   - מתווכי נדל\\\"ן: סינון לידים קרים מפייסבוק/יד2, שליחה ידנית של נכסים בוואטסאפ, או עדכון ידני של גיליונות.\\n   - קליניקות ומטפלים: ניהול תורים וביטולים, איסוף הצהרות בריאות לפני טיפול, או שליחת תזכורות ופולו-אפ.\\n3. שאלות מנחות: אם הלקוח לא בטוח מה צוואר הבקבוק שלו או אומר \\\"לא יודע\\\", בקש ממנו לתאר בקצרה איך נראה יום עבודה טיפוסי שלו מרגע שהוא פותח את העסק ועד סגירתו, ועזור לו לזהות משימות חזרתיות.\\n4. איסוף פרטים: לאחר שהצעת כיוון לפתרון אוטומטי, הצע לתאם שיחה או לעבור לוואטסאפ. אסוף בצורה נעימה וטבעית:\\n   - שם מלא\\n   - מספר טלפון\\n   - אימייל (אופציונלי)\\n5. מעבר למצב סגירה (Lead Collected): ברגע שיש בידך את השם ומספר הטלפון של הלקוח, עליך להחזיר JSON מסודר המורה לאתר לשמור את הליד.\\n\\nפורמט פלט חובה:\\nעליך להחזיר תמיד אובייקט JSON תקין בפורמט הבא:\\n{\\n  \\\"reply\\\": \\\"הודעת הטקסט של הבוט כאן (השתמש ב-markdown בסיסי ובאמוג'יס)\\\",\\n  \\\"chips\\\": [\\n     {\\\"text\\\": \\\"טקסט הכפתור להצגה\\\", \\\"value\\\": \\\"ערך הכפתור\\\"}\\n  ],\\n  \\\"lead_collected\\\": true/false,\\n  \\\"lead_data\\\": {\\n     \\\"name\\\": \\\"שם הלקוח שסיפק (או null)\\\",\\n     \\\"phone\\\": \\\"מספר הטלפון (או null)\\\",\\n     \\\"email\\\": \\\"האימייל (או null)\\\",\\n     \\\"industry\\\": \\\"תחום העסק (או null/המידע שנאסף)\\\",\\n     \\\"challenge\\\": \\\"תיאור האתגר שאופיין (או null/המידע שנאסף)\\\"\\n  }\\n}\\n\\nהנחיות קשיחות להתנהגות המודל:\\n1. איסור מוחלט על גיבוי טקסטואלי: אסור לך תחת שום הגדרה לכתוב טקסט חופשי, הקדמות, או סיומות (כמו 'הנה התשובה שלי:') מחוץ לסוגרי ה-JSON הראשיים. פלט שאינו JSON תקין ישבור את האפליקציה.\\n2. ניהול שדות ריקים: כל עוד לא אספת את השם והטלפון, הגדר את lead_collected כ-false ואת שדות ה-lead_data שטרם נמסרו השאר כ-null או שמור את המידע החלקי שנאסף עד כה (לדוגמה, אם ידוע רק ה-industry וה-challenge).\\n3. אקטיביות בצ'יפים: בכל שלב בשיחה, דאג לייצר בין 2 ל-4 כפתורים (chips) רלוונטיים המייצגים תשובות נפוצות של לקוחות כדי להקל על הגולש להתקדם, פרט לשלבים שבהם אתה מבקש קלט חופשי ספציפי כמו שם או מספר טלפון.\\n4. סגנון שיחה חם ופתוח: הטקסט בשדה `reply` חייב להיכתב בעברית ישראלית, חמה, אדיבה וזורמת. שלב אמוג'יס מתאימים בצורה חופשית ובשפע בכל הודעה והודעה כדי ליצור חוויית שיחה נעימה ולא יבשה!\"\n      }\n    ]\n  },\n  \"generationConfig\": {\n    \"responseMimeType\": \"application/json\",\n    \"temperature\": 0.7\n  }\n} }}",
-        "options": {}
+        "options": {
+          "timeout": 15000
+        }
       },
       "id": "b73a5b96-2d70-40d5-a37f-c8a62809785d",
       "name": "HTTP Request",
@@ -121,9 +125,9 @@
         4720,
         1568
       ],
-      "retryOnFail": false,
+      "retryOnFail": true,
       "waitBetweenTries": 3000,
-      "maxTries": 3,
+      "maxTries": 2,
       "executeOnce": false,
       "alwaysOutputData": false,
       "notesInFlow": false,
@@ -156,13 +160,13 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{\n{\n  \"title\": \"✅ צ'אטבוט: מענה Gemini Flash\",\n  \"message\": \"קלט: \" + $('Webhook1').item.json.body.message + \"\\nתשובה: \" + (JSON.parse($json.candidates[0].content.parts[0].text).reply),\n  \"type\": \"success\",\n  \"n8n_workflow_id\": \"lyCrWBmsGlRSMJmo\",\n  \"duration_ms\": new Date().getTime() - $('Set1').first().json.startTime\n}\n}}",
+        "jsonBody": "={{\n{\n  \"title\": \"✅ צ'אטבוט: מענה Gemini Flash\",\n  \"message\": \"קלט: \" + $('Webhook1').item.json.body.message + \"\\nתשובה: \" + (JSON.parse($('HTTP Request').first().json.candidates[0].content.parts[0].text).reply),\n  \"type\": \"success\",\n  \"n8n_workflow_id\": \"lyCrWBmsGlRSMJmo\",\n  \"duration_ms\": new Date().getTime() - $('Set1').first().json.startTime\n}\n}}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        5550,
+        5552,
         1680
       ],
       "id": "5b2a3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d",
@@ -177,7 +181,7 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
       "position": [
-        5380,
+        5392,
         1472
       ],
       "id": "6c3b4d5e-6f7a-8b9c-0d1e-2f3a4b5c6d7e",
@@ -210,7 +214,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{\n{\n  \"title\": \"⚠️ צ'אטבוט: גיבוי Gemini Pro\",\n  \"message\": \"קלט: \" + $('Webhook1').item.json.body.message + \"\\nתשובה: \" + (JSON.parse($json.candidates[0].content.parts[0].text).reply),\n  \"type\": \"warning\",\n  \"n8n_workflow_id\": \"lyCrWBmsGlRSMJmo\",\n  \"duration_ms\": new Date().getTime() - $('Set1').first().json.startTime\n}\n}}",
+        "jsonBody": "={{\n{\n  \"title\": \"⚠️ צ'אטבוט: גיבוי Gemini Pro\",\n  \"message\": \"קלט: \" + $('Webhook1').item.json.body.message + \"\\nתשובה: \" + (JSON.parse($('HTTP Request (Gemini Fallback)').first().json.candidates[0].content.parts[0].text).reply),\n  \"type\": \"warning\",\n  \"n8n_workflow_id\": \"lyCrWBmsGlRSMJmo\",\n  \"duration_ms\": new Date().getTime() - $('Set1').first().json.startTime\n}\n}}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
@@ -221,6 +225,200 @@
       ],
       "id": "7d4c5e6f-7a8b-9c0d-1e2f-3a4b5c6d7e8f",
       "name": "Log Warning (Gemini Pro)"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://pjjncfoaunwugmgkaqlz.supabase.co/rest/v1/rpc/check_automation_quota",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "sb_publishable_wVtgeu0jwRxQr3xUDjkz8g_00BL2jcb"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer sb_publishable_wVtgeu0jwRxQr3xUDjkz8g_00BL2jcb"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"p_automation_id\": \"8da1d6bb-05a8-4ffc-b622-863522c1d54f\"\n}",
+        "options": {
+          "timeout": 5000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        4650,
+        1568
+      ],
+      "id": "0fe56e1d-c811-460c-be37-ee0cca07b358",
+      "name": "Check Quota"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.allowed }}",
+              "value2": true,
+              "operation": "equal"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        4850,
+        1568
+      ],
+      "id": "5a0dd08e-5d68-4465-ae69-9dbe05321429",
+      "name": "Quota Allowed?"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://pjjncfoaunwugmgkaqlz.supabase.co/rest/v1/system_alerts",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "sb_publishable_wVtgeu0jwRxQr3xUDjkz8g_00BL2jcb"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer sb_publishable_wVtgeu0jwRxQr3xUDjkz8g_00BL2jcb"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"title\": \"❌ צ'אטבוט: הרצה נחסמה (חריגה ממכסה)\",\n  \"message\": \"ניסיון הרצה נחסם אוטומטית עקב הגעה למכסת הריצות של האוטומציה.\",\n  \"type\": \"error\",\n  \"n8n_workflow_id\": \"lyCrWBmsGlRSMJmo\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        5050,
+        1768
+      ],
+      "id": "3d5d4148-c299-44a5-bc83-4e623a3bd72e",
+      "name": "Log Blocked Run"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"reply\": \"שלום! הגענו למכסת הריצות החודשית שלנו. אנא פנה למנהל המערכת לשדרוג החבילה. 📞\",\n  \"chips\": [],\n  \"lead_collected\": false,\n  \"lead_data\": null\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        5250,
+        1768
+      ],
+      "id": "31512745-18f4-4d04-a5a9-6bf88db1a730",
+      "name": "Respond Blocked"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://pjjncfoaunwugmgkaqlz.supabase.co/rest/v1/automation_runs",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "sb_publishable_wVtgeu0jwRxQr3xUDjkz8g_00BL2jcb"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer sb_publishable_wVtgeu0jwRxQr3xUDjkz8g_00BL2jcb"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{\n{\n  \"automation_id\": \"8da1d6bb-05a8-4ffc-b622-863522c1d54f\",\n  \"n8n_workflow_id\": \"lyCrWBmsGlRSMJmo\",\n  \"status\": \"success\",\n  \"duration_ms\": new Date().getTime() - $('Set1').first().json.startTime\n}\n}}",
+        "options": {
+          "timeout": 5000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        5420,
+        1680
+      ],
+      "id": "e43b1234-5c6d-7e8f-9a0b-1c2d3e4f5a6b",
+      "name": "Log Run (Success)"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://pjjncfoaunwugmgkaqlz.supabase.co/rest/v1/automation_runs",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "sb_publishable_wVtgeu0jwRxQr3xUDjkz8g_00BL2jcb"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer sb_publishable_wVtgeu0jwRxQr3xUDjkz8g_00BL2jcb"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{\n{\n  \"automation_id\": \"8da1d6bb-05a8-4ffc-b622-863522c1d54f\",\n  \"n8n_workflow_id\": \"lyCrWBmsGlRSMJmo\",\n  \"status\": \"fallback\",\n  \"duration_ms\": new Date().getTime() - $('Set1').first().json.startTime\n}\n}}",
+        "options": {
+          "timeout": 5000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        5420,
+        1400
+      ],
+      "id": "e43b9876-5c6d-7e8f-9a0b-1c2d3e4f5a6b",
+      "name": "Log Run (Fallback)"
     }
   ],
   "connections": {
@@ -239,7 +437,7 @@
       "main": [
         [
           {
-            "node": "HTTP Request",
+            "node": "Check Quota",
             "type": "main",
             "index": 0
           }
@@ -279,7 +477,7 @@
       "main": [
         [
           {
-            "node": "Log Success (Gemini Flash)",
+            "node": "Log Run (Success)",
             "type": "main",
             "index": 0
           }
@@ -287,6 +485,68 @@
       ]
     },
     "Respond to Webhook (Fallback)": {
+      "main": [
+        [
+          {
+            "node": "Log Run (Fallback)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Quota": {
+      "main": [
+        [
+          {
+            "node": "Quota Allowed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Quota Allowed?": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Blocked Run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Blocked Run": {
+      "main": [
+        [
+          {
+            "node": "Respond Blocked",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Run (Success)": {
+      "main": [
+        [
+          {
+            "node": "Log Success (Gemini Flash)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Run (Fallback)": {
       "main": [
         [
           {
@@ -312,9 +572,9 @@
   },
   "nodeGroups": [],
   "pinData": {},
-  "versionId": "dd2f05fb-8378-4608-8e29-fcd3beff72e2",
-  "activeVersionId": "dd2f05fb-8378-4608-8e29-fcd3beff72e2",
-  "versionCounter": 272,
+  "versionId": "7fa1555b-451a-422a-a57f-ac05e230058a",
+  "activeVersionId": "7fa1555b-451a-422a-a57f-ac05e230058a",
+  "versionCounter": 285,
   "triggerCount": 1,
   "shared": [
     {
@@ -337,69 +597,31 @@
   ],
   "tags": [],
   "activeVersion": {
-    "updatedAt": "2026-06-11T14:55:58.000Z",
-    "createdAt": "2026-06-11T14:55:55.608Z",
-    "versionId": "dd2f05fb-8378-4608-8e29-fcd3beff72e2",
+    "updatedAt": "2026-06-13T00:52:07.614Z",
+    "createdAt": "2026-06-13T00:52:07.614Z",
+    "versionId": "7fa1555b-451a-422a-a57f-ac05e230058a",
     "workflowId": "lyCrWBmsGlRSMJmo",
     "nodes": [
       {
         "parameters": {
-          "conditions": {
-            "options": {
-              "caseSensitive": true,
-              "leftValue": "",
-              "typeValidation": "strict",
-              "version": 2
-            },
-            "conditions": [
-              {
-                "id": "673cf9aa-fa38-4e89-b1ff-bf7a19eb0b10",
-                "leftValue": "={{ $json.error }}",
-                "rightValue": "",
-                "operator": {
-                  "type": "boolean",
-                  "operation": "true",
-                  "singleValue": true
-                }
-              }
-            ],
-            "combinator": "and"
-          },
-          "options": {}
-        },
-        "id": "b41498df-5c96-4bf3-9b44-f44df03552a0",
-        "name": "If Gemini Failed?",
-        "type": "n8n-nodes-base.if",
-        "typeVersion": 2.2,
-        "position": [
-          4944,
-          1568
-        ]
-      },
-      {
-        "parameters": {
           "method": "POST",
-          "url": "https://api.openai.com/v1/chat/completions",
+          "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro-latest:generateContent",
           "sendHeaders": true,
           "headerParameters": {
             "parameters": [
               {
-                "name": "Authorization",
-                "value": "Bearer YOUR_OPENAI_API_KEY"
-              },
-              {
-                "name": "Content-Type",
-                "value": "application/json"
+                "name": "x-goog-api-key",
+                "value": "YOUR_GEMINI_API_KEY"
               }
             ]
           },
           "sendBody": true,
           "specifyBody": "json",
-          "jsonBody": "=={\n  \"model\": \"gpt-4o-mini\",\n  \"response_format\": { \"type\": \"json_object\" },\n  \"temperature\": 0.7,\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"אתה מזכירה דיגיטלית ונציגת מכירות חכמה וחמה של חברת autoRI-studio.\\nתפקידך ומטרתך העליונה היא לאפיין את העסק של הגולש, להציע לו ערך אמיתי ולתאם איתו שיחת אפיון טלפונית ללא עלות של 10 דקות (או מעבר לוואטסאפ).\\n\\nהנחיות לניהול השיחה:\\n1. זיהוי התחום: הבן באיזה תחום העסק עוסק (עורכי דין, מתווכי נדל\\\"ן, קליניקות, או תחום כללי).\\n2. הצעת פתרונות פרואקטיבית: ברגע שאתה מזהה את התחום, אל תשאל סתם \\\"מה האתגר שלך\\\". במקום זאת, תן דוגמאות לבעיות נפוצות בתחום שלו והזדהה איתן:\\n   - עורכי דין: בזבוז זמן על איסוף מסמכים מלקוחות, רדיפה אחרי חתימות, או הקלדה ידנית לנט-המשפט/CRM.\\n   - מתווכי נדל\\\"ן: סינון לידים קרים מפייסבוק/יד2, שליחה ידנית של נכסים בוואטסאפ, או עדכון ידני של גיליונות.\\n   - קליניקות ומטפלים: ניהול תורים וביטולים, איסוף הצהרות בריאות לפני טיפול, או שליחת תזכורות ופולו-אפ.\\n3. שאלות מנחות: אם הלקוח לא בטוח מה צוואר הבקבוק שלו או אומר \\\"לא יודע\\\", בקש ממנו לתאר בקצרה איך נראה יום עבודה טיפוסי שלו מרגע שהוא פותח את העסק ועד סגירתו, ועזור לו לזהות משימות חזרתיות.\\n4. איסוף פרטים: לאחר שהצעת כיוון לפתרון אוטומטי, הצע לתאם שיחה או לעבור לוואטסאפ. אסוף בצורה נעימה וטבעית:\\n   - שם מלא\\n   - מספר טלפון\\n   - אימייל (אופציונלי)\\n5. מעבר למצב סגירה (Lead Collected): ברגע שיש בידך את השם ומספר הטלפון של הלקוח, עליך להחזיר JSON מסודר המורה לאתר לשמור את הליד.\\n\\nפורמט פלט חובה:\\nעליך להחזיר תמיד אובייקט JSON תקין בפורמט הבא:\\n{\\n  \\\"reply\\\": \\\"הודעת הטקסט של הבוט כאן (השתמש ב-markdown בסיסי ובאמוג'יס)\\\",\\n  \\\"chips\\\": [\\n     {\\\"text\\\": \\\"טקסט הכפתור להצגה\\\", \\\"value\\\": \\\"ערך הכפתור\\\"}\\n  ],\\n  \\\"lead_collected\\\": true/false,\\n  \\\"lead_data\\\": {\\n     \\\"name\\\": \\\"שם הלקוח שסיפק (או null)\\\",\\n     \\\"phone\\\": \\\"מספר הטלפון (או null)\\\",\\n     \\\"email\\\": \\\"האימייל (או null)\\\",\\n     \\\"industry\\\": \\\"תחום העסק (או null/המידע שנאסף)\\\",\\n     \\\"challenge\\\": \\\"תיאור האתגר שאופיין (או null/המידע שנאסף)\\\"\\n  }\\n}\\n\\nהנחיות קשיחות להתנהגות המודל:\\n1. איסור מוחלט על גיבוי טקסטואלי: אסור לך תחת שום הגדרה לכתוב טקסט חופשי, הקדמות, או סיומות (כמו 'הנה התשובה שלי:') מחוץ לסוגרי ה-JSON הראשיים. פלט שאינו JSON תקין ישבור את האפליקציה.\\n2. ניהול שדות ריקים: כל עוד לא אספת את השם והטלפון, הגדר את lead_collected כ-false ואת שדות ה-lead_data שטרם נמסרו השאר כ-null או שמור את המידע החלקי שנאסף עד כה (לדוגמה, אם ידוע רק ה-industry וה-challenge).\\n3. אקטיביות בצ'יפים: בכל שלב בשיחה, דאג לייצר בין 2 ל-4 כפתורים (chips) רלוונטיים המייצגים תשובות נפוצות של לקוחות כדי להקל על הגולש להתקדם, פרט לשלבים שבהם אתה מבקש קלט חופשי ספציפי כמו שם או מספר טלפון.\\n4. סגנון שיחה חם ופתוח: הטקסט בשדה `reply` חייב להיכתב בעברית ישראלית, חמה, אדיבה וזורמת. שלב אמוג'יס מתאימים בצורה חופשית ובשפע בכל הודעה והודעה כדי ליצור חוויית שיחה נעימה ולא יבשה!\"\n    },\n    {{ JSON.stringify(($json.body && $json.body.chatHistory) ? $json.body.chatHistory.map(h => ({ role: h.role === \"model\" ? \"assistant\" : \"user\", content: h.parts[0].text })) : [{ role: \"user\", content: ($json.body ? $json.body.message : \"היי\") }]).slice(1, -1) }}\n  ]\n}",
+          "jsonBody": "={{ {\n  \"contents\": ($('Webhook1').item.json.body.chatHistory && $('Webhook1').item.json.body.chatHistory.length > 0) ? $('Webhook1').item.json.body.chatHistory : [ { \"role\": \"user\", \"parts\": [ { \"text\": $('Webhook1').item.json.body.message } ] } ],\n  \"systemInstruction\": {\n    \"parts\": [\n      {\n        \"text\": \"אתה מזכירה דיגיטלית ונציגת מכירות חכמה וחמה של חברת autoRI-studio.\\nתפקידך ומטרתך העליונה היא לאפיין את העסק של הגולש, להציע לו ערך אמיתי ולתאם איתו שיחת אפיון טלפונית ללא עלות של 10 דקות (או מעבר לוואטסאפ).\\n\\nהנחיות לניהול השיחה:\\n1. זיהוי התחום: הבן באיזה תחום העסק עוסק (עורכי דין, מתווכי נדל\\\"ן, קליניקות, או תחום כללי).\\n2. הצעת פתרונות פרואקטיבית: ברגע שאתה מזהה את התחום, אל תשאל סתם \\\"מה האתגר שלך\\\". במקום זאת, תן דוגמאות לבעיות נפוצות בתחום שלו והזדהה איתן:\\n   - עורכי דין: בזבוז זמן על איסוף מסמכים מלקוחות, רדיפה אחרי חתימות, או הקלדה ידנית לנט-המשפט/CRM.\\n   - מתווכי נדל\\\"ן: סינון לידים קרים מפייסבוק/יד2, שליחה ידנית של נכסים בוואטסאפ, או עדכון ידני של גיליונות.\\n   - קליניקות ומטפלים: ניהול תורים וביטולים, איסוף הצהרות בריאות לפני טיפול, או שליחת תזכורות ופולו-אפ.\\n3. שאלות מנחות: אם הלקוח לא בטוח מה צוואר הבקבוק שלו או אומר \\\"לא יודע\\\", בקש ממנו לתאר בקצרה איך נראה יום עבודה טיפוסי שלו מרגע שהוא פותח את העסק ועד סגירתו, ועזור לו לזהות משימות חזרתיות.\\n4. איסוף פרטים: לאחר שהצעת כיוון לפתרון אוטומטי, הצע לתאם שיחה או לעבור לוואטסאפ. אסוף בצורה נעימה וטבעית:\\n   - שם מלא\\n   - מספר טלפון\\n   - אימייל (אופציונלי)\\n5. מעבר למצב סגירה (Lead Collected): ברגע שיש בידך את השם ומספר הטלפון של הלקוח, עליך להחזיר JSON מסודר המורה לאתר לשמור את הליד.\\n\\nפורמט פלט חובה:\\nעליך להחזיר תמיד אובייקט JSON תקין בפורמט הבא:\\n{\\n  \\\"reply\\\": \\\"הודעת הטקסט של הבוט כאן (השתמש ב-markdown בסיסי ובאמוג'יס)\\\",\\n  \\\"chips\\\": [\\n     {\\\"text\\\": \\\"טקסט הכפתור להצגה\\\", \\\"value\\\": \\\"ערך הכפתור\\\"}\\n  ],\\n  \\\"lead_collected\\\": true/false,\\n  \\\"lead_data\\\": {\\n     \\\"name\\\": \\\"שם הלקוח שסיפק (או null)\\\",\\n     \\\"phone\\\": \\\"מספר הטלפון (או null)\\\",\\n     \\\"email\\\": \\\"האימייל (או null)\\\",\\n     \\\"industry\\\": \\\"תחום העסק (או null/המידע שנאסף)\\\",\\n     \\\"challenge\\\": \\\"תיאור האתגר שאופיין (או null/המידע שנאסף)\\\"\\n  }\\n}\\n\\nהנחיות קשיחות להתנהגות המודל:\\n1. איסור מוחלט על גיבוי טקסטואלי: אסור לך תחת שום הגדרה לכתוב טקסט חופשי, הקדמות, או סיומות (כמו 'הנה התשובה שלי:') מחוץ לסוגרי ה-JSON הראשיים. פלט שאינו JSON תקין ישבור את האפליקציה.\\n2. ניהול שדות ריקים: כל עוד לא אספת את השם והטלפון, הגדר את lead_collected כ-false ואת שדות ה-lead_data שטרם נמסרו השאר כ-null או שמור את המידע החלקי שנאסף עד כה (לדוגמה, אם ידוע רק ה-industry וה-challenge).\\n3. אקטיביות בצ'יפים: בכל שלב בשיחה, דאג לייצר בין 2 ל-4 כפתורים (chips) רלוונטיים המייצגים תשובות נפוצות של לקוחות כדי להקל על הגולש להתקדם, פרט לשלבים שבהם אתה מבקש קלט חופשי ספציפי כמו שם או מספר טלפון.\\n4. סגנון שיחה חם ופתוח: הטקסט בשדה `reply` חייב להיכתב בעברית ישראלית, חמה, אדיבה וזורמת. שלב אמוג'יס מתאימים בצורה חופשית ובשפע בכל הודעה והודעה כדי ליצור חוויית שיחה נעימה ולא יבשה!\"\n      }\n    ]\n  },\n  \"generationConfig\": {\n    \"responseMimeType\": \"application/json\",\n    \"temperature\": 0.7\n  }\n} }}",
           "options": {}
         },
         "id": "9ba9eba9-fb43-4be7-bd02-dfe474b96646",
-        "name": "HTTP Request (ChatGPT Fallback)",
+        "name": "HTTP Request (Gemini Fallback)",
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.4,
         "position": [
@@ -429,7 +651,7 @@
       {
         "parameters": {
           "respondWith": "json",
-          "responseBody": "={{ $json.error ? JSON.parse($json.choices[0].message.content) : JSON.parse($json.candidates[0].content.parts[0].text) }}",
+          "responseBody": "={{ JSON.parse($json.candidates[0].content.parts[0].text) }}",
           "options": {}
         },
         "id": "438e3358-756c-4da3-8e92-194a7e3a200a",
@@ -448,6 +670,12 @@
               {
                 "name": "sessionId",
                 "value": "={{ $json.body.sessionId }}"
+              }
+            ],
+            "number": [
+              {
+                "name": "startTime",
+                "value": "={{ new Date().getTime() }}"
               }
             ]
           },
@@ -471,13 +699,13 @@
             "parameters": [
               {
                 "name": "x-goog-api-key",
-                "value": "YOUR_GCP_API_KEY"
+                "value": "YOUR_GEMINI_API_KEY"
               }
             ]
           },
           "sendBody": true,
           "specifyBody": "json",
-          "jsonBody": "={\n  \"contents\": {{ JSON.stringify($('Webhook1').item.json.body.chatHistory || [ { \"role\": \"user\", \"parts\": [ { \"text\": $('Webhook1').item.json.body.message } ] } ]) }},\n  \"systemInstruction\": {\n    \"parts\": [\n      {\n        \"text\": \"אתה מזכירה דיגיטלית ונציגת מכירות חכמה וחמה של חברת autoRI-studio.\\\\nתפקידך ומטרתך העליונה היא לאפיין את העסק של הגולש, להציע לו ערך אמיתי ולתאם איתו שיחת אפיון טלפונית ללא עלות של 10 דקות (או מעבר לוואטסאפ).\\\\n\\\\nהנחיות לניהול השיחה:\\\\n1. זיהוי התחום: הבן באיזה תחום העסק עוסק (עורכי דין, מתווכי נדל\\\\\\\"ן, קליניקות, או תחום כללי).\\\\n2. הצעת פתרונות פרואקטיבית: ברגע שאתה מזהה את התחום, אל תשאל סתם \\\\\\\"מה האתגר שלך\\\\\\\". במקום זאת, תן דוגמאות לבעיות נפוצות בתחום שלו והזדהה איתן:\\\\n   - עורכי דין: בזבוז זמן על איסוף מסמכים מלקוחות, רדיפה אחרי חתימות, או הקלדה ידנית לנט-המשפט/CRM.\\\\n   - מתווכי נדל\\\\\\\"ן: סינון לידים קרים מפייסבוק/יד2, שליחה ידנית של נכסים בוואטסאפ, או עדכון ידני של גיליונות.\\\\n   - קליניקות ומטפלים: ניהול תורים וביטולים, איסוף הצהרות בריאות לפני טיפול, או שליחת תזכורות ופולו-אפ.\\\\n3. שאלות מנחות: אם הלקוח לא בטוח מה צוואר הבקבוק שלו או אומר \\\\\\\"לא יודע\\\\\\\", בקש ממנו לתאר בקצרה איך נראה יום עבודה טיפוסי שלו מרגע שהוא פותח את העסק ועד סגירתו, ועזור לו לזהות משימות חזרתיות.\\\\n4. איסוף פרטים: לאחר שהצעת כיוון לפתרון אוטומטי, הצע לתאם שיחה או לעבור לוואטסאפ. אסוף בצורה נעימה וטבעית:\\\\n   - שם מלא\\\\n   - מספר טלפון\\\\n   - אימייל (אופציונלי)\\\\n5. מעבר למצב סגירה (Lead Collected): ברגע שיש בידך את השם ומספר הטלפון של הלקוח, עליך להחזיר JSON מסודר המורה לאתר לשמור את הליד.\\\\n\\\\nפורמט פלט חובה:\\\\nעליך להחזיר תמיד אובייקט JSON תקין בפורמט הבא:\\\\n{\\\\n  \\\\\\\"reply\\\\\\\": \\\\\\\"הודעת הטקסט של הבוט כאן (השתמש ב-markdown בסיסי ובאמוג'יס)\\\\\\\",\\\\n  \\\\\\\"chips\\\\\\\": [\\\\n     {\\\\\\\"text\\\\\\\": \\\\\\\"טקסט הכפתור להצגה\\\\\\\", \\\\\\\"value\\\\\\\": \\\\\\\"ערך הכפתור\\\\\\\"}\\\\n  ],\\\\n  \\\\\\\"lead_collected\\\\\\\": true/false,\\\\n  \\\\\\\"lead_data\\\\\\\": {\\\\n     \\\\\\\"name\\\\\\\": \\\\\\\"שם הלקוח שסיפק (או null)\\\\\\\",\\\\n     \\\\\\\"phone\\\\\\\": \\\\\\\"מספר הטלפון (או null)\\\\\\\",\\\\n     \\\\\\\"email\\\\\\\": \\\\\\\"האימייל (או null)\\\\\\\",\\\\n     \\\\\\\"industry\\\\\\\": \\\\\\\"תחום העסק (או null/המידע שנאסף)\\\\\\\",\\\\n     \\\\\\\"challenge\\\\\\\": \\\\\\\"תיאור האתגר שאופיין (או null/המידע שנאסף)\\\\\\\"\\\\n  }\\\\n}\\\\n\\\\nהנחיות קשיחות להתנהגות המודל:\\\\n1. איסור מוחלט על גיבוי טקסטואלי: אסור לך תחת שום הגדרה לכתוב טקסט חופשי, הקדמות, או סיומות (כמו 'הנה התשובה שלי:') מחוץ לסוגרי ה-JSON הראשיים. פלט שאינו JSON תקין ישבור את האפליקציה.\\\\n2. ניהול שדות ריקים: כל עוד לא אספת את השם והטלפון, הגדר את lead_collected כ-false ואת שדות ה-lead_data שטרם נמסרו השאר כ-null או שמור את המידע החלקי שנאסף עד כה (לדוגמה, אם ידוע רק ה-industry וה-challenge).\\\\n3. אקטיביות בצ'יפים: בכל שלב בשיחה, דאג לייצר בין 2 ל-4 כפתורים (chips) רלוונטיים המייצגים תשובות נפוצות של לקוחות כדי להקל על הגולש להתקדם, פרט לשלבים שבהם אתה מבקש קלט חופשי ספציפי כמו שם או מספר טלפון.\\\\n4. סגנון שיחה חם ופתוח: הטקסט בשדה `reply` חייב להיכתב בעברית ישראלית, חמה, אדיבה וזורמת. שלב אמוג'יס מתאימים בצורה חופשית ובשפע בכל הודעה והודעה כדי ליצור חוויית שיחה נעימה ולא יבשה!\"\n      }\n    ]\n  },\n  \"generationConfig\": {\n    \"responseMimeType\": \"application/json\",\n    \"temperature\": 0.7\n  }\n}",
+          "jsonBody": "={{ {\n  \"contents\": ($('Webhook1').item.json.body.chatHistory && $('Webhook1').item.json.body.chatHistory.length > 0) ? $('Webhook1').item.json.body.chatHistory : [ { \"role\": \"user\", \"parts\": [ { \"text\": $('Webhook1').item.json.body.message } ] } ],\n  \"systemInstruction\": {\n    \"parts\": [\n      {\n        \"text\": \"אתה מזכירה דיגיטלית ונציגת מכירות חכמה וחמה של חברת autoRI-studio.\\nתפקידך ומטרתך העליונה היא לאפיין את העסק של הגולש, להציע לו ערך אמיתי ולתאם איתו שיחת אפיון טלפונית ללא עלות של 10 דקות (או מעבר לוואטסאפ).\\n\\nהנחיות לניהול השיחה:\\n1. זיהוי התחום: הבן באיזה תחום העסק עוסק (עורכי דין, מתווכי נדל\\\"ן, קליניקות, או תחום כללי).\\n2. הצעת פתרונות פרואקטיבית: ברגע שאתה מזהה את התחום, אל תשאל סתם \\\"מה האתגר שלך\\\". במקום זאת, תן דוגמאות לבעיות נפוצות בתחום שלו והזדהה איתן:\\n   - עורכי דין: בזבוז זמן על איסוף מסמכים מלקוחות, רדיפה אחרי חתימות, או הקלדה ידנית לנט-המשפט/CRM.\\n   - מתווכי נדל\\\"ן: סינון לידים קרים מפייסבוק/יד2, שליחה ידנית של נכסים בוואטסאפ, או עדכון ידני של גיליונות.\\n   - קליניקות ומטפלים: ניהול תורים וביטולים, איסוף הצהרות בריאות לפני טיפול, או שליחת תזכורות ופולו-אפ.\\n3. שאלות מנחות: אם הלקוח לא בטוח מה צוואר הבקבוק שלו או אומר \\\"לא יודע\\\", בקש ממנו לתאר בקצרה איך נראה יום עבודה טיפוסי שלו מרגע שהוא פותח את העסק ועד סגירתו, ועזור לו לזהות משימות חזרתיות.\\n4. איסוף פרטים: לאחר שהצעת כיוון לפתרון אוטומטי, הצע לתאם שיחה או לעבור לוואטסאפ. אסוף בצורה נעימה וטבעית:\\n   - שם מלא\\n   - מספר טלפון\\n   - אימייל (אופציונלי)\\n5. מעבר למצב סגירה (Lead Collected): ברגע שיש בידך את השם ומספר הטלפון של הלקוח, עליך להחזיר JSON מסודר המורה לאתר לשמור את הליד.\\n\\nפורמט פלט חובה:\\nעליך להחזיר תמיד אובייקט JSON תקין בפורמט הבא:\\n{\\n  \\\"reply\\\": \\\"הודעת הטקסט של הבוט כאן (השתמש ב-markdown בסיסי ובאמוג'יס)\\\",\\n  \\\"chips\\\": [\\n     {\\\"text\\\": \\\"טקסט הכפתור להצגה\\\", \\\"value\\\": \\\"ערך הכפתור\\\"}\\n  ],\\n  \\\"lead_collected\\\": true/false,\\n  \\\"lead_data\\\": {\\n     \\\"name\\\": \\\"שם הלקוח שסיפק (או null)\\\",\\n     \\\"phone\\\": \\\"מספר הטלפון (או null)\\\",\\n     \\\"email\\\": \\\"האימייל (או null)\\\",\\n     \\\"industry\\\": \\\"תחום העסק (או null/המידע שנאסף)\\\",\\n     \\\"challenge\\\": \\\"תיאור האתגר שאופיין (או null/המידע שנאסף)\\\"\\n  }\\n}\\n\\nהנחיות קשיחות להתנהגות המודל:\\n1. איסור מוחלט על גיבוי טקסטואלי: אסור לך תחת שום הגדרה לכתוב טקסט חופשי, הקדמות, או סיומות (כמו 'הנה התשובה שלי:') מחוץ לסוגרי ה-JSON הראשיים. פלט שאינו JSON תקין ישבור את האפליקציה.\\n2. ניהול שדות ריקים: כל עוד לא אספת את השם והטלפון, הגדר את lead_collected כ-false ואת שדות ה-lead_data שטרם נמסרו השאר כ-null או שמור את המידע החלקי שנאסף עד כה (לדוגמה, אם ידוע רק ה-industry וה-challenge).\\n3. אקטיביות בצ'יפים: בכל שלב בשיחה, דאג לייצר בין 2 ל-4 כפתורים (chips) רלוונטיים המייצגים תשובות נפוצות של לקוחות כדי להקל על הגולש להתקדם, פרט לשלבים שבהם אתה מבקש קלט חופשי ספציפי כמו שם או מספר טלפון.\\n4. סגנון שיחה חם ופתוח: הטקסט בשדה `reply` חייב להיכתב בעברית ישראלית, חמה, אדיבה וזורמת. שלב אמוג'יס מתאימים בצורה חופשית ובשפע בכל הודעה והודעה כדי ליצור חוויית שיחה נעימה ולא יבשה!\"\n      }\n    ]\n  },\n  \"generationConfig\": {\n    \"responseMimeType\": \"application/json\",\n    \"temperature\": 0.7\n  }\n} }}",
           "options": {}
         },
         "id": "b73a5b96-2d70-40d5-a37f-c8a62809785d",
@@ -488,9 +716,9 @@
           4720,
           1568
         ],
-        "retryOnFail": false,
+        "retryOnFail": true,
         "waitBetweenTries": 3000,
-        "maxTries": 3,
+        "maxTries": 2,
         "executeOnce": false,
         "alwaysOutputData": false,
         "notesInFlow": false,
@@ -523,49 +751,184 @@
           },
           "sendBody": true,
           "specifyBody": "json",
-          "jsonBody": "={{\n{\n  \"title\": \"🚨 תקלה: \" + ($json.execution?.error?.node?.name || \"General Error\"),\n  \"message\": \"הצ'אטבוט נכשל: \" + ($json.execution?.error?.message || \"Unknown Error\"),\n  \"type\": \"error\",\n  \"n8n_workflow_id\": \"lyCrWBmsGlRSMJmo\"\n}\n}}",
+          "jsonBody": "={{\n{\n  \"title\": \"✅ צ'אטבוט: מענה Gemini Flash\",\n  \"message\": \"קלט: \" + $('Webhook1').item.json.body.message + \"\\nתשובה: \" + (JSON.parse($('HTTP Request').first().json.candidates[0].content.parts[0].text).reply),\n  \"type\": \"success\",\n  \"n8n_workflow_id\": \"lyCrWBmsGlRSMJmo\",\n  \"duration_ms\": new Date().getTime() - $('Set1').first().json.startTime\n}\n}}",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.4,
+        "position": [
+          5552,
+          1680
+        ],
+        "id": "5b2a3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d",
+        "name": "Log Success (Gemini Flash)"
+      },
+      {
+        "parameters": {
+          "respondWith": "json",
+          "responseBody": "={{ JSON.parse($json.candidates[0].content.parts[0].text) }}",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1,
+        "position": [
+          5392,
+          1472
+        ],
+        "id": "6c3b4d5e-6f7a-8b9c-0d1e-2f3a4b5c6d7e",
+        "name": "Respond to Webhook (Fallback)"
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://pjjncfoaunwugmgkaqlz.supabase.co/rest/v1/system_alerts",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "apikey",
+                "value": "sb_publishable_wVtgeu0jwRxQr3xUDjkz8g_00BL2jcb"
+              },
+              {
+                "name": "Authorization",
+                "value": "Bearer sb_publishable_wVtgeu0jwRxQr3xUDjkz8g_00BL2jcb"
+              },
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "Prefer",
+                "value": "return=minimal"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{\n{\n  \"title\": \"⚠️ צ'אטבוט: גיבוי Gemini Pro\",\n  \"message\": \"קלט: \" + $('Webhook1').item.json.body.message + \"\\nתשובה: \" + (JSON.parse($('HTTP Request (Gemini Fallback)').first().json.candidates[0].content.parts[0].text).reply),\n  \"type\": \"warning\",\n  \"n8n_workflow_id\": \"lyCrWBmsGlRSMJmo\",\n  \"duration_ms\": new Date().getTime() - $('Set1').first().json.startTime\n}\n}}",
           "options": {}
         },
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.4,
         "position": [
           5600,
+          1472
+        ],
+        "id": "7d4c5e6f-7a8b-9c0d-1e2f-3a4b5c6d7e8f",
+        "name": "Log Warning (Gemini Pro)"
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://pjjncfoaunwugmgkaqlz.supabase.co/rest/v1/rpc/check_automation_quota",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "apikey",
+                "value": "sb_publishable_wVtgeu0jwRxQr3xUDjkz8g_00BL2jcb"
+              },
+              {
+                "name": "Authorization",
+                "value": "Bearer sb_publishable_wVtgeu0jwRxQr3xUDjkz8g_00BL2jcb"
+              },
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={\n  \"p_automation_id\": \"8da1d6bb-05a8-4ffc-b622-863522c1d54f\"\n}",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.4,
+        "position": [
+          4650,
           1568
         ],
-        "id": "8fd22114-68ce-4045-83f7-8ac223690289",
-        "name": "Log to Supabase1"
+        "id": "0fe56e1d-c811-460c-be37-ee0cca07b358",
+        "name": "Check Quota"
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "boolean": [
+              {
+                "value1": "={{ $json.allowed }}",
+                "value2": true,
+                "operation": "equal"
+              }
+            ]
+          }
+        },
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 1,
+        "position": [
+          4850,
+          1568
+        ],
+        "id": "5a0dd08e-5d68-4465-ae69-9dbe05321429",
+        "name": "Quota Allowed?"
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://pjjncfoaunwugmgkaqlz.supabase.co/rest/v1/system_alerts",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "apikey",
+                "value": "sb_publishable_wVtgeu0jwRxQr3xUDjkz8g_00BL2jcb"
+              },
+              {
+                "name": "Authorization",
+                "value": "Bearer sb_publishable_wVtgeu0jwRxQr3xUDjkz8g_00BL2jcb"
+              },
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "Prefer",
+                "value": "return=minimal"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={\n  \"title\": \"❌ צ'אטבוט: הרצה נחסמה (חריגה ממכסה)\",\n  \"message\": \"ניסיון הרצה נחסם אוטומטית עקב הגעה למכסת הריצות של האוטומציה.\",\n  \"type\": \"error\",\n  \"n8n_workflow_id\": \"lyCrWBmsGlRSMJmo\"\n}",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.4,
+        "position": [
+          5050,
+          1768
+        ],
+        "id": "3d5d4148-c299-44a5-bc83-4e623a3bd72e",
+        "name": "Log Blocked Run"
+      },
+      {
+        "parameters": {
+          "respondWith": "json",
+          "responseBody": "={\n  \"reply\": \"שלום! הגענו למכסת הריצות החודשית שלנו. אנא פנה למנהל המערכת לשדרוג החבילה. 📞\",\n  \"chips\": [],\n  \"lead_collected\": false,\n  \"lead_data\": null\n}",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1,
+        "position": [
+          5250,
+          1768
+        ],
+        "id": "31512745-18f4-4d04-a5a9-6bf88db1a730",
+        "name": "Respond Blocked"
       }
     ],
     "connections": {
-      "If Gemini Failed?": {
-        "main": [
-          [
-            {
-              "node": "HTTP Request (ChatGPT Fallback)",
-              "type": "main",
-              "index": 0
-            }
-          ],
-          [
-            {
-              "node": "Respond to Webhook1",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "HTTP Request (ChatGPT Fallback)": {
-        "main": [
-          [
-            {
-              "node": "Respond to Webhook1",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
       "Webhook1": {
         "main": [
           [
@@ -577,22 +940,11 @@
           ]
         ]
       },
-      "Respond to Webhook1": {
-        "main": [
-          [
-            {
-              "node": "Log to Supabase1",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
       "Set1": {
         "main": [
           [
             {
-              "node": "HTTP Request",
+              "node": "Check Quota",
               "type": "main",
               "index": 0
             }
@@ -603,7 +955,87 @@
         "main": [
           [
             {
-              "node": "If Gemini Failed?",
+              "node": "Respond to Webhook1",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "HTTP Request (Gemini Fallback)",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "HTTP Request (Gemini Fallback)": {
+        "main": [
+          [
+            {
+              "node": "Respond to Webhook (Fallback)",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Respond to Webhook1": {
+        "main": [
+          [
+            {
+              "node": "Log Success (Gemini Flash)",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Respond to Webhook (Fallback)": {
+        "main": [
+          [
+            {
+              "node": "Log Warning (Gemini Pro)",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Check Quota": {
+        "main": [
+          [
+            {
+              "node": "Quota Allowed?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Quota Allowed?": {
+        "main": [
+          [
+            {
+              "node": "HTTP Request",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Log Blocked Run",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Log Blocked Run": {
+        "main": [
+          [
+            {
+              "node": "Respond Blocked",
               "type": "main",
               "index": 0
             }
@@ -612,16 +1044,16 @@
       }
     },
     "nodeGroups": [],
-    "authors": "ilay ilaygirshovich@gmail.com",
-    "name": "Version dd2f05fb",
-    "description": "",
-    "autosaved": true,
+    "authors": "import",
+    "name": null,
+    "description": null,
+    "autosaved": false,
     "workflowPublishHistory": [
       {
-        "createdAt": "2026-06-11T14:55:58.366Z",
-        "id": 152,
+        "createdAt": "2026-06-13T00:52:11.941Z",
+        "id": 177,
         "workflowId": "lyCrWBmsGlRSMJmo",
-        "versionId": "dd2f05fb-8378-4608-8e29-fcd3beff72e2",
+        "versionId": "7fa1555b-451a-422a-a57f-ac05e230058a",
         "event": "activated",
         "userId": "1bca57f1-2d31-45a3-851c-0eaab8a1a14a"
       }

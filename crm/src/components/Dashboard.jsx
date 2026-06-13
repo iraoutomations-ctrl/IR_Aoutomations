@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { db } from '../services/db';
 
-export default function Dashboard({ onSelectLead, activeTab, alerts = [] }) {
+export default function Dashboard({ onSelectLead, activeTab, alerts = [], refreshTrigger }) {
     const [leads, setLeads] = useState([]);
     const [tasks, setTasks] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -23,7 +23,9 @@ export default function Dashboard({ onSelectLead, activeTab, alerts = [] }) {
     useEffect(() => {
         async function loadDashboardData() {
             try {
-                setLoading(true);
+                if (leads.length === 0) {
+                    setLoading(true);
+                }
                 const fetchedLeads = await db.getLeads();
                 const fetchedTasks = await db.getTasks();
                 setLeads(fetchedLeads);
@@ -35,7 +37,7 @@ export default function Dashboard({ onSelectLead, activeTab, alerts = [] }) {
             }
         }
         loadDashboardData();
-    }, [activeTab]);
+    }, [activeTab, refreshTrigger]);
 
     const handleToggleTask = async (taskId) => {
         try {

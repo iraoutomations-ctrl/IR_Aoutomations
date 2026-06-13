@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 
 const SQL_SCRIPT = `-- *** אם כבר הרצת את הסקריפט בעבר, הרץ רק את השורות הבאות ב-SQL Editor כדי לשדרג את מסד הנתונים: ***
+-- ALTER TABLE leads ADD COLUMN IF NOT EXISTS quote_data JSONB;
 -- ALTER TABLE tasks ADD COLUMN IF NOT EXISTS assigned_to TEXT;
 -- ALTER TABLE tasks ADD COLUMN IF NOT EXISTS depends_on_task_id UUID REFERENCES tasks(id) ON DELETE SET NULL;
 -- ALTER TABLE system_alerts ADD COLUMN IF NOT EXISTS automation_id UUID REFERENCES automations(id) ON DELETE CASCADE;
@@ -21,6 +22,9 @@ const SQL_SCRIPT = `-- *** אם כבר הרצת את הסקריפט בעבר, ה
 -- ALTER TABLE system_alerts ADD COLUMN IF NOT EXISTS n8n_workflow_id TEXT;
 -- ALTER TABLE system_alerts ADD COLUMN IF NOT EXISTS duration_ms INTEGER;
 -- ALTER TABLE automations ADD COLUMN IF NOT EXISTS n8n_workflows JSONB DEFAULT '[]'::jsonb;
+-- ALTER TABLE automations ADD COLUMN IF NOT EXISTS block_on_limit BOOLEAN DEFAULT true;
+-- ALTER TABLE automations ADD COLUMN IF NOT EXISTS extra_runs_allowance INTEGER DEFAULT 0;
+-- ALTER TABLE automations ADD COLUMN IF NOT EXISTS custom_overage_rate NUMERIC DEFAULT 0.05;
 -- CREATE TABLE IF NOT EXISTS automation_runs (
 --     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 --     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
@@ -48,6 +52,7 @@ CREATE TABLE IF NOT EXISTS leads (
     priority TEXT DEFAULT 'medium'::text,
     survey_data JSONB,
     chatbot_session JSONB,
+    quote_data JSONB,
     notes TEXT
 );
 
@@ -84,7 +89,10 @@ CREATE TABLE IF NOT EXISTS automations (
     monthly_maintenance NUMERIC DEFAULT 0,
     runs_goal INTEGER DEFAULT 0,
     n8n_workflow_id TEXT,
-    n8n_workflows JSONB DEFAULT '[]'::jsonb
+    n8n_workflows JSONB DEFAULT '[]'::jsonb,
+    block_on_limit BOOLEAN DEFAULT true,
+    extra_runs_allowance INTEGER DEFAULT 0,
+    custom_overage_rate NUMERIC DEFAULT 0.05
 );
 
 -- 5. יצירת טבלת באגים (bugs) עם מחיקה משורשרת עבור אוטומציות
