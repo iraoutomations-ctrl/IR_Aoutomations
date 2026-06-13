@@ -977,6 +977,40 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
                                             </div>
                                         )}
 
+                                        {/* Quote Data (Pricing / Proposal) */}
+                                        {lead.quote_data && (
+                                            <div style={{ marginTop: '16px', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '14px' }}>
+                                                <div style={{ fontWeight: '600', color: 'var(--accent-pink)', fontSize: '13px', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                    <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--accent-pink)' }}></span>
+                                                    הצעת מחיר ו-SLA (מהמחשבון)
+                                                </div>
+                                                <div className="survey-response-item">
+                                                    <div className="survey-question">עלות הקמה מוצעת:</div>
+                                                    <div className="survey-answer" style={{ fontWeight: 'bold', color: 'var(--text-light)' }}>₪{lead.quote_data.setup_cost?.toLocaleString('he-IL')}</div>
+                                                </div>
+                                                <div className="survey-response-item">
+                                                    <div className="survey-question">ריטיינר חודשי:</div>
+                                                    <div className="survey-answer" style={{ fontWeight: 'bold', color: 'var(--accent-cyan)' }}>₪{lead.quote_data.sla_price?.toLocaleString('he-IL')}</div>
+                                                </div>
+                                                <div className="survey-response-item">
+                                                    <div className="survey-question">עלויות צד ג' חודשיות:</div>
+                                                    <div className="survey-answer">₪{lead.quote_data.third_party_costs?.toLocaleString('he-IL')}</div>
+                                                </div>
+                                                <div className="survey-response-item">
+                                                    <div className="survey-question">סה"כ עלות חודשית:</div>
+                                                    <div className="survey-answer">₪{lead.quote_data.monthly_cost?.toLocaleString('he-IL')}</div>
+                                                </div>
+                                                <div className="survey-response-item">
+                                                    <div className="survey-question">רווח חודשי נקי מחושב:</div>
+                                                    <div className="survey-answer" style={{ color: lead.quote_data.net_profit > 0 ? '#10b981' : '#ef4444' }}>₪{lead.quote_data.net_profit?.toLocaleString('he-IL')}</div>
+                                                </div>
+                                                <div className="survey-response-item">
+                                                    <div className="survey-question">החזר השקעה (ROI):</div>
+                                                    <div className="survey-answer">תוך {lead.quote_data.break_even} חודשים</div>
+                                                </div>
+                                            </div>
+                                        )}
+
                                         {/* Fallback - Simple Notes */}
                                         {!lead.survey_data && !lead.chatbot_session && lead.notes && (
                                             <div>
