@@ -5,7 +5,7 @@ import { INTEGRATION_SETTINGS } from './config.js';
 import { initROICalculator } from './calculator.js';
 import { initSurveySystem } from './survey.js';
 import { initAIChatbot } from './chatbot.js';
-import { initScrollAnimations, initMouseGlow, initParticleTrail } from './animations.js';
+import { initScrollAnimations, initMouseGlow, initParticleTrail, initRobotMascot } from './animations.js';
 import { saveLeadToCRM } from './crm-integration.js';
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -17,6 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initScrollAnimations();
     initMouseGlow();
     initParticleTrail();
+    initRobotMascot();
 });
 
 /* ==========================================================================

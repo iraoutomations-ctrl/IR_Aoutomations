@@ -405,6 +405,163 @@ input, select, textarea, button {
     display: flex;
     justify-content: center;
     perspective: 1200px;
+    position: relative;
+}
+
+/* Floating Interactive Robot Mascot */
+.hero-robot-mascot {
+    position: absolute;
+    top: -55px;
+    right: -25px;
+    width: 100px;
+    height: 100px;
+    z-index: 10;
+    cursor: pointer;
+    animation: robotFloat 6s ease-in-out infinite;
+    perspective: 1000px;
+}
+
+@keyframes robotFloat {
+    0%, 100% { transform: translateY(0) rotate(1deg); }
+    50% { transform: translateY(-8px) rotate(-1deg); }
+}
+
+.robot-head {
+    width: 85px;
+    height: 75px;
+    background: rgba(8, 9, 15, 0.75);
+    backdrop-filter: blur(12px) saturate(180%);
+    -webkit-backdrop-filter: blur(12px) saturate(180%);
+    border: 1.5px solid rgba(168, 85, 247, 0.4);
+    border-radius: 20px;
+    position: relative;
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.6), inset 0 0 15px rgba(168, 85, 247, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: border-color var(--transition-normal);
+    transform-style: preserve-3d;
+}
+
+.hero-robot-mascot:hover .robot-head {
+    border-color: var(--accent-cyan);
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.6), 0 0 20px rgba(6, 182, 212, 0.15), inset 0 0 15px rgba(6, 182, 212, 0.1);
+}
+
+.robot-antenna {
+    position: absolute;
+    top: -16px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.antenna-rod {
+    width: 3px;
+    height: 16px;
+    background: rgba(168, 85, 247, 0.6);
+}
+
+.antenna-glow {
+    width: 6px;
+    height: 6px;
+    background-color: var(--accent-cyan);
+    border-radius: 50%;
+    box-shadow: 0 0 10px var(--accent-cyan);
+    animation: antennaPulse 1.5s infinite alternate;
+}
+
+@keyframes antennaPulse {
+    0% { background-color: var(--accent-cyan); box-shadow: 0 0 4px var(--accent-cyan); }
+    100% { background-color: var(--accent-pink); box-shadow: 0 0 12px var(--accent-pink); }
+}
+
+.robot-ears {
+    position: absolute;
+    width: 97px;
+    left: -6px;
+    display: flex;
+    justify-content: space-between;
+}
+
+.robot-ears::before, .robot-ears::after {
+    content: '';
+    width: 6px;
+    height: 12px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(168, 85, 247, 0.3);
+    border-radius: 2px;
+}
+
+.robot-face {
+    width: 85%;
+    height: 75%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+}
+
+.robot-eyes {
+    display: flex;
+    gap: 12px;
+}
+
+.robot-eye {
+    width: 18px;
+    height: 18px;
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.eye-pupil {
+    width: 8px;
+    height: 8px;
+    background-color: var(--accent-cyan);
+    border-radius: 50%;
+    box-shadow: 0 0 8px var(--accent-cyan);
+    transition: transform 0.1s ease-out;
+}
+
+.robot-mouth {
+    width: 32px;
+    height: 3px;
+    background: rgba(168, 85, 247, 0.5);
+    border-radius: 2px;
+    transition: background-color var(--transition-normal), height var(--transition-normal), width var(--transition-normal);
+}
+
+.hero-robot-mascot:hover .robot-mouth {
+    background-color: var(--accent-cyan);
+    height: 5px;
+    width: 24px;
+    border-radius: 2px;
+}
+
+.robot-floating-shadow {
+    width: 50px;
+    height: 4px;
+    background: rgba(0, 0, 0, 0.6);
+    border-radius: 50%;
+    filter: blur(2px);
+    position: absolute;
+    bottom: -15px;
+    left: 50%;
+    transform: translateX(-50%);
+    animation: shadowPulse 6s ease-in-out infinite;
+}
+
+@keyframes shadowPulse {
+    0%, 100% { transform: translateX(-50%) scale(1); opacity: 0.6; }
+    50% { transform: translateX(-50%) scale(0.8); opacity: 0.3; }
 }
 
 .visual-card-wrapper {

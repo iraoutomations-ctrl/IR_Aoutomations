@@ -151,3 +151,42 @@ export function initParticleTrail() {
         }
     });
 }
+
+export function initRobotMascot() {
+    const robot = document.getElementById('heroRobot');
+    if (!robot) return;
+
+    const eyeLeft = robot.querySelector('.eye-left .eye-pupil');
+    const eyeRight = robot.querySelector('.eye-right .eye-pupil');
+    const head = robot.querySelector('.robot-head');
+
+    window.addEventListener('mousemove', (e) => {
+        const rect = robot.getBoundingClientRect();
+        const robotX = rect.left + rect.width / 2;
+        const robotY = rect.top + rect.height / 2;
+
+        const deltaX = e.clientX - robotX;
+        const deltaY = e.clientY - robotY;
+        const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+
+        // Limit pupils movement
+        const maxPupilMove = 4; // pixels
+        const angle = Math.atan2(deltaY, deltaX);
+        const pupilX = Math.cos(angle) * Math.min(maxPupilMove, distance * 0.03);
+        const pupilY = Math.sin(angle) * Math.min(maxPupilMove, distance * 0.03);
+
+        if (eyeLeft && eyeRight) {
+            eyeLeft.style.transform = `translate3d(${pupilX}px, ${pupilY}px, 0)`;
+            eyeRight.style.transform = `translate3d(${pupilX}px, ${pupilY}px, 0)`;
+        }
+
+        // Tilt the head slightly towards mouse
+        const maxTilt = 12; // degrees
+        const tiltX = Math.min(maxTilt, Math.max(-maxTilt, (deltaY / window.innerHeight) * maxTilt));
+        const tiltY = Math.min(maxTilt, Math.max(-maxTilt, (deltaX / window.innerWidth) * -maxTilt));
+
+        if (head) {
+            head.style.transform = `rotateX(${tiltX}deg) rotateY(${tiltY}deg)`;
+        }
+    });
+}
