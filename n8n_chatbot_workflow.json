@@ -58,7 +58,7 @@
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ JSON.parse($json.candidates[0].content.parts[0].text) }}",
+        "responseBody": "={{ (() => { const t = $json.candidates[0].content.parts[0].text; try { return JSON.parse(t); } catch (e) { const s = t.indexOf('{'); if (s !== -1) { let c = 0; for (let i = s; i < t.length; i++) { if (t[i] === '{') c++; else if (t[i] === '}') { c--; if (c === 0) { try { return JSON.parse(t.substring(s, i + 1)); } catch (err) {} } } } } return { reply: t }; } })() }}",
         "options": {}
       },
       "id": "438e3358-756c-4da3-8e92-194a7e3a200a",
@@ -160,7 +160,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{\n{\n  \"title\": \"✅ צ'אטבוט: מענה Gemini Flash\",\n  \"message\": \"קלט: \" + $('Webhook1').item.json.body.message + \"\\nתשובה: \" + (JSON.parse($('HTTP Request').first().json.candidates[0].content.parts[0].text).reply),\n  \"type\": \"success\",\n  \"n8n_workflow_id\": \"lyCrWBmsGlRSMJmo\",\n  \"duration_ms\": new Date().getTime() - $('Set1').first().json.startTime\n}\n}}",
+        "jsonBody": "={{\n{\n  \"title\": \"✅ צ'אטבוט: מענה Gemini Flash\",\n  \"message\": \"קלט: \" + $('Webhook1').item.json.body.message + \"\\nתשובה: \" + ((() => { const t = $('HTTP Request').first().json.candidates[0].content.parts[0].text; try { return JSON.parse(t); } catch (e) { const s = t.indexOf('{'); if (s !== -1) { let c = 0; for (let i = s; i < t.length; i++) { if (t[i] === '{') c++; else if (t[i] === '}') { c--; if (c === 0) { try { return JSON.parse(t.substring(s, i + 1)); } catch (err) {} } } } } return { reply: t }; } })().reply),\n  \"type\": \"success\",\n  \"n8n_workflow_id\": \"lyCrWBmsGlRSMJmo\",\n  \"duration_ms\": new Date().getTime() - $('Set1').first().json.startTime\n}\n}}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
@@ -175,7 +175,7 @@
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ JSON.parse($json.candidates[0].content.parts[0].text) }}",
+        "responseBody": "={{ (() => { const t = $json.candidates[0].content.parts[0].text; try { return JSON.parse(t); } catch (e) { const s = t.indexOf('{'); if (s !== -1) { let c = 0; for (let i = s; i < t.length; i++) { if (t[i] === '{') c++; else if (t[i] === '}') { c--; if (c === 0) { try { return JSON.parse(t.substring(s, i + 1)); } catch (err) {} } } } } return { reply: t }; } })() }}",
         "options": {}
       },
       "type": "n8n-nodes-base.respondToWebhook",
@@ -214,7 +214,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{\n{\n  \"title\": \"⚠️ צ'אטבוט: גיבוי Gemini Pro\",\n  \"message\": \"קלט: \" + $('Webhook1').item.json.body.message + \"\\nתשובה: \" + (JSON.parse($('HTTP Request (Gemini Fallback)').first().json.candidates[0].content.parts[0].text).reply),\n  \"type\": \"warning\",\n  \"n8n_workflow_id\": \"lyCrWBmsGlRSMJmo\",\n  \"duration_ms\": new Date().getTime() - $('Set1').first().json.startTime\n}\n}}",
+        "jsonBody": "={{\n{\n  \"title\": \"⚠️ צ'אטבוט: גיבוי Gemini Pro\",\n  \"message\": \"קלט: \" + $('Webhook1').item.json.body.message + \"\\nתשובה: \" + ((() => { const t = $('HTTP Request (Gemini Fallback)').first().json.candidates[0].content.parts[0].text; try { return JSON.parse(t); } catch (e) { const s = t.indexOf('{'); if (s !== -1) { let c = 0; for (let i = s; i < t.length; i++) { if (t[i] === '{') c++; else if (t[i] === '}') { c--; if (c === 0) { try { return JSON.parse(t.substring(s, i + 1)); } catch (err) {} } } } } return { reply: t }; } })().reply),\n  \"type\": \"warning\",\n  \"n8n_workflow_id\": \"lyCrWBmsGlRSMJmo\",\n  \"duration_ms\": new Date().getTime() - $('Set1').first().json.startTime\n}\n}}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
@@ -651,7 +651,7 @@
       {
         "parameters": {
           "respondWith": "json",
-          "responseBody": "={{ JSON.parse($json.candidates[0].content.parts[0].text) }}",
+          "responseBody": "={{ (() => { const t = $json.candidates[0].content.parts[0].text; try { return JSON.parse(t); } catch (e) { const s = t.indexOf('{'); if (s !== -1) { let c = 0; for (let i = s; i < t.length; i++) { if (t[i] === '{') c++; else if (t[i] === '}') { c--; if (c === 0) { try { return JSON.parse(t.substring(s, i + 1)); } catch (err) {} } } } } return { reply: t }; } })() }}",
           "options": {}
         },
         "id": "438e3358-756c-4da3-8e92-194a7e3a200a",
@@ -751,7 +751,7 @@
           },
           "sendBody": true,
           "specifyBody": "json",
-          "jsonBody": "={{\n{\n  \"title\": \"✅ צ'אטבוט: מענה Gemini Flash\",\n  \"message\": \"קלט: \" + $('Webhook1').item.json.body.message + \"\\nתשובה: \" + (JSON.parse($('HTTP Request').first().json.candidates[0].content.parts[0].text).reply),\n  \"type\": \"success\",\n  \"n8n_workflow_id\": \"lyCrWBmsGlRSMJmo\",\n  \"duration_ms\": new Date().getTime() - $('Set1').first().json.startTime\n}\n}}",
+          "jsonBody": "={{\n{\n  \"title\": \"✅ צ'אטבוט: מענה Gemini Flash\",\n  \"message\": \"קלט: \" + $('Webhook1').item.json.body.message + \"\\nתשובה: \" + ((() => { const t = $('HTTP Request').first().json.candidates[0].content.parts[0].text; try { return JSON.parse(t); } catch (e) { const s = t.indexOf('{'); if (s !== -1) { let c = 0; for (let i = s; i < t.length; i++) { if (t[i] === '{') c++; else if (t[i] === '}') { c--; if (c === 0) { try { return JSON.parse(t.substring(s, i + 1)); } catch (err) {} } } } } return { reply: t }; } })().reply),\n  \"type\": \"success\",\n  \"n8n_workflow_id\": \"lyCrWBmsGlRSMJmo\",\n  \"duration_ms\": new Date().getTime() - $('Set1').first().json.startTime\n}\n}}",
           "options": {}
         },
         "type": "n8n-nodes-base.httpRequest",
@@ -766,7 +766,7 @@
       {
         "parameters": {
           "respondWith": "json",
-          "responseBody": "={{ JSON.parse($json.candidates[0].content.parts[0].text) }}",
+          "responseBody": "={{ (() => { const t = $json.candidates[0].content.parts[0].text; try { return JSON.parse(t); } catch (e) { const s = t.indexOf('{'); if (s !== -1) { let c = 0; for (let i = s; i < t.length; i++) { if (t[i] === '{') c++; else if (t[i] === '}') { c--; if (c === 0) { try { return JSON.parse(t.substring(s, i + 1)); } catch (err) {} } } } } return { reply: t }; } })() }}",
           "options": {}
         },
         "type": "n8n-nodes-base.respondToWebhook",
@@ -805,7 +805,7 @@
           },
           "sendBody": true,
           "specifyBody": "json",
-          "jsonBody": "={{\n{\n  \"title\": \"⚠️ צ'אטבוט: גיבוי Gemini Pro\",\n  \"message\": \"קלט: \" + $('Webhook1').item.json.body.message + \"\\nתשובה: \" + (JSON.parse($('HTTP Request (Gemini Fallback)').first().json.candidates[0].content.parts[0].text).reply),\n  \"type\": \"warning\",\n  \"n8n_workflow_id\": \"lyCrWBmsGlRSMJmo\",\n  \"duration_ms\": new Date().getTime() - $('Set1').first().json.startTime\n}\n}}",
+          "jsonBody": "={{\n{\n  \"title\": \"⚠️ צ'אטבוט: גיבוי Gemini Pro\",\n  \"message\": \"קלט: \" + $('Webhook1').item.json.body.message + \"\\nתשובה: \" + ((() => { const t = $('HTTP Request (Gemini Fallback)').first().json.candidates[0].content.parts[0].text; try { return JSON.parse(t); } catch (e) { const s = t.indexOf('{'); if (s !== -1) { let c = 0; for (let i = s; i < t.length; i++) { if (t[i] === '{') c++; else if (t[i] === '}') { c--; if (c === 0) { try { return JSON.parse(t.substring(s, i + 1)); } catch (err) {} } } } } return { reply: t }; } })().reply),\n  \"type\": \"warning\",\n  \"n8n_workflow_id\": \"lyCrWBmsGlRSMJmo\",\n  \"duration_ms\": new Date().getTime() - $('Set1').first().json.startTime\n}\n}}",
           "options": {}
         },
         "type": "n8n-nodes-base.httpRequest",
