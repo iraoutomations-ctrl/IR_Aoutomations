@@ -66,6 +66,8 @@ html {
     scroll-behavior: smooth;
     font-size: 16px;
     background-color: var(--bg-primary);
+    overflow-x: hidden;
+    max-width: 100%;
 }
 
 body {
@@ -75,6 +77,7 @@ body {
     line-height: 1.6;
     overflow-x: hidden;
     position: relative;
+    max-width: 100%;
 }
 
 .container {
