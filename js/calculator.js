@@ -37,6 +37,22 @@ export function initROICalculator() {
         resultMonthly.textContent = `₪${monthlyMoneySaved.toLocaleString('he-IL')}`;
         resultYearly.textContent = `₪${yearlyMoneySaved.toLocaleString('he-IL')}`;
 
+        // Update savings potential badge dynamically
+        const savingsBadge = document.getElementById('savingsBadge');
+        if (savingsBadge) {
+            savingsBadge.className = 'savings-potential-badge'; // Reset classes
+            if (monthlyMoneySaved < 2000) {
+                savingsBadge.classList.add('badge-basic');
+                savingsBadge.textContent = 'פוטנציאל יעילות בסיסי';
+            } else if (monthlyMoneySaved >= 2000 && monthlyMoneySaved < 5000) {
+                savingsBadge.classList.add('badge-significant');
+                savingsBadge.textContent = 'פוטנציאל ייעול משמעותי! ⚡';
+            } else {
+                savingsBadge.classList.add('badge-huge');
+                savingsBadge.textContent = 'פוטנציאל חיסכון אדיר לעסק! 🌟';
+            }
+        }
+
         // Trigger scale-pop animation on changes
         [resultHours, resultMonthly, resultYearly].forEach(el => {
             el.classList.remove('scale-pop');

@@ -2080,6 +2080,324 @@ textarea.survey-input {
     font-size: 0.92rem;
     line-height: 1.6;
     color: var(--text-secondary);
+}}
+
+/* ==========================================================================
+   Case Studies / Portfolio Section
+   ========================================================================== */
+.portfolio-section {
+    padding: 100px 0;
+    position: relative;
+    background-color: rgba(255, 255, 255, 0.002);
+}
+
+.portfolio-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 28px;
+    margin-top: 50px;
+}
+
+.portfolio-card {
+    background: rgba(8, 9, 15, 0.45);
+    border: 1px solid rgba(255, 255, 255, 0.03);
+    border-radius: 20px;
+    padding: 36px 28px;
+    transition: var(--transition-normal);
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.portfolio-card:hover {
+    transform: translateY(-6px);
+    background: rgba(15, 17, 26, 0.65);
+    border-color: rgba(6, 182, 212, 0.25);
+    box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.6), 0 0 30px rgba(6, 182, 212, 0.05);
+}
+
+.portfolio-icon {
+    font-size: 2rem;
+    background: linear-gradient(135deg, var(--accent-cyan) 0%, var(--accent-violet) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 16px;
+    display: inline-block;
+}
+
+.portfolio-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 20px;
+}
+
+.portfolio-tags .tag {
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 50px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    color: var(--text-secondary);
+}
+
+.portfolio-tags .tag-n8n { color: #ff6c37; border-color: rgba(255, 108, 55, 0.2); background: rgba(255, 108, 55, 0.05); }
+.portfolio-tags .tag-make { color: var(--accent-violet); border-color: rgba(168, 85, 247, 0.2); background: rgba(168, 85, 247, 0.05); }
+.portfolio-tags .tag-ai { color: var(--accent-pink); border-color: rgba(236, 72, 153, 0.2); background: rgba(236, 72, 153, 0.05); }
+.portfolio-tags .tag-whatsapp { color: #25d366; border-color: rgba(37, 211, 102, 0.2); background: rgba(37, 211, 102, 0.05); }
+
+.portfolio-title {
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: var(--text-light);
+    margin-bottom: 12px;
+    line-height: 1.3;
+}
+
+.portfolio-desc {
+    font-size: 0.92rem;
+    line-height: 1.6;
+    color: var(--text-secondary);
+    margin-bottom: 24px;
+    flex-grow: 1;
+}
+
+.portfolio-results {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    padding-top: 20px;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.result-box {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.res-val {
+    font-size: 1.35rem;
+    font-weight: 800;
+    color: var(--accent-cyan);
+    text-shadow: 0 0 10px rgba(6, 182, 212, 0.2);
+}
+
+.res-lbl {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    font-weight: 600;
+}
+
+/* ==========================================================================
+   Testimonials / Recommendations Section
+   ========================================================================== */
+.testimonials-section {
+    padding: 100px 0;
+    position: relative;
+    background-color: rgba(255, 255, 255, 0.005);
+}
+
+.testimonials-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 28px;
+    margin-top: 50px;
+}
+
+.testimonial-card {
+    background: rgba(8, 9, 15, 0.45);
+    border: 1px solid rgba(255, 255, 255, 0.03);
+    border-radius: 24px;
+    padding: 36px;
+    transition: var(--transition-normal);
+    position: relative;
+    display: flex;
+    flex-direction: column;
+}
+
+.testimonial-card:hover {
+    transform: translateY(-4px);
+    border-color: rgba(236, 72, 153, 0.2);
+    box-shadow: 0 15px 30px -10px rgba(0, 0, 0, 0.5);
+}
+
+.testimonial-stars {
+    display: flex;
+    gap: 4px;
+    color: #f59e0b;
+    margin-bottom: 20px;
+    font-size: 0.9rem;
+}
+
+.testimonial-quote {
+    font-size: 0.95rem;
+    line-height: 1.7;
+    color: var(--text-secondary);
+    margin-bottom: 28px;
+    font-style: italic;
+    flex-grow: 1;
+}
+
+.testimonial-author {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.author-avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: rgba(168, 85, 247, 0.1);
+    border: 1.5px solid var(--accent-violet);
+    color: var(--accent-violet);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.15rem;
+}
+
+.author-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.author-name {
+    font-size: 0.95rem;
+    font-weight: 800;
+    color: var(--text-light);
+}
+
+.author-role {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    font-weight: 600;
+}
+
+/* ==========================================================================
+   FAQ Section (Accordion)
+   ========================================================================== */
+.faq-section {
+    padding: 100px 0;
+    position: relative;
+}
+
+.faq-wrapper {
+    max-width: 780px;
+    margin: 50px auto 0;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.faq-item {
+    background: rgba(8, 9, 15, 0.45);
+    border: 1px solid rgba(255, 255, 255, 0.03);
+    border-radius: 16px;
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+.faq-item[open] {
+    border-color: rgba(168, 85, 247, 0.2);
+    background: rgba(10, 11, 16, 0.7);
+    box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+}
+
+.faq-question {
+    padding: 24px 30px;
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: var(--text-light);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    list-style: none;
+    user-select: none;
+    transition: color 0.3s ease;
+}
+
+.faq-question::-webkit-details-marker {
+    display: none;
+}
+
+.faq-question:hover {
+    color: var(--accent-cyan);
+}
+
+.faq-question .caret-icon {
+    font-size: 0.95rem;
+    color: var(--text-muted);
+    transition: transform 0.3s ease, color 0.3s ease;
+}
+
+.faq-item[open] .faq-question {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.faq-item[open] .caret-icon {
+    transform: rotate(180deg);
+    color: var(--accent-pink);
+}
+
+.faq-answer {
+    padding: 24px 30px;
+    font-size: 0.95rem;
+    line-height: 1.7;
+    color: var(--text-secondary);
+    animation: slideDownFAQ 0.3s ease-out;
+}
+
+@keyframes slideDownFAQ {
+    from { opacity: 0; transform: translateY(-8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* ==========================================================================
+   ROI Calculator Savings Potential Badge
+   ========================================================================== */
+.savings-potential-badge {
+    margin-top: 14px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    padding: 6px 16px;
+    border-radius: 50px;
+    display: inline-block;
+    transition: all 0.3s ease;
+    text-align: center;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+}
+
+.badge-basic {
+    background: rgba(16, 185, 129, 0.12);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    color: #10b981;
+    box-shadow: 0 0 15px rgba(16, 185, 129, 0.1);
+}
+
+.badge-significant {
+    background: rgba(236, 72, 153, 0.12);
+    border: 1px solid rgba(236, 72, 153, 0.3);
+    color: var(--accent-pink);
+    box-shadow: 0 0 15px rgba(236, 72, 153, 0.1);
+}
+
+.badge-huge {
+    background: rgba(245, 158, 11, 0.12);
+    border: 1px solid rgba(245, 158, 11, 0.4);
+    color: #f59e0b;
+    box-shadow: 0 0 20px rgba(245, 158, 11, 0.25);
+    animation: goldPulse 2s infinite alternate;
+}
+
+@keyframes goldPulse {
+    0% { box-shadow: 0 0 10px rgba(245, 158, 11, 0.15); }
+    100% { box-shadow: 0 0 25px rgba(245, 158, 11, 0.45); }
 }
 
 /* ==========================================================================
@@ -2087,6 +2405,13 @@ textarea.survey-input {
    ========================================================================== */
 @media (max-width: 992px) {
     .services-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .portfolio-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    .testimonials-grid {
         grid-template-columns: repeat(2, 1fr);
     }
 
@@ -2153,6 +2478,22 @@ textarea.survey-input {
     }
     .service-card.bento-wide {
         grid-column: span 1;
+    }
+
+    .portfolio-grid {
+        grid-template-columns: 1fr;
+        gap: 20px;
+    }
+    .testimonials-grid {
+        grid-template-columns: 1fr;
+        gap: 20px;
+    }
+    .faq-question {
+        padding: 20px 24px;
+        font-size: 1rem;
+    }
+    .faq-answer {
+        padding: 20px 24px;
     }
 
     .roadmap-progress-bar {
