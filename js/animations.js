@@ -223,21 +223,20 @@ export function initRoadmapAnimations() {
     const steps = document.querySelectorAll('.roadmap-step');
     if (!roadmapSection || !fillLine || steps.length === 0) return;
 
+    const firstStep = steps[0];
+    const lastStep = steps[steps.length - 1];
+
     // 1. Smooth scroll-linked filling of the vertical timeline line
     const handleScroll = () => {
-        const rect = roadmapSection.getBoundingClientRect();
-        const viewportHeight = window.innerHeight;
+        const firstRect = firstStep.getBoundingClientRect();
+        const lastRect = lastStep.getBoundingClientRect();
+        const triggerY = window.innerHeight * 0.6; // Matches the Observer trigger point (60% from top)
         
-        // Calculate the progress through the section
-        // We start filling when the section top reaches 70% of viewport
-        // and finish filling when the section bottom reaches 30% of viewport
-        const startOffset = viewportHeight * 0.7;
-        const endOffset = viewportHeight * 0.3;
+        const totalDistance = lastRect.top - firstRect.top;
+        if (totalDistance <= 0) return;
         
-        const totalHeight = rect.height - (startOffset - endOffset);
-        const currentProgress = -(rect.top - startOffset);
-        
-        let percentage = (currentProgress / totalHeight) * 100;
+        const currentProgress = triggerY - firstRect.top;
+        let percentage = (currentProgress / totalDistance) * 100;
         percentage = Math.max(0, Math.min(100, percentage));
         
         fillLine.style.height = `${percentage}%`;
