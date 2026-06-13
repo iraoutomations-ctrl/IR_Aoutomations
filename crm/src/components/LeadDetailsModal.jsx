@@ -87,6 +87,18 @@ const QUESTION_LABELS = {
     rating_service: 'אוטומציה: שירות לקוחות ופולו-אפ',
     rating_operations: 'אוטומציה: תפעול ומשרד אחורי'
 };
+const WEBSITE_TYPES_MAP = {
+    landing: 'דף נחיתה / כרטיס ביקור דיגיטלי',
+    image: 'אתר תדמיתי מרובה עמודים',
+    ecommerce: 'אתר חנות / איקומרס',
+    custom: 'אתר פורטל / מערכת מותאמת אישית'
+};
+const WEBSITE_ADDONS_MAP = {
+    chatbot: "צ'אטבוט AI מוטמע (Gemini)",
+    calculator: 'מחשבון ROI דינמי',
+    survey: 'שאלון אפיון מרובה שלבים',
+    crm: 'חיבור ל-CRM של העסק'
+};
 const WORKFLOW_DESCRIPTIONS = {
     'lyCrWBmsGlRSMJmo': {
         name: "בוט מענה ללידים (IR AI Bot)",
@@ -982,14 +994,37 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
                                             <div style={{ marginTop: '16px', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '14px' }}>
                                                 <div style={{ fontWeight: '600', color: 'var(--accent-pink)', fontSize: '13px', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                                     <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--accent-pink)' }}></span>
-                                                    הצעת מחיר ו-SLA (מהמחשבון)
+                                                    {lead.quote_data.project_type === 'website' ? 'הצעת מחיר לבניית אתר לעסק' : 'הצעת מחיר לאוטומציה ו-AI'}
                                                 </div>
+                                                
+                                                {lead.quote_data.project_type === 'website' && (
+                                                    <>
+                                                        <div className="survey-response-item">
+                                                            <div className="survey-question">סוג האתר:</div>
+                                                            <div className="survey-answer" style={{ color: 'var(--text-light)' }}>
+                                                                {WEBSITE_TYPES_MAP[lead.quote_data.website_type] || lead.quote_data.website_type || 'לא מוגדר'}
+                                                            </div>
+                                                        </div>
+                                                        {lead.quote_data.addons && Object.values(lead.quote_data.addons).some(v => v) && (
+                                                            <div className="survey-response-item">
+                                                                <div className="survey-question">תוספות ושילובים:</div>
+                                                                <div className="survey-answer" style={{ color: 'var(--text-light)', fontSize: '11px' }}>
+                                                                    {Object.entries(lead.quote_data.addons)
+                                                                        .filter(([_, active]) => active)
+                                                                        .map(([key]) => WEBSITE_ADDONS_MAP[key] || key)
+                                                                        .join(', ')}
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </>
+                                                )}
+
                                                 <div className="survey-response-item">
                                                     <div className="survey-question">עלות הקמה מוצעת:</div>
                                                     <div className="survey-answer" style={{ fontWeight: 'bold', color: 'var(--text-light)' }}>₪{lead.quote_data.setup_cost?.toLocaleString('he-IL')}</div>
                                                 </div>
                                                 <div className="survey-response-item">
-                                                    <div className="survey-question">ריטיינר חודשי:</div>
+                                                    <div className="survey-question">{lead.quote_data.project_type === 'website' ? 'עלות תחזוקה ואחסון:' : 'ריטיינר חודשי:'}</div>
                                                     <div className="survey-answer" style={{ fontWeight: 'bold', color: 'var(--accent-cyan)' }}>₪{lead.quote_data.sla_price?.toLocaleString('he-IL')}</div>
                                                 </div>
                                                 <div className="survey-response-item">

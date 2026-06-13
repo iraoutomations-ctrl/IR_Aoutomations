@@ -58,50 +58,119 @@ export default function PricingCalculator() {
         enterprise: { name: 'Enterprise', limit: 20000, price: 3000 }
     };
 
+    // Website Quoting State
+    const [projectType, setProjectType] = useState('automation'); // 'automation' | 'website'
+    const [websiteType, setWebsiteType] = useState('landing'); // 'landing' | 'image' | 'ecommerce' | 'custom'
+    const [addons, setAddons] = useState({
+        chatbot: false,
+        calculator: false,
+        survey: false,
+        crm: false
+    });
+    const [webSla, setWebSla] = useState('basic'); // 'basic' | 'extended' | 'premium'
+
+    const WEBSITE_TYPES = {
+        landing: { name: 'דף נחיתה / כרטיס ביקור דיגיטלי', price: 2500 },
+        image: { name: 'אתר תדמיתי מרובה עמודים', price: 5000 },
+        ecommerce: { name: 'אתר חנות / איקומרס', price: 8000 },
+        custom: { name: 'אתר פורטל / מערכת מותאמת אישית', price: 12000 }
+    };
+
+    const WEBSITE_ADDONS = {
+        chatbot: { name: "צ'אטבוט AI מוטמע (Gemini)", price: 3000, monthly: 250 },
+        calculator: { name: 'מחשבון ROI דינמי', price: 1500, monthly: 0 },
+        survey: { name: 'שאלון אפיון מרובה שלבים', price: 2000, monthly: 0 },
+        crm: { name: 'חיבור ל-CRM של העסק', price: 1000, monthly: 0 }
+    };
+
+    const WEBSITE_SLA = {
+        basic: { name: 'אחסון ותחזוקה בסיסית', price: 150 },
+        extended: { name: 'אחסון, תחזוקה ועדכוני תוכן', price: 300 },
+        premium: { name: 'תמיכה מהירה ושינויים שוטפים', price: 600 }
+    };
+
     // Calculate everything on input change
     useEffect(() => {
-        // 1. Final Setup Cost
-        const complexityMult = parseFloat(complexity);
-        const extraIntegrations = Math.max(0, parseInt(integrations || 0) - 2);
-        const setup = (parseFloat(hours || 0) * parseFloat(hourlyRate || 0) * complexityMult) + (extraIntegrations * 300);
-        setFinalSetupCost(Math.round(setup));
+        if (projectType === 'website') {
+            // Setup Cost
+            let setup = WEBSITE_TYPES[websiteType].price;
+            let extraMonthly = 0;
+            
+            if (addons.chatbot) {
+                setup += WEBSITE_ADDONS.chatbot.price;
+                extraMonthly += WEBSITE_ADDONS.chatbot.monthly;
+            }
+            if (addons.calculator) setup += WEBSITE_ADDONS.calculator.price;
+            if (addons.survey) setup += WEBSITE_ADDONS.survey.price;
+            if (addons.crm) setup += WEBSITE_ADDONS.crm.price;
 
-        // 2. Hours Saved
-        const savedHours = (parseFloat(taskTime || 0) * parseFloat(monthlyVolume || 0)) / 60;
-        setHoursSaved(parseFloat(savedHours.toFixed(1)));
+            setFinalSetupCost(setup);
 
-        // 3. Gross Savings
-        let gross = savedHours * parseFloat(employeeWage || 0);
-        if (includeHumanError) {
-            gross = gross * 1.05; // 5% human error markup
-        }
-        setGrossSavings(Math.round(gross));
+            // Monthly Cost
+            const slaPrice = WEBSITE_SLA[webSla].price;
+            const totalMonthly = slaPrice + extraMonthly + parseFloat(thirdPartyCosts || 0);
+            setTotalMonthlyCost(totalMonthly);
 
-        // 4. Total Monthly Cost
-        const retainerPrice = SLA_PACKAGES[selectedSla].price;
-        const totalMonthly = retainerPrice + parseFloat(thirdPartyCosts || 0);
-        setTotalMonthlyCost(Math.round(totalMonthly));
+            // Hours Saved & ROI (we can assume basic site saves 5 hours per week manually, or more if chatbot is added)
+            const savedHours = addons.chatbot || addons.survey ? 20 : 5;
+            setHoursSaved(savedHours);
+            const gross = savedHours * parseFloat(employeeWage || 60);
+            setGrossSavings(gross);
 
-        // 5. Net Monthly Profit
-        const netProfit = gross - totalMonthly;
-        setNetMonthlyProfit(Math.round(netProfit));
+            const netProfit = gross - totalMonthly;
+            setNetMonthlyProfit(netProfit);
 
-        // 6. Break-even
-        if (netProfit > 0) {
-            const beMonths = setup / netProfit;
-            setBreakEven(parseFloat(beMonths.toFixed(1)));
-        } else {
-            setBreakEven(0);
-        }
-
-        // 7. Check if monthly runs exceed package limit
-        const limit = SLA_PACKAGES[selectedSla].limit;
-        if (parseInt(monthlyVolume || 0) > limit) {
-            setShowWarning(true);
-        } else {
+            if (netProfit > 0) {
+                setBreakEven(parseFloat((setup / netProfit).toFixed(1)));
+            } else {
+                setBreakEven(0);
+            }
             setShowWarning(false);
+        } else {
+            // 1. Final Setup Cost
+            const complexityMult = parseFloat(complexity);
+            const extraIntegrations = Math.max(0, parseInt(integrations || 0) - 2);
+            const setup = (parseFloat(hours || 0) * parseFloat(hourlyRate || 0) * complexityMult) + (extraIntegrations * 300);
+            setFinalSetupCost(Math.round(setup));
+
+            // 2. Hours Saved
+            const savedHours = (parseFloat(taskTime || 0) * parseFloat(monthlyVolume || 0)) / 60;
+            setHoursSaved(parseFloat(savedHours.toFixed(1)));
+
+            // 3. Gross Savings
+            let gross = savedHours * parseFloat(employeeWage || 0);
+            if (includeHumanError) {
+                gross = gross * 1.05; // 5% human error markup
+            }
+            setGrossSavings(Math.round(gross));
+
+            // 4. Total Monthly Cost
+            const retainerPrice = SLA_PACKAGES[selectedSla].price;
+            const totalMonthly = retainerPrice + parseFloat(thirdPartyCosts || 0);
+            setTotalMonthlyCost(Math.round(totalMonthly));
+
+            // 5. Net Monthly Profit
+            const netProfit = gross - totalMonthly;
+            setNetMonthlyProfit(Math.round(netProfit));
+
+            // 6. Break-even
+            if (netProfit > 0) {
+                const beMonths = setup / netProfit;
+                setBreakEven(parseFloat(beMonths.toFixed(1)));
+            } else {
+                setBreakEven(0);
+            }
+
+            // 7. Check if monthly runs exceed package limit
+            const limit = SLA_PACKAGES[selectedSla].limit;
+            if (parseInt(monthlyVolume || 0) > limit) {
+                setShowWarning(true);
+            } else {
+                setShowWarning(false);
+            }
         }
     }, [
+        projectType, websiteType, addons, webSla,
         hours, hourlyRate, complexity, integrations,
         taskTime, monthlyVolume, employeeWage, includeHumanError,
         selectedSla, thirdPartyCosts
@@ -145,26 +214,38 @@ export default function PricingCalculator() {
         if (!selectedLeadId) return;
         try {
             const quoteData = {
+                project_type: projectType,
                 setup_cost: finalSetupCost,
                 monthly_cost: totalMonthlyCost,
-                sla_price: SLA_PACKAGES[selectedSla].price,
-                hourly_rate: hourlyRate,
+                sla_price: projectType === 'website' ? WEBSITE_SLA[webSla].price : SLA_PACKAGES[selectedSla].price,
+                hourly_rate: projectType === 'website' ? null : hourlyRate,
                 net_profit: netMonthlyProfit,
                 break_even: breakEven,
-                third_party_costs: thirdPartyCosts
+                third_party_costs: thirdPartyCosts,
+                website_type: projectType === 'website' ? websiteType : null,
+                addons: projectType === 'website' ? addons : null
             };
 
             await db.updateLead(selectedLeadId, { quote_data: quoteData });
             
-            // Add note to lead details
-            await db.addNote({
-                lead_id: selectedLeadId,
-                content: `הופקה הצעת מחיר במחשבון ה-ROI:
+            const content = projectType === 'website' 
+                ? `הופקה הצעת מחיר לבניית אתר במחשבון ה-ROI:
+• סוג האתר: ${WEBSITE_TYPES[websiteType].name}
+• תוספות: ${Object.entries(addons).filter(([k,v]) => v).map(([k]) => WEBSITE_ADDONS[k].name).join(', ') || 'ללא'}
+• עלות הקמה חד-פעמית: ₪${finalSetupCost.toLocaleString('he-IL')}
+• אחסון ותחזוקה חודשית (${WEBSITE_SLA[webSla].name}): ₪${totalMonthlyCost.toLocaleString('he-IL')}
+• החזר השקעה מחושב: תוך ${breakEven} חודשים`
+                : `הופקה הצעת מחיר במחשבון ה-ROI:
 • עלות הקמה חד-פעמית: ₪${finalSetupCost.toLocaleString('he-IL')}
 • ריטיינר חודשי קבוע: ₪${SLA_PACKAGES[selectedSla].price.toLocaleString('he-IL')}
 • עלויות צד ג': ₪${thirdPartyCosts.toLocaleString('he-IL')}
 • רווח חודשי נקי לעסק: ₪${netMonthlyProfit.toLocaleString('he-IL')}
-• החזר השקעה: תוך ${breakEven} חודשים`
+• החזר השקעה: תוך ${breakEven} חודשים`;
+
+            // Add note to lead details
+            await db.addNote({
+                lead_id: selectedLeadId,
+                content: content
             });
 
             setSaveSuccess(true);
@@ -179,13 +260,39 @@ export default function PricingCalculator() {
     const handleCopyProposal = () => {
         const pName = projectName.trim() || '[שם הלקוח]';
         const setupStr = finalSetupCost.toLocaleString('he-IL');
-        const retainerPrice = SLA_PACKAGES[selectedSla].price.toLocaleString('he-IL');
-        const grossStr = grossSavings.toLocaleString('he-IL');
-        const netStr = netMonthlyProfit.toLocaleString('he-IL');
-        const breakEvenStr = breakEven > 0 ? breakEven.toString() : 'לא מגיע';
-        const nextMonthStr = breakEven > 0 ? Math.ceil(breakEven + 1).toString() : 'הבא';
+        const retainerPrice = totalMonthlyCost.toLocaleString('he-IL');
 
-        const text = `שם הלקוח/הפרויקט: ${pName}
+        let text = '';
+        if (projectType === 'website') {
+            const webTypeName = WEBSITE_TYPES[websiteType].name;
+            const slaName = WEBSITE_SLA[webSla].name;
+            let activeAddons = [];
+            if (addons.chatbot) activeAddons.push(WEBSITE_ADDONS.chatbot.name);
+            if (addons.calculator) activeAddons.push(WEBSITE_ADDONS.calculator.name);
+            if (addons.survey) activeAddons.push(WEBSITE_ADDONS.survey.name);
+            if (addons.crm) activeAddons.push(WEBSITE_ADDONS.crm.name);
+
+            text = `שם הלקוח/הפרויקט: ${pName}
+שלום רב, בהמשך לשיחתנו אודות בניית האתר לעסק שלכם, להלן סיכום הצעת המחיר והאפיון:
+
+🖥️ סוג האתר: ${webTypeName}
+${activeAddons.length > 0 ? `✨ רכיבים ותוספות מתוכננים:\n${activeAddons.map(a => `  - ${a}`).join('\n')}\n` : ''}
+💰 עלויות הפרויקט:
+- עלות הקמה חד-פעמית (עיצוב, פיתוח ואינטגרציות): ${setupStr} ₪.
+- עלות חודשית שוטפת (אחסון, רישיונות ותחזוקה - ${slaName}): ${retainerPrice} ₪.
+
+📈 כדאיות ותועלת עסקית:
+- המערכות האינטראקטיביות באתר יחסכו לכם זמן עבודה יקר ויאפשרו איסוף לידים מסוננים ומאופיינים באופן אוטומטי.
+
+נשמח לצאת לדרך! לכל שאלה אני כאן.
+🚀 autoRI-studio`;
+        } else {
+            const grossStr = grossSavings.toLocaleString('he-IL');
+            const netStr = netMonthlyProfit.toLocaleString('he-IL');
+            const breakEvenStr = breakEven > 0 ? breakEven.toString() : 'לא מגיע';
+            const nextMonthStr = breakEven > 0 ? Math.ceil(breakEven + 1).toString() : 'הבא';
+
+            text = `שם הלקוח/הפרויקט: ${pName}
 שלום רב, בהמשך לאפיון האוטומציה עבורכם, להלן סיכום הנתונים הכלכליים והצעת המחיר:
 
 📊 פוטנציאל חיסכון חודשי:
@@ -194,7 +301,7 @@ export default function PricingCalculator() {
 
 💰 עלויות המערכת:
 - עלות הקמה חד-פעמית - כולל פיתוח, שילוב AI וחיבור מערכות: ${setupStr} ₪.
-- ריטיינר חודשי קבוע - כולל תמיכה, ניטור וחבילת הרצות: ${retainerPrice} ₪.
+- ריטיינר חודשי קבוע - כולל תמיכה, ניטור וחבילת הרצות: ${SLA_PACKAGES[selectedSla].price.toLocaleString('he-IL')} ₪.
 
 📈 כדאיות כלכלית - ROI:
 - רווח נקי חודשי לעסק (לאחר קיזוז עלות שוטפת): ${netStr} ₪.
@@ -203,6 +310,7 @@ export default function PricingCalculator() {
 
 נשמח לצאת לדרך, לכל שאלה אני כאן!
 🚀 autoRI-studio`;
+        }
 
         navigator.clipboard.writeText(text).then(() => {
             setCopied(true);
@@ -265,172 +373,363 @@ export default function PricingCalculator() {
                 {/* Inputs Column */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                     
-                    {/* Setup Costs Card */}
-                    <div className="glass-card" style={{ padding: '20px', borderRadius: '10px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                        <h3 style={{ margin: 0, fontSize: '14px', fontWeight: '600', color: 'var(--text-light)', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <Briefcase size={16} style={{ color: '#8b5cf6' }} />
-                            א. נתוני עלות הקמה (Setup)
-                        </h3>
-                        
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>שעות פיתוח משוערות</label>
-                                <input 
-                                    type="number" 
-                                    className="form-control" 
-                                    value={hours} 
-                                    onChange={(e) => setHours(Math.max(0, parseInt(e.target.value) || 0))}
-                                    style={{ padding: '6px 10px', fontSize: '13px', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border-color)', borderRadius: '6px', color: 'var(--text-light)' }}
-                                />
-                            </div>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>תעריף שעתי (₪)</label>
-                                <input 
-                                    type="number" 
-                                    className="form-control" 
-                                    value={hourlyRate} 
-                                    onChange={(e) => setHourlyRate(Math.max(0, parseInt(e.target.value) || 0))}
-                                    style={{ padding: '6px 10px', fontSize: '13px', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border-color)', borderRadius: '6px', color: 'var(--text-light)' }}
-                                />
-                            </div>
-                        </div>
-
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                            <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>רמת מורכבות הפרויקט</label>
-                            <select 
-                                value={complexity} 
-                                onChange={(e) => setComplexity(parseFloat(e.target.value))}
-                                className="form-control"
-                                style={{ padding: '6px 10px', fontSize: '12.5px', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border-color)', borderRadius: '6px', color: 'var(--text-light)', cursor: 'pointer' }}
-                            >
-                                <option value="1.0">בסיסי (x1.0) - אוטומציה פשוטה ללא עיבוד מורכב</option>
-                                <option value="1.25">בינוני (x1.25) - עיבוד לוגי, סינון, מניעת כפילויות</option>
-                                <option value="1.5">מתקדם / AI (x1.5) - שילוב Gemini, ניתוח קבצים, Scraping</option>
-                            </select>
-                        </div>
-
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                            <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>מספר מערכות מקושרות (Integrations)</label>
-                            <input 
-                                type="number" 
-                                className="form-control" 
-                                value={integrations} 
-                                onChange={(e) => setIntegrations(Math.max(0, parseInt(e.target.value) || 0))}
-                                style={{ padding: '6px 10px', fontSize: '13px', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border-color)', borderRadius: '6px', color: 'var(--text-light)' }}
-                            />
-                            <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>כל מערכת מעל ל-2 הראשונות מוסיפה תוספת קבועה של 300 ₪ לעלות ההקמה</span>
-                        </div>
+                    {/* Project Type Switcher Tabs */}
+                    <div style={{ 
+                        display: 'flex', 
+                        background: 'rgba(255, 255, 255, 0.03)', 
+                        padding: '4px', 
+                        borderRadius: '8px', 
+                        border: '1px solid var(--border-color)',
+                        gap: '4px' 
+                    }}>
+                        <button
+                            type="button"
+                            onClick={() => setProjectType('automation')}
+                            style={{
+                                flex: 1,
+                                padding: '8px 12px',
+                                borderRadius: '6px',
+                                border: 'none',
+                                cursor: 'pointer',
+                                fontSize: '13px',
+                                fontWeight: '600',
+                                transition: 'all 0.2s ease',
+                                background: projectType === 'automation' ? '#8b5cf6' : 'transparent',
+                                color: projectType === 'automation' ? '#ffffff' : 'var(--text-secondary)'
+                            }}
+                        >
+                            אוטומציה ו-AI לעסק
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setProjectType('website')}
+                            style={{
+                                flex: 1,
+                                padding: '8px 12px',
+                                borderRadius: '6px',
+                                border: 'none',
+                                cursor: 'pointer',
+                                fontSize: '13px',
+                                fontWeight: '600',
+                                transition: 'all 0.2s ease',
+                                background: projectType === 'website' ? '#8b5cf6' : 'transparent',
+                                color: projectType === 'website' ? '#ffffff' : 'var(--text-secondary)'
+                            }}
+                        >
+                            בניית אתר לעסק
+                        </button>
                     </div>
 
-                    {/* Current Manual State Card */}
-                    <div className="glass-card" style={{ padding: '20px', borderRadius: '10px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                        <h3 style={{ margin: 0, fontSize: '14px', fontWeight: '600', color: 'var(--text-light)', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <Clock size={16} style={{ color: '#10b981' }} />
-                            ב. נתוני המצב הקיים (העבודה הידנית)
-                        </h3>
+                    {projectType === 'automation' ? (
+                        <>
+                            {/* Setup Costs Card */}
+                            <div className="glass-card" style={{ padding: '20px', borderRadius: '10px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                                <h3 style={{ margin: 0, fontSize: '14px', fontWeight: '600', color: 'var(--text-light)', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <Briefcase size={16} style={{ color: '#8b5cf6' }} />
+                                    א. נתוני עלות הקמה (Setup)
+                                </h3>
+                                
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                        <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>שעות פיתוח משוערות</label>
+                                        <input 
+                                            type="number" 
+                                            className="form-control" 
+                                            value={hours} 
+                                            onChange={(e) => setHours(Math.max(0, parseInt(e.target.value) || 0))}
+                                            style={{ padding: '6px 10px', fontSize: '13px', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border-color)', borderRadius: '6px', color: 'var(--text-light)' }}
+                                        />
+                                    </div>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                        <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>תעריף שעתי (₪)</label>
+                                        <input 
+                                            type="number" 
+                                            className="form-control" 
+                                            value={hourlyRate} 
+                                            onChange={(e) => setHourlyRate(Math.max(0, parseInt(e.target.value) || 0))}
+                                            style={{ padding: '6px 10px', fontSize: '13px', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border-color)', borderRadius: '6px', color: 'var(--text-light)' }}
+                                        />
+                                    </div>
+                                </div>
 
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>זמן ביצוע משימה ידנית (דקות)</label>
-                                <input 
-                                    type="number" 
-                                    className="form-control" 
-                                    value={taskTime} 
-                                    onChange={(e) => setTaskTime(Math.max(0, parseInt(e.target.value) || 0))}
-                                    style={{ padding: '6px 10px', fontSize: '13px', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border-color)', borderRadius: '6px', color: 'var(--text-light)' }}
-                                />
-                            </div>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>נפח פעולות חודשי צפוי</label>
-                                <input 
-                                    type="number" 
-                                    className="form-control" 
-                                    value={monthlyVolume} 
-                                    onChange={(e) => setMonthlyVolume(Math.max(0, parseInt(e.target.value) || 0))}
-                                    style={{ padding: '6px 10px', fontSize: '13px', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border-color)', borderRadius: '6px', color: 'var(--text-light)' }}
-                                />
-                            </div>
-                        </div>
-
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                            <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>עלות שעת עובד ממוצעת (₪)</label>
-                            <input 
-                                type="number" 
-                                className="form-control" 
-                                value={employeeWage} 
-                                onChange={(e) => setEmployeeWage(Math.max(0, parseInt(e.target.value) || 0))}
-                                style={{ padding: '6px 10px', fontSize: '13px', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border-color)', borderRadius: '6px', color: 'var(--text-light)' }}
-                            />
-                        </div>
-
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
-                            <input 
-                                type="checkbox" 
-                                id="humanError"
-                                checked={includeHumanError} 
-                                onChange={(e) => setIncludeHumanError(e.target.checked)}
-                                style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#8b5cf6' }}
-                            />
-                            <label htmlFor="humanError" style={{ fontSize: '12px', color: 'var(--text-light)', cursor: 'pointer' }}>
-                                כלול חיסכון של 5% בגין מניעת טעויות אנוש, זיכויים והפסד זמן (מומלץ)
-                            </label>
-                        </div>
-                    </div>
-
-                    {/* Retainer & Infrastructure Card */}
-                    <div className="glass-card" style={{ padding: '20px', borderRadius: '10px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                        <h3 style={{ margin: 0, fontSize: '14px', fontWeight: '600', color: 'var(--text-light)', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <DollarSign size={16} style={{ color: '#06b6d4' }} />
-                            ג. נתוני עלות שוטפת (Retainer & SLA)
-                        </h3>
-
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                            <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>בחירת חבילת ריטיינר (SLA)</label>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                {Object.entries(SLA_PACKAGES).map(([key, value]) => (
-                                    <label 
-                                        key={key} 
-                                        style={{ 
-                                            display: 'flex', 
-                                            alignItems: 'center', 
-                                            justifyContent: 'space-between',
-                                            padding: '8px 12px', 
-                                            background: selectedSla === key ? 'rgba(139, 92, 246, 0.05)' : 'rgba(255,255,255,0.01)', 
-                                            border: selectedSla === key ? '1px solid #8b5cf6' : '1px solid rgba(255,255,255,0.04)', 
-                                            borderRadius: '6px', 
-                                            cursor: 'pointer',
-                                            transition: 'all 0.2s ease'
-                                        }}
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                    <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>רמת מורכבות הפרויקט</label>
+                                    <select 
+                                        value={complexity} 
+                                        onChange={(e) => setComplexity(parseFloat(e.target.value))}
+                                        className="form-control"
+                                        style={{ padding: '6px 10px', fontSize: '12.5px', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border-color)', borderRadius: '6px', color: 'var(--text-light)', cursor: 'pointer' }}
                                     >
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                            <input 
-                                                type="radio" 
-                                                name="slaPackage" 
-                                                value={key} 
-                                                checked={selectedSla === key}
-                                                onChange={() => setSelectedSla(key)}
-                                                style={{ cursor: 'pointer', accentColor: '#8b5cf6' }}
-                                            />
-                                            <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-light)' }}>{value.name}</span>
-                                            <span style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>(עד {value.limit.toLocaleString()} הרצות)</span>
-                                        </div>
-                                        <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#8b5cf6' }}>₪{value.price} / חודש</span>
-                                    </label>
-                                ))}
-                            </div>
-                        </div>
+                                        <option value="1.0">בסיסי (x1.0) - אוטומציה פשוטה ללא עיבוד מורכב</option>
+                                        <option value="1.25">בינוני (x1.25) - עיבוד לוגי, סינון, מניעת כפילויות</option>
+                                        <option value="1.5">מתקדם / AI (x1.5) - שילוב Gemini, ניתוח קבצים, Scraping</option>
+                                    </select>
+                                </div>
 
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '4px' }}>
-                            <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>עלויות צד ג' צפויות (OpenAI, רשיונות, טוקנים וכו')</label>
-                            <input 
-                                type="number" 
-                                className="form-control" 
-                                value={thirdPartyCosts} 
-                                onChange={(e) => setThirdPartyCosts(Math.max(0, parseInt(e.target.value) || 0))}
-                                style={{ padding: '6px 10px', fontSize: '13px', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border-color)', borderRadius: '6px', color: 'var(--text-light)' }}
-                            />
-                        </div>
-                    </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                    <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>מספר מערכות מקושרות (Integrations)</label>
+                                    <input 
+                                        type="number" 
+                                        className="form-control" 
+                                        value={integrations} 
+                                        onChange={(e) => setIntegrations(Math.max(0, parseInt(e.target.value) || 0))}
+                                        style={{ padding: '6px 10px', fontSize: '13px', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border-color)', borderRadius: '6px', color: 'var(--text-light)' }}
+                                    />
+                                    <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>כל מערכת מעל ל-2 הראשונות מוסיפה תוספת קבועה של 300 ₪ לעלות ההקמה</span>
+                                </div>
+                            </div>
+
+                            {/* Current Manual State Card */}
+                            <div className="glass-card" style={{ padding: '20px', borderRadius: '10px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                                <h3 style={{ margin: 0, fontSize: '14px', fontWeight: '600', color: 'var(--text-light)', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <Clock size={16} style={{ color: '#10b981' }} />
+                                    ב. נתוני המצב הקיים (העבודה הידנית)
+                                </h3>
+
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                        <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>זמן ביצוע משימה ידנית (דקות)</label>
+                                        <input 
+                                            type="number" 
+                                            className="form-control" 
+                                            value={taskTime} 
+                                            onChange={(e) => setTaskTime(Math.max(0, parseInt(e.target.value) || 0))}
+                                            style={{ padding: '6px 10px', fontSize: '13px', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border-color)', borderRadius: '6px', color: 'var(--text-light)' }}
+                                        />
+                                    </div>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                        <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>נפח פעולות חודשי צפוי</label>
+                                        <input 
+                                            type="number" 
+                                            className="form-control" 
+                                            value={monthlyVolume} 
+                                            onChange={(e) => setMonthlyVolume(Math.max(0, parseInt(e.target.value) || 0))}
+                                            style={{ padding: '6px 10px', fontSize: '13px', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border-color)', borderRadius: '6px', color: 'var(--text-light)' }}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                    <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>עלות שעת עובד ממוצעת (₪)</label>
+                                    <input 
+                                        type="number" 
+                                        className="form-control" 
+                                        value={employeeWage} 
+                                        onChange={(e) => setEmployeeWage(Math.max(0, parseInt(e.target.value) || 0))}
+                                        style={{ padding: '6px 10px', fontSize: '13px', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border-color)', borderRadius: '6px', color: 'var(--text-light)' }}
+                                    />
+                                </div>
+
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+                                    <input 
+                                        type="checkbox" 
+                                        id="humanError"
+                                        checked={includeHumanError} 
+                                        onChange={(e) => setIncludeHumanError(e.target.checked)}
+                                        style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#8b5cf6' }}
+                                    />
+                                    <label htmlFor="humanError" style={{ fontSize: '12px', color: 'var(--text-light)', cursor: 'pointer' }}>
+                                        כלול חיסכון של 5% בגין מניעת טעויות אנוש, זיכויים והפסד זמן (מומלץ)
+                                    </label>
+                                </div>
+                            </div>
+
+                            {/* Retainer & Infrastructure Card */}
+                            <div className="glass-card" style={{ padding: '20px', borderRadius: '10px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                                <h3 style={{ margin: 0, fontSize: '14px', fontWeight: '600', color: 'var(--text-light)', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <DollarSign size={16} style={{ color: '#06b6d4' }} />
+                                    ג. נתוני עלות שוטפת (Retainer & SLA)
+                                </h3>
+
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                    <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>בחירת חבילת ריטיינר (SLA)</label>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                        {Object.entries(SLA_PACKAGES).map(([key, value]) => (
+                                            <label 
+                                                key={key} 
+                                                style={{ 
+                                                    display: 'flex', 
+                                                    alignItems: 'center', 
+                                                    justifyContent: 'space-between',
+                                                    padding: '8px 12px', 
+                                                    background: selectedSla === key ? 'rgba(139, 92, 246, 0.05)' : 'rgba(255,255,255,0.01)', 
+                                                    border: selectedSla === key ? '1px solid #8b5cf6' : '1px solid rgba(255,255,255,0.04)', 
+                                                    borderRadius: '6px', 
+                                                    cursor: 'pointer',
+                                                    transition: 'all 0.2s ease'
+                                                }}
+                                            >
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                    <input 
+                                                        type="radio" 
+                                                        name="slaPackage" 
+                                                        value={key} 
+                                                        checked={selectedSla === key}
+                                                        onChange={() => setSelectedSla(key)}
+                                                        style={{ cursor: 'pointer', accentColor: '#8b5cf6' }}
+                                                    />
+                                                    <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-light)' }}>{value.name}</span>
+                                                    <span style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>(עד {value.limit.toLocaleString()} הרצות)</span>
+                                                </div>
+                                                <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#8b5cf6' }}>₪{value.price} / חודש</span>
+                                            </label>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '4px' }}>
+                                    <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>עלויות צד ג' צפויות (OpenAI, רשיונות, טוקנים וכו')</label>
+                                    <input 
+                                        type="number" 
+                                        className="form-control" 
+                                        value={thirdPartyCosts} 
+                                        onChange={(e) => setThirdPartyCosts(Math.max(0, parseInt(e.target.value) || 0))}
+                                        style={{ padding: '6px 10px', fontSize: '13px', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border-color)', borderRadius: '6px', color: 'var(--text-light)' }}
+                                    />
+                                </div>
+                            </div>
+                        </>
+                    ) : (
+                        <>
+                            {/* Website Setup Card */}
+                            <div className="glass-card" style={{ padding: '20px', borderRadius: '10px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                                <h3 style={{ margin: 0, fontSize: '14px', fontWeight: '600', color: 'var(--text-light)', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <Briefcase size={16} style={{ color: '#8b5cf6' }} />
+                                    א. נתוני הקמת אתר (Setup)
+                                </h3>
+
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                    <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>סוג האתר הבסיסי</label>
+                                    <select 
+                                        value={websiteType} 
+                                        onChange={(e) => setWebsiteType(e.target.value)}
+                                        className="form-control"
+                                        style={{ padding: '6px 10px', fontSize: '12.5px', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border-color)', borderRadius: '6px', color: 'var(--text-light)', cursor: 'pointer' }}
+                                    >
+                                        {Object.entries(WEBSITE_TYPES).map(([key, val]) => (
+                                            <option key={key} value={key} style={{ background: '#11131c', color: '#fff' }}>
+                                                {val.name} (₪{val.price.toLocaleString('he-IL')})
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '6px' }}>
+                                    <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>תוספות ושילובים אינטראקטיביים (Add-ons)</label>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                        {Object.entries(WEBSITE_ADDONS).map(([key, val]) => (
+                                            <label 
+                                                key={key} 
+                                                style={{ 
+                                                    display: 'flex', 
+                                                    alignItems: 'center', 
+                                                    justifyContent: 'space-between',
+                                                    padding: '8px 12px', 
+                                                    background: addons[key] ? 'rgba(139, 92, 246, 0.05)' : 'rgba(255,255,255,0.01)', 
+                                                    border: addons[key] ? '1px solid #8b5cf6' : '1px solid rgba(255,255,255,0.04)', 
+                                                    borderRadius: '6px', 
+                                                    cursor: 'pointer',
+                                                    transition: 'all 0.2s ease'
+                                                }}
+                                            >
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                    <input 
+                                                        type="checkbox" 
+                                                        checked={addons[key]}
+                                                        onChange={(e) => setAddons(prev => ({ ...prev, [key]: e.target.checked }))}
+                                                        style={{ cursor: 'pointer', accentColor: '#8b5cf6', width: '16px', height: '16px' }}
+                                                    />
+                                                    <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-light)' }}>{val.name}</span>
+                                                </div>
+                                                <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#8b5cf6' }}>
+                                                    +₪{val.price.toLocaleString('he-IL')}
+                                                    {val.monthly > 0 && ` (+₪${val.monthly}/ח"ד)`}
+                                                </span>
+                                            </label>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Current Manual State Card */}
+                            <div className="glass-card" style={{ padding: '20px', borderRadius: '10px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                                <h3 style={{ margin: 0, fontSize: '14px', fontWeight: '600', color: 'var(--text-light)', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <Clock size={16} style={{ color: '#10b981' }} />
+                                    ב. הערכת חיסכון בזמן ידני לעסק
+                                </h3>
+
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                    <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>עלות שעת עובד ממוצעת (₪)</label>
+                                    <input 
+                                        type="number" 
+                                        className="form-control" 
+                                        value={employeeWage} 
+                                        onChange={(e) => setEmployeeWage(Math.max(0, parseInt(e.target.value) || 0))}
+                                        style={{ padding: '6px 10px', fontSize: '13px', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border-color)', borderRadius: '6px', color: 'var(--text-light)' }}
+                                    />
+                                    <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px', lineHeight: '1.4' }}>
+                                        חיסכון בזמן מחושב אוטומטית: 
+                                        <strong> {addons.chatbot || addons.survey ? '20' : '5'} שעות בחודש </strong> 
+                                        בזכות רכיבים אינטראקטיביים המבצעים סינון לידים ופניות.
+                                    </span>
+                                </div>
+                            </div>
+
+                            {/* Website SLA & Hosting Card */}
+                            <div className="glass-card" style={{ padding: '20px', borderRadius: '10px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                                <h3 style={{ margin: 0, fontSize: '14px', fontWeight: '600', color: 'var(--text-light)', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <DollarSign size={16} style={{ color: '#06b6d4' }} />
+                                    ג. עלויות אחסון, תחזוקה ושרתים (SLA)
+                                </h3>
+
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                    <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>בחירת חבילת תחזוקה ואחסון</label>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                        {Object.entries(WEBSITE_SLA).map(([key, value]) => (
+                                            <label 
+                                                key={key} 
+                                                style={{ 
+                                                    display: 'flex', 
+                                                    alignItems: 'center', 
+                                                    justifyContent: 'space-between',
+                                                    padding: '8px 12px', 
+                                                    background: webSla === key ? 'rgba(139, 92, 246, 0.05)' : 'rgba(255,255,255,0.01)', 
+                                                    border: webSla === key ? '1px solid #8b5cf6' : '1px solid rgba(255,255,255,0.04)', 
+                                                    borderRadius: '6px', 
+                                                    cursor: 'pointer',
+                                                    transition: 'all 0.2s ease'
+                                                }}
+                                            >
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                    <input 
+                                                        type="radio" 
+                                                        name="webSlaPackage" 
+                                                        value={key} 
+                                                        checked={webSla === key}
+                                                        onChange={() => setWebSla(key)}
+                                                        style={{ cursor: 'pointer', accentColor: '#8b5cf6' }}
+                                                    />
+                                                    <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-light)' }}>{value.name}</span>
+                                                </div>
+                                                <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#8b5cf6' }}>₪{value.price} / חודש</span>
+                                            </label>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '4px' }}>
+                                    <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>עלויות שוטפות נוספות (שרתים, מנויים, Gemini API)</label>
+                                    <input 
+                                        type="number" 
+                                        className="form-control" 
+                                        value={thirdPartyCosts} 
+                                        onChange={(e) => setThirdPartyCosts(Math.max(0, parseInt(e.target.value) || 0))}
+                                        style={{ padding: '6px 10px', fontSize: '13px', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border-color)', borderRadius: '6px', color: 'var(--text-light)' }}
+                                    />
+                                </div>
+                            </div>
+                        </>
+                    )}
 
                 </div>
 
