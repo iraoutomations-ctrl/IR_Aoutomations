@@ -2102,6 +2102,19 @@ textarea.survey-input {
         gap: 60px;
         text-align: center;
     }
+
+    .hero-visual {
+        margin-top: 40px;
+        display: flex;
+        justify-content: center;
+    }
+
+    .hero-robot-mascot {
+        position: relative;
+        right: auto;
+        top: 0;
+        margin: 0 auto;
+    }
     
     .hero-content {
         max-width: 100%;
@@ -2127,6 +2140,14 @@ textarea.survey-input {
 }
 
 @media (max-width: 768px) {
+    .hero-title {
+        font-size: 2.1rem;
+    }
+    .hero-subtitle {
+        font-size: 1.05rem;
+        margin-bottom: 28px;
+    }
+
     .services-grid {
         grid-template-columns: 1fr;
     }
