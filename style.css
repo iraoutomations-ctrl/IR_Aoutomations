@@ -411,10 +411,10 @@ input, select, textarea, button {
 /* Floating Interactive Robot Mascot */
 .hero-robot-mascot {
     position: absolute;
-    top: -55px;
-    right: -25px;
+    top: -110px;
+    right: -20px;
     width: 100px;
-    height: 100px;
+    height: 160px;
     z-index: 10;
     cursor: pointer;
     animation: robotFloat 6s ease-in-out infinite;
@@ -423,24 +423,33 @@ input, select, textarea, button {
 
 @keyframes robotFloat {
     0%, 100% { transform: translateY(0) rotate(1deg); }
-    50% { transform: translateY(-8px) rotate(-1deg); }
+    50% { transform: translateY(-10px) rotate(-1deg); }
+}
+
+.robot-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    height: 100%;
 }
 
 .robot-head {
-    width: 85px;
-    height: 75px;
-    background: rgba(8, 9, 15, 0.75);
+    width: 80px;
+    height: 70px;
+    background: rgba(8, 9, 15, 0.85);
     backdrop-filter: blur(12px) saturate(180%);
     -webkit-backdrop-filter: blur(12px) saturate(180%);
-    border: 1.5px solid rgba(168, 85, 247, 0.4);
-    border-radius: 20px;
+    border: 1.5px solid rgba(168, 85, 247, 0.45);
+    border-radius: 18px;
     position: relative;
     box-shadow: 0 15px 35px rgba(0, 0, 0, 0.6), inset 0 0 15px rgba(168, 85, 247, 0.2);
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: border-color var(--transition-normal);
+    transition: border-color var(--transition-normal), transform 0.1s ease-out;
     transform-style: preserve-3d;
+    z-index: 5;
 }
 
 .hero-robot-mascot:hover .robot-head {
@@ -456,6 +465,7 @@ input, select, textarea, button {
     display: flex;
     flex-direction: column;
     align-items: center;
+    z-index: 6;
 }
 
 .antenna-rod {
@@ -480,16 +490,16 @@ input, select, textarea, button {
 
 .robot-ears {
     position: absolute;
-    width: 97px;
-    left: -6px;
+    width: 90px;
+    left: -5px;
     display: flex;
     justify-content: space-between;
 }
 
 .robot-ears::before, .robot-ears::after {
     content: '';
-    width: 6px;
-    height: 12px;
+    width: 5px;
+    height: 10px;
     background: rgba(255, 255, 255, 0.1);
     border: 1px solid rgba(168, 85, 247, 0.3);
     border-radius: 2px;
@@ -546,6 +556,130 @@ input, select, textarea, button {
     border-radius: 2px;
 }
 
+/* Neck, Torso and Arms */
+.robot-neck {
+    width: 10px;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1.5px solid rgba(168, 85, 247, 0.3);
+    margin-top: -2px;
+    z-index: 2;
+}
+
+.robot-body-wrapper {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    width: 100%;
+    margin-top: -2px;
+    z-index: 3;
+    transform-style: preserve-3d;
+}
+
+.robot-torso {
+    width: 50px;
+    height: 55px;
+    background: rgba(8, 9, 15, 0.85);
+    border: 1.5px solid rgba(168, 85, 247, 0.45);
+    border-radius: 14px 14px 18px 18px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.6), inset 0 0 15px rgba(168, 85, 247, 0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: border-color var(--transition-normal), transform 0.12s ease-out;
+}
+
+.hero-robot-mascot:hover .robot-torso {
+    border-color: var(--accent-cyan);
+}
+
+.torso-screen {
+    width: 30px;
+    height: 22px;
+    background: rgba(0, 0, 0, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.03);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    position: relative;
+}
+
+.screen-heartbeat {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background-color: var(--accent-pink);
+    box-shadow: 0 0 10px var(--accent-pink);
+    animation: heartPulse 1.2s infinite ease-in-out;
+}
+
+@keyframes heartPulse {
+    0%, 100% { transform: scale(0.6); opacity: 0.6; }
+    50% { transform: scale(1.1); opacity: 1; box-shadow: 0 0 12px var(--accent-pink); }
+}
+
+.robot-arm {
+    width: 8px;
+    height: 36px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(168, 85, 247, 0.3);
+    border-radius: 4px;
+    margin-top: 6px;
+    transition: transform var(--transition-normal);
+}
+
+.arm-left {
+    margin-right: -4px;
+    transform-origin: top center;
+    transform: rotate(12deg);
+}
+
+.arm-right {
+    margin-left: -4px;
+    transform-origin: top center;
+    transform: rotate(-12deg);
+}
+
+/* Waving arm animation on hover */
+.hero-robot-mascot:hover .arm-right {
+    animation: armWave 1.5s ease-in-out infinite alternate;
+}
+
+@keyframes armWave {
+    0% { transform: rotate(-12deg); }
+    100% { transform: rotate(-140deg) translateY(-2px); }
+}
+
+/* Jet Engine Booster */
+.robot-booster {
+    width: 18px;
+    height: 10px;
+    background: rgba(255, 255, 255, 0.15);
+    border: 1px solid rgba(168, 85, 247, 0.3);
+    border-radius: 0 0 6px 6px;
+    margin-top: -2px;
+    z-index: 1;
+    display: flex;
+    justify-content: center;
+}
+
+.booster-flame {
+    width: 6px;
+    height: 18px;
+    background: linear-gradient(to bottom, var(--accent-cyan), var(--accent-pink), transparent);
+    border-radius: 3px;
+    box-shadow: 0 0 12px var(--accent-cyan);
+    animation: boosterFlicker 0.15s infinite alternate;
+    transform-origin: top center;
+}
+
+@keyframes boosterFlicker {
+    0% { transform: scaleY(0.85) scaleX(0.9); opacity: 0.8; }
+    100% { transform: scaleY(1.15) scaleX(1.1); opacity: 1; box-shadow: 0 0 16px var(--accent-cyan); }
+}
+
 .robot-floating-shadow {
     width: 50px;
     height: 4px;
@@ -553,7 +687,7 @@ input, select, textarea, button {
     border-radius: 50%;
     filter: blur(2px);
     position: absolute;
-    bottom: -15px;
+    bottom: -25px;
     left: 50%;
     transform: translateX(-50%);
     animation: shadowPulse 6s ease-in-out infinite;
@@ -561,7 +695,7 @@ input, select, textarea, button {
 
 @keyframes shadowPulse {
     0%, 100% { transform: translateX(-50%) scale(1); opacity: 0.6; }
-    50% { transform: translateX(-50%) scale(0.8); opacity: 0.3; }
+    50% { transform: translateX(-50%) scale(0.75); opacity: 0.25; }
 }
 
 .visual-card-wrapper {

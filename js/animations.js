@@ -159,6 +159,9 @@ export function initRobotMascot() {
     const eyeLeft = robot.querySelector('.eye-left .eye-pupil');
     const eyeRight = robot.querySelector('.eye-right .eye-pupil');
     const head = robot.querySelector('.robot-head');
+    const torso = robot.querySelector('.robot-torso');
+    const armLeft = robot.querySelector('.arm-left');
+    const armRight = robot.querySelector('.arm-right');
 
     window.addEventListener('mousemove', (e) => {
         const rect = robot.getBoundingClientRect();
@@ -180,13 +183,36 @@ export function initRobotMascot() {
             eyeRight.style.transform = `translate3d(${pupilX}px, ${pupilY}px, 0)`;
         }
 
-        // Tilt the head slightly towards mouse
+        // Tilt the head towards mouse
         const maxTilt = 12; // degrees
         const tiltX = Math.min(maxTilt, Math.max(-maxTilt, (deltaY / window.innerHeight) * maxTilt));
         const tiltY = Math.min(maxTilt, Math.max(-maxTilt, (deltaX / window.innerWidth) * -maxTilt));
 
         if (head) {
             head.style.transform = `rotateX(${tiltX}deg) rotateY(${tiltY}deg)`;
+        }
+
+        // Counter-tilt the torso for organic balance
+        if (torso) {
+            torso.style.transform = `rotateX(${-tiltX * 0.4}deg) rotateY(${-tiltY * 0.4}deg)`;
+        }
+
+        // Sway arms slightly based on mouse horizontal movement
+        if (armLeft) {
+            armLeft.style.transform = `rotate(${12 - tiltY * 0.6}deg)`;
+        }
+        
+        // Only apply mouse sway to right arm if robot is not hovered (so it doesn't conflict with wave)
+        const isHovered = robot.matches(':hover');
+        if (armRight && !isHovered) {
+            armRight.style.transform = `rotate(${-12 - tiltY * 0.6}deg)`;
+        }
+    });
+
+    // Reset right arm transform on hover end to allow transition back to wave/idle state
+    robot.addEventListener('mouseleave', () => {
+        if (armRight) {
+            armRight.style.transform = '';
         }
     });
 }
