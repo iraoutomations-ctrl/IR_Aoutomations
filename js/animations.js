@@ -216,3 +216,68 @@ export function initRobotMascot() {
         }
     });
 }
+
+export function initRoadmapAnimations() {
+    const roadmapSection = document.querySelector('.roadmap-section');
+    const fillLine = document.getElementById('roadmapLineFill');
+    const steps = document.querySelectorAll('.roadmap-step');
+    if (!roadmapSection || !fillLine || steps.length === 0) return;
+
+    // 1. Smooth scroll-linked filling of the vertical timeline line
+    const handleScroll = () => {
+        const rect = roadmapSection.getBoundingClientRect();
+        const viewportHeight = window.innerHeight;
+        
+        // Calculate the progress through the section
+        // We start filling when the section top reaches 70% of viewport
+        // and finish filling when the section bottom reaches 30% of viewport
+        const startOffset = viewportHeight * 0.7;
+        const endOffset = viewportHeight * 0.3;
+        
+        const totalHeight = rect.height - (startOffset - endOffset);
+        const currentProgress = -(rect.top - startOffset);
+        
+        let percentage = (currentProgress / totalHeight) * 100;
+        percentage = Math.max(0, Math.min(100, percentage));
+        
+        fillLine.style.height = `${percentage}%`;
+    };
+
+    // Use requestAnimationFrame for smooth execution on scroll
+    let scrollTimeout;
+    const scrollListener = () => {
+        if (scrollTimeout) {
+            cancelAnimationFrame(scrollTimeout);
+        }
+        scrollTimeout = requestAnimationFrame(handleScroll);
+    };
+
+    window.addEventListener('scroll', scrollListener);
+    // Run once on load
+    handleScroll();
+
+    // 2. Active status and checkmark toggle on scroll for steps
+    // When the step dot crosses 60% of viewport height, mark as active
+    const stepObserverOptions = {
+        root: null,
+        rootMargin: '0px 0px -40% 0px',
+        threshold: 0.1
+    };
+
+    const stepObserver = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.classList.add('active');
+            } else {
+                const rect = entry.target.getBoundingClientRect();
+                if (rect.top > window.innerHeight * 0.6) {
+                    entry.target.classList.remove('active');
+                }
+            }
+        });
+    }, stepObserverOptions);
+
+    steps.forEach(step => {
+        stepObserver.observe(step);
+    });
+}
