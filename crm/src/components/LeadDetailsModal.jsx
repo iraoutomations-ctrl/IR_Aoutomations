@@ -186,6 +186,12 @@ export default function LeadDetailsModal({ leadId, onClose, onLeadUpdated }) {
     const [newTaskAssignedTo, setNewTaskAssignedTo] = useState('כללי');
     const [newTaskDependsOn, setNewTaskDependsOn] = useState('');
 
+    // Documents state - available for ALL leads (fixes circular dep: need docs to become won, but docs were only shown after won)
+    const [documents, setDocuments] = useState([]);
+    const [docUploadType, setDocUploadType] = useState('proposal');
+    const [docUploadName, setDocUploadName] = useState('');
+    const [docUploading, setDocUploading] = useState(false);
+
     // Automations and Bugs states for Won projects
     const [automations, setAutomations] = useState([]);
     const [bugs, setBugs] = useState([]);
@@ -547,6 +553,15 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
                 setNotes(notesData);
                 setTasks(tasksData);
 
+                // Load documents for ALL leads (not just won) to allow pre-won document upload
+                try {
+                    const docsData = await db.getDocuments(leadId);
+                    setDocuments(docsData || []);
+                } catch (docErr) {
+                    console.warn("Documents not available:", docErr);
+                    setDocuments([]);
+                }
+
                 if (leadData && leadData.status === 'won') {
                     const autosData = await db.getAutomations(leadId);
                     const bugsData = await db.getBugs();
@@ -589,6 +604,38 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
             onLeadUpdated();
         } catch (err) {
             console.error("Error updating status:", err);
+        }
+    };
+
+    // Document handlers - available for all lead statuses
+    const handleUploadDocument = async (e) => {
+        e.preventDefault();
+        const file = e.target.querySelector('input[type="file"]').files[0];
+        if (!file || !docUploadName.trim()) return;
+        setDocUploading(true);
+        try {
+            const newDoc = await db.uploadDocument(
+                { lead_id: leadId, name: docUploadName.trim(), type: docUploadType },
+                file
+            );
+            setDocuments(prev => [newDoc, ...prev]);
+            setDocUploadName('');
+            e.target.reset();
+        } catch (err) {
+            console.error('Error uploading document:', err);
+            alert('שגיאה בהעלאת המסמך: ' + (err.message || err));
+        } finally {
+            setDocUploading(false);
+        }
+    };
+
+    const handleDeleteDocument = async (docId) => {
+        if (!window.confirm('האם למחוק מסמך זה?')) return;
+        try {
+            await db.deleteDocument(docId);
+            setDocuments(prev => prev.filter(d => d.id !== docId));
+        } catch (err) {
+            console.error('Error deleting document:', err);
         }
     };
 
@@ -1180,6 +1227,124 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
                                     </div>
                                 </div>
                             </div>
+                        </div>
+
+                        {/* ═══════════════════════════════════════════════════════
+                             DOCUMENTS & FILES — visible to ALL lead statuses
+                             This section MUST appear before the won-gate so users
+                             can upload the NDA + Contract required to transition to 'won'.
+                        ══════════════════════════════════════════════════════════ */}
+                        <div className="glass-card" style={{ marginTop: '20px', padding: '20px' }}>
+                            <h3 style={{ fontSize: '14px', marginBottom: '8px', borderBottom: '1px solid var(--border-color)', paddingBottom: '6px', color: 'var(--text-light)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <FileText size={16} style={{ color: 'var(--accent-cyan)' }} />
+                                מסמכים וקבצים
+                                {documents.length > 0 && (
+                                    <span style={{ fontSize: '11px', background: 'rgba(6,182,212,0.15)', color: 'var(--accent-cyan)', padding: '1px 7px', borderRadius: '10px' }}>{documents.length}</span>
+                                )}
+                            </h3>
+
+                            {/* Required docs status banner */}
+                            {lead && lead.status !== 'won' && (
+                                <div style={{ display: 'flex', gap: '10px', marginBottom: '14px', flexWrap: 'wrap' }}>
+                                    {[
+                                        { type: 'proposal', label: 'הצעת מחיר', required: true, needed: ['proposal', 'won'] },
+                                        { type: 'nda', label: 'הסכם סודיות NDA', required: true, needed: ['won'] },
+                                        { type: 'contract', label: 'חוזה חתום', required: true, needed: ['won'] },
+                                    ].map(req => {
+                                        const has = documents.some(d => d.type === req.type);
+                                        return (
+                                            <div key={req.type} style={{
+                                                display: 'flex', alignItems: 'center', gap: '5px',
+                                                padding: '4px 10px', borderRadius: '20px', fontSize: '11px',
+                                                background: has ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.08)',
+                                                border: `1px solid ${has ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.25)'}`,
+                                                color: has ? '#10b981' : '#ef4444'
+                                            }}>
+                                                {has ? <CheckCircle2 size={11} /> : <AlertCircle size={11} />}
+                                                {req.label}
+                                            </div>
+                                        );
+                                    })}
+                                    <div style={{ fontSize: '10.5px', color: 'var(--text-muted)', alignSelf: 'center', marginRight: 'auto' }}>
+                                        העלה הצעת מחיר, NDA וחוזה כדי לאפשר מעבר לסטטוס Won
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Upload form */}
+                            <form onSubmit={handleUploadDocument} style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1.8fr auto', gap: '8px', marginBottom: '16px', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', padding: '10px', borderRadius: '6px', alignItems: 'end' }}>
+                                <div>
+                                    <label className="form-label" style={{ fontSize: '11px', marginBottom: '4px' }}>שם המסמך</label>
+                                    <input
+                                        type="text"
+                                        className="form-control"
+                                        placeholder="למשל: הצעת מחיר - ינואר 2025"
+                                        value={docUploadName}
+                                        onChange={e => setDocUploadName(e.target.value)}
+                                        style={{ padding: '6px 8px', fontSize: '12px', height: '30px' }}
+                                        required
+                                    />
+                                </div>
+                                <div>
+                                    <label className="form-label" style={{ fontSize: '11px', marginBottom: '4px' }}>סוג מסמך</label>
+                                    <select
+                                        className="form-control"
+                                        value={docUploadType}
+                                        onChange={e => setDocUploadType(e.target.value)}
+                                        style={{ padding: '4px 6px', fontSize: '12px', height: '30px' }}
+                                    >
+                                        <option value="proposal">הצעת מחיר</option>
+                                        <option value="nda">הסכם סודיות NDA</option>
+                                        <option value="contract">חוזה חתום</option>
+                                        <option value="invoice">חשבונית</option>
+                                        <option value="other">אחר</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="form-label" style={{ fontSize: '11px', marginBottom: '4px' }}>בחר קובץ</label>
+                                    <input
+                                        type="file"
+                                        className="form-control"
+                                        accept=".pdf,.doc,.docx,.png,.jpg,.jpeg"
+                                        style={{ padding: '3px 6px', fontSize: '11px', height: '30px' }}
+                                        required
+                                    />
+                                </div>
+                                <button type="submit" className="btn btn-primary" disabled={docUploading} style={{ height: '30px', padding: '0 12px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                    {docUploading ? <RefreshCw size={12} style={{ animation: 'spin 1s linear infinite' }} /> : <Plus size={12} />}
+                                    {docUploading ? 'מעלה...' : 'העלה'}
+                                </button>
+                            </form>
+
+                            {/* Documents list */}
+                            {documents.length === 0 ? (
+                                <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', fontStyle: 'italic', textAlign: 'center', padding: '14px 0' }}>טרם הועלו מסמכים לליד זה.</p>
+                            ) : (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                    {documents.map(doc => {
+                                        const typeColors = { proposal: '#8b5cf6', nda: '#f59e0b', contract: '#10b981', invoice: '#06b6d4', other: '#6b7280' };
+                                        const typeLabels = { proposal: 'הצעת מחיר', nda: 'NDA', contract: 'חוזה', invoice: 'חשבונית', other: 'אחר' };
+                                        return (
+                                            <div key={doc.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 12px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '6px', borderRight: `3px solid ${typeColors[doc.type] || '#6b7280'}` }}>
+                                                <FileText size={14} style={{ color: typeColors[doc.type] || '#6b7280', flexShrink: 0 }} />
+                                                <div style={{ flex: 1, minWidth: 0 }}>
+                                                    <div style={{ fontSize: '12.5px', color: 'var(--text-light)', fontWeight: '500', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{doc.name}</div>
+                                                    <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                                                        <span style={{ background: `${typeColors[doc.type]}22`, color: typeColors[doc.type] || '#6b7280', padding: '1px 6px', borderRadius: '8px', marginLeft: '6px' }}>{typeLabels[doc.type] || doc.type}</span>
+                                                        {doc.file_name} • {new Date(doc.created_at).toLocaleDateString('he-IL')}
+                                                    </div>
+                                                </div>
+                                                {doc.file_url && (
+                                                    <a href={doc.file_url} target="_blank" rel="noopener noreferrer" className="btn btn-secondary" style={{ padding: '4px 8px', fontSize: '11px', height: 'auto', textDecoration: 'none' }}>פתח</a>
+                                                )}
+                                                <button className="btn btn-secondary" onClick={() => handleDeleteDocument(doc.id)} style={{ padding: '4px', height: 'auto', background: 'transparent', border: 'none' }}>
+                                                    <Trash2 size={13} style={{ color: 'var(--text-muted)' }} />
+                                                </button>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
                         </div>
 
                         {/* Won Lead - Automations & Bugs Dashboard */}
