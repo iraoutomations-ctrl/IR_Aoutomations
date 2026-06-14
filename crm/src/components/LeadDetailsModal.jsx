@@ -30,9 +30,12 @@ import {
     FileText,
     Sparkles,
     TrendingUp,
-    Search
+    Search,
+    Upload,
+    Download
 } from 'lucide-react';
 import { db } from '../services/db';
+import { downloadTemplate } from '../services/templates';
 
 const parseWorkflows = (workflowsData) => {
     if (!workflowsData) return [];
@@ -92,6 +95,16 @@ const WEBSITE_TYPES_MAP = {
     image: 'אתר תדמיתי מרובה עמודים',
     ecommerce: 'אתר חנות / איקומרס',
     custom: 'אתר פורטל / מערכת מותאמת אישית'
+};
+const DOC_DESCRIPTIONS = {
+    proposal: 'פירוט עלויות ההקמה, התחזוקה החודשית ותנאי הפיתוח של האוטומציות המתוכננות.',
+    contract: 'הסכם ההתקשרות המשפטי והכלכלי החתום המסדיר את התשלום החודשי והתחייבויות הצדדים.',
+    nda: 'הסכם שמירת סודיות להגנה על המידע העסקי הרגיש של הלקוח במהלך הפיתוח והתחזוקה.',
+    spec: 'תרשים זרימה ואפיון מפורט של שלבי האוטומציה, ה-Nodes ב-N8N, והמערכות המקושרות.',
+    credentials: 'פרטי גישה מאובטחים לחשבונות ומערכות הלקוח הדרושים לביצוע החיבורים והאינטגרציות.',
+    handover: 'מסמך אישור חתום על ידי הלקוח המעיד כי האוטומציה נבדקה, נמסרה ועובדת בצורה תקינה.',
+    sla: 'הסכם רמת שירות המפרט את זמני המענה, שעות התמיכה במקרה של תקלות ותנאי התחזוקה השוטפת.',
+    invoice: 'חשבונית מס / קבלה רשמית המאשרת את קבלת התשלום עבור עלויות ההקמה של האוטומציה.'
 };
 const WEBSITE_ADDONS_MAP = {
     chatbot: "צ'אטבוט AI מוטמע (Gemini)",
@@ -223,6 +236,9 @@ export default function LeadDetailsModal({ leadId, onClose, onLeadUpdated }) {
     // Inline workflow input states
     const [wfNameInput, setWfNameInput] = useState({});
     const [wfIdInput, setWfIdInput] = useState({});
+
+    // Document drag-drop state for automation doc slots
+    const [dragActive, setDragActive] = useState({});
 
     // Helper to check if a task is blocked by another uncompleted task
     const isTaskBlocked = (task) => {
@@ -637,6 +653,142 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
         } catch (err) {
             console.error('Error deleting document:', err);
         }
+    };
+
+    // Drag-drop and file upload for per-automation document slots (Won tab)
+    const handleDocDrag = (e, type) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (e.type === "dragenter" || e.type === "dragover") {
+            setDragActive(prev => ({ ...prev, [type]: true }));
+        } else if (e.type === "dragleave") {
+            setDragActive(prev => ({ ...prev, [type]: false }));
+        }
+    };
+
+    const handleDocDrop = async (e, type, automationId = null) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setDragActive(prev => ({ ...prev, [type]: false }));
+        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+            await handleAutoFileUpload(e.dataTransfer.files[0], type, automationId);
+        }
+    };
+
+    const handleAutoFileUpload = async (file, type, automationId = null) => {
+        if (!file) return;
+        const auto = automations.find(a => a.id === automationId);
+        const docNames = {
+            proposal: 'הצעת מחיר', contract: 'חוזה התקשרות חתום', nda: 'הסכם סודיות NDA',
+            spec: 'מסמך אפיון טכני', credentials: 'פרטי גישות וסיסמאות',
+            handover: 'פרוטוקול מסירה חתום', sla: 'תנאי תחזוקה SLA', invoice: 'חשבונית מס'
+        };
+        try {
+            const added = await db.uploadDocument({
+                lead_id: leadId,
+                automation_id: automationId,
+                name: docNames[type] || 'מסמך כללי',
+                type: type
+            }, file);
+            setDocuments(prev => [added, ...prev]);
+            if (leadId) {
+                await db.addNote({ lead_id: leadId, content: `הועלה מסמך חדש מסוג ${docNames[type] || 'כללי'} לאוטומציה ${auto?.name || ''}: ${file.name}` });
+                const notesData = await db.getNotes(leadId);
+                setNotes(notesData);
+            }
+        } catch (err) {
+            console.error("Error uploading document:", err);
+            alert("שגיאה בהעלאת הקובץ: " + (err.message || err));
+        }
+    };
+
+    const handleDeleteAutoDoc = async (docId, docName) => {
+        if (window.confirm(`האם למחוק את המסמך "${docName}"?`)) {
+            try {
+                await db.deleteDocument(docId);
+                setDocuments(prev => prev.filter(d => d.id !== docId));
+            } catch (err) {
+                console.error("Error deleting document:", err);
+                alert("שגיאה במחיקת המסמך: " + (err.message || err));
+            }
+        }
+    };
+
+    // Render a single document slot for automation (spec, credentials, handover, etc.)
+    const renderAutoDocumentSlot = (auto, type, label, requiredForStatus) => {
+        const doc = documents.find(d => d.automation_id === auto.id && d.type === type);
+        const uniqueKey = `${auto.id}_${type}`;
+        const isDragActive = dragActive[uniqueKey];
+
+        return (
+            <div
+                key={type}
+                className={`glass-card ${isDragActive ? 'drag-active' : ''}`}
+                style={{
+                    padding: '12px', border: isDragActive ? '2px dashed #8b5cf6' : '1px solid rgba(255,255,255,0.05)',
+                    borderRadius: '6px', background: isDragActive ? 'rgba(139, 92, 246, 0.04)' : 'rgba(255,255,255,0.01)',
+                    position: 'relative', transition: 'all 0.2s ease', display: 'flex', flexDirection: 'column', gap: '8px'
+                }}
+                onDragEnter={(e) => handleDocDrag(e, uniqueKey)}
+                onDragOver={(e) => handleDocDrag(e, uniqueKey)}
+                onDragLeave={(e) => handleDocDrag(e, uniqueKey)}
+                onDrop={(e) => handleDocDrop(e, uniqueKey, auto.id)}
+            >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '11px', fontWeight: '600', color: 'var(--text-light)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        {label}
+                        {requiredForStatus && (
+                            <span style={{ fontSize: '9px', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', padding: '1px 4px', borderRadius: '3px' }}>
+                                חובה ל-{requiredForStatus}
+                            </span>
+                        )}
+                    </span>
+                    {doc && (
+                        <span style={{ fontSize: '9px', color: '#10b981', background: 'rgba(16, 185, 129, 0.1)', padding: '1px 4px', borderRadius: '3px' }}>קיים</span>
+                    )}
+                </div>
+                <span style={{ fontSize: '9.5px', color: 'var(--text-secondary)', lineHeight: '1.3', marginTop: '-2px' }}>
+                    {DOC_DESCRIPTIONS[type]}
+                </span>
+
+                {doc ? (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(255,255,255,0.02)', padding: '6px 8px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.03)' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', overflow: 'hidden', maxWidth: '75%' }}>
+                            <span style={{ fontSize: '11px', color: 'var(--text-light)', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }} title={doc.file_name}>{doc.file_name}</span>
+                            <span style={{ fontSize: '9px', color: 'var(--text-secondary)' }}>{(doc.file_size / 1024).toFixed(1)} KB</span>
+                        </div>
+                        <div style={{ display: 'flex', gap: '4px' }}>
+                            <a href={doc.file_url} target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-icon" style={{ width: '22px', height: '22px', padding: '0', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="הורד/צפה">
+                                <Download size={10} />
+                            </a>
+                            <button className="btn btn-danger btn-icon" style={{ width: '22px', height: '22px', padding: '0', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: 'none' }} onClick={() => handleDeleteAutoDoc(doc.id, doc.name)} title="מחק מסמך">
+                                <Trash2 size={10} />
+                            </button>
+                        </div>
+                    </div>
+                ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1 }}>
+                        <label style={{ border: '1px dashed rgba(255,255,255,0.1)', borderRadius: '4px', padding: '12px 6px', textAlign: 'center', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '4px', background: 'transparent', transition: 'all 0.2s ease' }}>
+                            <Upload size={14} style={{ color: 'var(--text-secondary)' }} />
+                            <span style={{ fontSize: '9.5px', color: 'var(--text-secondary)' }}>
+                                גרור קובץ או <span style={{ color: '#c084fc', textDecoration: 'underline' }}>לחץ לבחירה</span>
+                            </span>
+                            <input type="file" style={{ display: 'none' }} onChange={(e) => { if (e.target.files && e.target.files[0]) handleAutoFileUpload(e.target.files[0], type, auto.id); }} />
+                        </label>
+                        <button
+                            type="button"
+                            onClick={() => downloadTemplate(type, lead)}
+                            className="btn btn-secondary"
+                            style={{ fontSize: '9.5px', padding: '3px 6px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)', borderRadius: '4px', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', width: '100%', transition: 'all 0.2s ease' }}
+                            onMouseEnter={(e) => { e.target.style.background = 'rgba(255,255,255,0.06)'; e.target.style.color = 'var(--text-light)'; }}
+                            onMouseLeave={(e) => { e.target.style.background = 'rgba(255,255,255,0.02)'; e.target.style.color = 'var(--text-secondary)'; }}
+                        >
+                            <FileText size={10} /> הורד תבנית שבלונה
+                        </button>
+                    </div>
+                )}
+            </div>
+        );
     };
 
     const handleUpdatePriority = async (priority) => {
@@ -1517,12 +1669,13 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
                                                                                 
                                                                                 {/* Tabs Row */}
                                                                                 <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '6px', marginBottom: '10px' }} onClick={(e) => e.stopPropagation()}>
-                                                                                    {['ops', 'stats', 'runs'].map(tab => {
+                                                                                    {['ops', 'stats', 'runs', 'docs'].map(tab => {
                                                                                         const runsCount = (autoRuns[auto.id] || []).length;
                                                                                         const labels = { 
                                                                                             ops: 'תפעול ואפיון', 
                                                                                             stats: 'מדדים וסטטיסטיקות', 
-                                                                                            runs: `לוג ריצות (${runsCount})` 
+                                                                                            runs: `לוג ריצות (${runsCount})`,
+                                                                                            docs: 'מסמכים'
                                                                                         };
                                                                                         const isActive = (activeAutoTabs[auto.id] || 'ops') === tab;
                                                                                         return (
@@ -2851,6 +3004,25 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
                                                                                                     );
                                                                                                 });
                                                                                             })()}
+                                                                                        </div>
+                                                                                    </div>
+                                                                                )}
+
+                                                                                {/* Tab Content: Documents (per automation) */}
+                                                                                {(activeAutoTabs[auto.id] || 'ops') === 'docs' && (
+                                                                                    <div onClick={(e) => e.stopPropagation()} style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '10px 0' }}>
+                                                                                        <div style={{ display: 'flex', gap: '8px', background: 'rgba(139,92,246,0.03)', border: '1px solid rgba(139,92,246,0.1)', borderRadius: '6px', padding: '10px 12px', alignItems: 'flex-start' }}>
+                                                                                            <Info size={14} style={{ color: '#c084fc', marginTop: '2px', flexShrink: 0 }} />
+                                                                                            <span style={{ fontSize: '11px', color: 'var(--text-secondary)', lineHeight: '1.4' }}>
+                                                                                                <strong>מצב Live (באוויר):</strong> האוטומציה פועלת באופן רציף בסביבת הייצור (ייצור/פרודקשן) ומבצעת משימות אמיתיות עבור הלקוח. העברה ל-Live חסומה עד להעלאת שלושת מסמכי החובה הטכניים (אפיון טכני, כרטיס גישות מאובטח ופרוטוקול מסירה חתום).
+                                                                                            </span>
+                                                                                        </div>
+                                                                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px' }}>
+                                                                                            {renderAutoDocumentSlot(auto, 'spec', 'מסמך אפיון טכני', 'Live')}
+                                                                                            {renderAutoDocumentSlot(auto, 'credentials', 'כרטיס גישות מאובטח', 'Live')}
+                                                                                            {renderAutoDocumentSlot(auto, 'handover', 'פרוטוקול מסירה', 'Live')}
+                                                                                            {renderAutoDocumentSlot(auto, 'sla', 'תנאי תחזוקה SLA', null)}
+                                                                                            {renderAutoDocumentSlot(auto, 'invoice', 'חשבונית מס', null)}
                                                                                         </div>
                                                                                     </div>
                                                                                 )}
