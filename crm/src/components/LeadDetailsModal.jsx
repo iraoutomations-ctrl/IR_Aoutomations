@@ -698,10 +698,30 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
     }, [leadId]);
 
     const handleUpdateStatus = async (status) => {
+        // ── Document gating (same rules as KanbanBoard) ──
+        if (status === 'proposal' || status === 'won') {
+            const hasProposal = documents.some(d => d.type === 'proposal');
+            if (!hasProposal) {
+                alert("חסימת שלב: חסר מסמך 'הצעת מחיר'.\nלחץ על כפתור 📎 מסמכים בראש החלון כדי להעלות אותו.");
+                return;
+            }
+        }
+        if (status === 'won') {
+            const hasContract = documents.some(d => d.type === 'contract');
+            const hasNDA = documents.some(d => d.type === 'nda');
+            if (!hasContract || !hasNDA) {
+                let missing = [];
+                if (!hasContract) missing.push("חוזה חתום");
+                if (!hasNDA) missing.push("הסכם סודיות NDA");
+                alert(`חסימת שלב: חסרים מסמכי חובה: ${missing.join(' ו')}\nלחץ על כפתור 📎 מסמכים בראש החלון כדי להעלות אותם.`);
+                return;
+            }
+        }
+        // ──────────────────────────────────────────────────
         try {
             const updated = await db.updateLeadStatus(leadId, status);
             setLead(updated);
-            
+
             // If changed to Won, fetch projects tables
             if (status === 'won') {
                 const autosData = await db.getAutomations(leadId);
@@ -1002,13 +1022,29 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
 
     // Update automation status handler
     const handleUpdateAutoStatus = async (autoId, status) => {
+        // \u2500\u2500 Live gating: requires spec + credentials + handover \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+        if (status === 'live') {
+            const autoDocs = documents.filter(d => d.automation_id === autoId);
+            const hasSpec = autoDocs.some(d => d.type === 'spec');
+            const hasCreds = autoDocs.some(d => d.type === 'credentials');
+            const hasHandover = autoDocs.some(d => d.type === 'handover');
+            if (!hasSpec || !hasCreds || !hasHandover) {
+                const missing = [];
+                if (!hasSpec) missing.push('\u05de\u05e1\u05de\u05da \u05d0\u05e4\u05d9\u05d5\u05df \u05d8\u05db\u05e0\u05d9');
+                if (!hasCreds) missing.push('\u05db\u05e8\u05d8\u05d9\u05e1 \u05d2\u05d9\u05e9\u05d5\u05ea \u05de\u05d0\u05d5\u05d1\u05d8\u05d7');
+                if (!hasHandover) missing.push('\u05e4\u05e8\u05d5\u05d8\u05d5\u05e7\u05d5\u05dc \u05de\u05e1\u05d9\u05e8\u05d4');
+                alert(`\u05d7\u05e1\u05d9\u05de\u05ea \u05e9\u05dc\u05d1: \u05db\u05d3\u05d9 \u05dc\u05d4\u05e2\u05d1\u05d9\u05e8 \u05d0\u05d5\u05d8\u05d5\u05de\u05e6\u05d9\u05d4 \u05dc-Live, \u05d9\u05e9 \u05dc\u05d4\u05e2\u05dc\u05d5\u05ea:\n\u2022 ${missing.join('\n\u2022 ')}\n\n\u05dc\u05d7\u05e5 \u05e2\u05dc \u05d4\u05d0\u05d5\u05d8\u05d5\u05de\u05e6\u05d9\u05d4 \u05db\u05d3\u05d9 \u05dc\u05e4\u05ea\u05d5\u05d7 \u05d0\u05ea \u05dc\u05d5\u05d7 \u05d4\u05de\u05e1\u05de\u05db\u05d9\u05dd.`);
+                return;
+            }
+        }
+        // \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
         try {
             const updated = await db.updateAutomation(autoId, { status });
             setAutomations(prev => prev.map(a => a.id === autoId ? updated : a));
             onLeadUpdated();
         } catch (err) {
             console.error("Error updating automation status:", err);
-            alert("שגיאה בעדכון סטטוס אוטומציה: " + (err.message || err));
+            alert("\u05e9\u05d2\u05d9\u05d0\u05d4 \u05d1\u05e2\u05d3\u05db\u05d5\u05df \u05e1\u05d8\u05d0\u05d8\u05d5\u05e1 \u05d0\u05d5\u05d8\u05d5\u05de\u05e6\u05d9\u05d4: " + (err.message || err));
         }
     };
 
@@ -1112,10 +1148,10 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
                                     color: documents.length > 0 ? '#c084fc' : 'var(--text-secondary)',
                                     borderRadius: '8px', transition: 'all 0.2s ease'
                                 }}
-                                title="פתח פאנל מסמכים ומחשבון"
+                                title="פתח פאנל מסמכים"
                             >
                                 <Paperclip size={14} />
-                                מסמכים ומחשבון
+                                מסמכים
                                 {documents.length > 0 && (
                                     <span style={{
                                         background: '#8b5cf6', color: '#fff',
@@ -1172,7 +1208,7 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
                             }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                     <Paperclip size={16} style={{ color: '#c084fc' }} />
-                                    <span style={{ fontSize: '15px', fontWeight: '600', color: 'var(--text-light)' }}>מסמכים ומחשבון</span>
+                                    <span style={{ fontSize: '15px', fontWeight: '600', color: 'var(--text-light)' }}>מסמכים</span>
                                     <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>— {lead.name}</span>
                                 </div>
                                 <button
@@ -1249,10 +1285,6 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
                                         <option value="proposal">הצעת מחיר</option>
                                         <option value="nda">הסכם סודיות NDA</option>
                                         <option value="contract">חוזה חתום</option>
-                                        <option value="invoice">חשבונית</option>
-                                        <option value="spec">אפיון טכני</option>
-                                        <option value="sla">הסכם SLA</option>
-                                        <option value="other">אחר</option>
                                     </select>
                                     <input
                                         type="file"
@@ -1273,33 +1305,172 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
                                 </button>
                             </form>
 
-                            {/* ── Required docs checklist ──────────────── */}
-                            {lead.status !== 'won' && (
-                                <div style={{ margin: '12px 20px 0', display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                                    {[
-                                        { type: 'proposal', label: 'הצעת מחיר' },
-                                        { type: 'nda', label: 'NDA' },
-                                        { type: 'contract', label: 'חוזה' },
-                                    ].map(req => {
-                                        const has = documents.some(d => d.type === req.type);
-                                        return (
-                                            <div key={req.type} style={{
-                                                display: 'flex', alignItems: 'center', gap: '4px',
-                                                padding: '3px 9px', borderRadius: '14px', fontSize: '11px',
-                                                background: has ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.08)',
-                                                border: `1px solid ${has ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.25)'}`,
-                                                color: has ? '#10b981' : '#ef4444'
-                                            }}>
-                                                {has ? <CheckCircle2 size={10} /> : <AlertCircle size={10} />}
-                                                {req.label}
-                                            </div>
-                                        );
-                                    })}
-                                    <div style={{ fontSize: '10.5px', color: 'var(--text-muted)', alignSelf: 'center' }}>
-                                        נדרשים למעבר ל-Won
-                                    </div>
+                            {/* \u2500\u2500 Required docs cards with descriptions \u2500\u2500\u2500\u2500\u2500\u2500 */}
+                            <div style={{ margin: '16px 20px 0', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                {/* Section header */}
+                                <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', letterSpacing: '0.06em', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <Lock size={11} /> מסמכי חובה לסגירת עסקה
                                 </div>
-                            )}
+                                {[
+                                    {
+                                        type: 'proposal',
+                                        label: '\u05d4\u05e6\u05e2\u05ea \u05de\u05d7\u05d9\u05e8',
+                                        gate: '\u05d4\u05e6\u05e2\u05ea \u05de\u05d7\u05d9\u05e8',
+                                        icon: '\ud83d\udcc4',
+                                        color: '#8b5cf6',
+                                        description: DOC_DESCRIPTIONS.proposal,
+                                    },
+                                    {
+                                        type: 'nda',
+                                        label: '\u05d4\u05e1\u05db\u05dd \u05e1\u05d5\u05d3\u05d9\u05d5\u05ea NDA',
+                                        gate: 'Won',
+                                        icon: '\ud83d\udd12',
+                                        color: '#f59e0b',
+                                        description: DOC_DESCRIPTIONS.nda,
+                                    },
+                                    {
+                                        type: 'contract',
+                                        label: '\u05d7\u05d5\u05d6\u05d4 \u05d7\u05ea\u05d5\u05dd',
+                                        gate: 'Won',
+                                        icon: '\u270d\ufe0f',
+                                        color: '#10b981',
+                                        description: DOC_DESCRIPTIONS.contract,
+                                    },
+                                ].map(req => {
+                                    const doc = documents.find(d => d.type === req.type && !d.automation_id);
+                                    const isDragKey = `panel_${req.type}`;
+                                    const isActive = dragActive[isDragKey];
+                                    return (
+                                        <div
+                                            key={req.type}
+                                            style={{
+                                                border: isActive
+                                                    ? `2px dashed ${req.color}`
+                                                    : `1px solid ${doc ? req.color + '40' : 'rgba(255,255,255,0.06)'}`,
+                                                borderRight: `3px solid ${doc ? req.color : 'rgba(255,255,255,0.12)'}`,
+                                                borderRadius: '8px',
+                                                padding: '12px 14px',
+                                                background: isActive
+                                                    ? `${req.color}10`
+                                                    : doc
+                                                        ? `${req.color}08`
+                                                        : 'rgba(255,255,255,0.01)',
+                                                transition: 'all 0.2s ease',
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                gap: '8px'
+                                            }}
+                                            onDragEnter={e => { e.preventDefault(); setDragActive(p => ({ ...p, [isDragKey]: true })); }}
+                                            onDragOver={e => { e.preventDefault(); setDragActive(p => ({ ...p, [isDragKey]: true })); }}
+                                            onDragLeave={e => { e.preventDefault(); setDragActive(p => ({ ...p, [isDragKey]: false })); }}
+                                            onDrop={async e => {
+                                                e.preventDefault();
+                                                setDragActive(p => ({ ...p, [isDragKey]: false }));
+                                                const file = e.dataTransfer.files?.[0];
+                                                if (file) {
+                                                    setDocUploading(true);
+                                                    try {
+                                                        const added = await db.uploadDocument({ lead_id: leadId, name: req.label, type: req.type }, file);
+                                                        setDocuments(prev => [...prev, added]);
+                                                    } catch (err) { alert('\u05e9\u05d2\u05d9\u05d0\u05d4 \u05d1\u05d4\u05e2\u05dc\u05d0\u05d4: ' + (err.message || err)); }
+                                                    finally { setDocUploading(false); }
+                                                }
+                                            }}
+                                        >
+                                            {/* Card header row */}
+                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                                                <span style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-light)', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                                    <span>{req.icon}</span>
+                                                    {req.label}
+                                                    <span style={{
+                                                        fontSize: '9px',
+                                                        background: lead.status === 'won' && doc ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.1)',
+                                                        color: lead.status === 'won' && doc ? '#10b981' : '#ef4444',
+                                                        padding: '1px 5px', borderRadius: '4px',
+                                                        border: `1px solid ${lead.status === 'won' && doc ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.2)'}`
+                                                    }}>
+                                                        \u05d7\u05d5\u05d1\u05d4 \u05dc-{req.gate}
+                                                    </span>
+                                                </span>
+                                                {doc
+                                                    ? <span style={{ fontSize: '9px', color: '#10b981', background: 'rgba(16,185,129,0.12)', padding: '2px 7px', borderRadius: '8px', border: '1px solid rgba(16,185,129,0.3)', display: 'flex', alignItems: 'center', gap: '3px', flexShrink: 0 }}>
+                                                        <CheckCircle2 size={9} /> \u05e7\u05d9\u05d9\u05dd
+                                                    </span>
+                                                    : <span style={{ fontSize: '9px', color: '#ef4444', background: 'rgba(239,68,68,0.08)', padding: '2px 7px', borderRadius: '8px', border: '1px solid rgba(239,68,68,0.2)', display: 'flex', alignItems: 'center', gap: '3px', flexShrink: 0 }}>
+                                                        <AlertCircle size={9} /> \u05d7\u05e1\u05e8
+                                                    </span>
+                                                }
+                                            </div>
+
+                                            {/* Description */}
+                                            <p style={{ fontSize: '10.5px', color: 'var(--text-secondary)', lineHeight: '1.45', margin: 0 }}>
+                                                {req.description}
+                                            </p>
+
+                                            {/* If doc exists — show file info + actions */}
+                                            {doc ? (
+                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(255,255,255,0.02)', padding: '6px 10px', borderRadius: '6px', border: `1px solid ${req.color}25` }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden' }}>
+                                                        <FileText size={12} style={{ color: req.color, flexShrink: 0 }} />
+                                                        <span style={{ fontSize: '11px', color: 'var(--text-light)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={doc.file_name}>{doc.file_name || doc.name}</span>
+                                                    </div>
+                                                    <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
+                                                        {doc.file_url && (
+                                                            <a href={doc.file_url} target="_blank" rel="noopener noreferrer"
+                                                                className="btn btn-secondary btn-icon"
+                                                                style={{ width: '22px', height: '22px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}
+                                                                title="\u05d4\u05d5\u05e8\u05d3"
+                                                            ><Download size={10} /></a>
+                                                        )}
+                                                        <button
+                                                            className="btn btn-secondary btn-icon"
+                                                            onClick={() => handleDeleteDocument(doc.id)}
+                                                            style={{ width: '22px', height: '22px', padding: 0, background: 'rgba(239,68,68,0.08)', border: 'none', color: '#ef4444', borderRadius: '4px' }}
+                                                            title="\u05de\u05d7\u05e7"
+                                                        ><Trash2 size={10} /></button>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                /* Upload zone + template btn */
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                                                    <label style={{
+                                                        border: `1px dashed ${req.color}50`,
+                                                        borderRadius: '6px', padding: '10px 6px',
+                                                        textAlign: 'center', cursor: 'pointer',
+                                                        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px',
+                                                        background: 'transparent', transition: 'all 0.2s ease'
+                                                    }}>
+                                                        <Upload size={13} style={{ color: req.color + 'bb' }} />
+                                                        <span style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>
+                                                            \u05d2\u05e8\u05d5\u05e8 \u05e7\u05d5\u05d1\u05e5 \u05d0\u05d5 <span style={{ color: req.color, textDecoration: 'underline' }}>\u05dc\u05d7\u05e5 \u05dc\u05d1\u05d7\u05d9\u05e8\u05d4</span>
+                                                        </span>
+                                                        <input type="file" style={{ display: 'none' }} accept=".pdf,.doc,.docx,.png,.jpg,.jpeg"
+                                                            onChange={async e => {
+                                                                const file = e.target.files?.[0];
+                                                                if (!file) return;
+                                                                setDocUploading(true);
+                                                                try {
+                                                                    const added = await db.uploadDocument({ lead_id: leadId, name: req.label, type: req.type }, file);
+                                                                    setDocuments(prev => [...prev, added]);
+                                                                } catch (err) { alert('\u05e9\u05d2\u05d9\u05d0\u05d4 \u05d1\u05d4\u05e2\u05dc\u05d0\u05d4: ' + (err.message || err)); }
+                                                                finally { setDocUploading(false); e.target.value = ''; }
+                                                            }}
+                                                        />
+                                                    </label>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => downloadTemplate(req.type, lead)}
+                                                        className="btn btn-secondary"
+                                                        style={{ fontSize: '10px', padding: '4px 8px', display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'center', width: '100%', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', color: 'var(--text-secondary)' }}
+                                                    >
+                                                        <FileText size={10} /> \u05d4\u05d5\u05e8\u05d3 \u05ea\u05d1\u05e0\u05d9\u05ea \u05e9\u05d1\u05dc\u05d5\u05e0\u05d4
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
 
                             {/* ── Documents list ───────────────────────── */}
                             <div style={{ padding: '12px 20px 0' }}>
@@ -1353,19 +1524,16 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
                                 )}
                             </div>
 
-                            {/* ── Templates ────────────────────────────── */}
+                            {/* ── Templates (3 gating docs only) ─────── */}
                             <div style={{ margin: '16px 20px 0', padding: '12px', background: 'rgba(255,255,255,0.01)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '8px' }}>
                                 <div style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-secondary)', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                     <FileText size={13} /> תבניות שבלונות להורדה
                                 </div>
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '6px' }}>
                                     {[
                                         { type: 'proposal', label: 'הצעת מחיר' },
+                                        { type: 'nda', label: 'הסכם NDA' },
                                         { type: 'contract', label: 'חוזה' },
-                                        { type: 'nda', label: 'NDA סודיות' },
-                                        { type: 'spec', label: 'אפיון טכני' },
-                                        { type: 'sla', label: 'הסכם SLA' },
-                                        { type: 'handover', label: 'אישור מסירה' },
                                     ].map(t => (
                                         <button
                                             key={t.type}
@@ -1378,100 +1546,8 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
                                     ))}
                                 </div>
                             </div>
-
-                            {/* ── Inline Calculator ────────────────────── */}
-                            <div style={{ margin: '16px 20px 20px', padding: '14px', background: 'rgba(139,92,246,0.04)', border: '1px solid rgba(139,92,246,0.2)', borderRadius: '10px' }}>
-                                <div style={{ fontSize: '13px', fontWeight: '600', color: '#c084fc', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                    <Calculator size={14} /> מחשבון הצעת מחיר
-                                    {lead.quote_data && (
-                                        <span style={{ fontSize: '10px', background: 'rgba(139,92,246,0.15)', color: '#a78bfa', padding: '1px 6px', borderRadius: '8px', marginRight: 'auto' }}>יש נתונים שמורים</span>
-                                    )}
-                                </div>
-
-                                {/* Current saved values */}
-                                {lead.quote_data && (
-                                    <div style={{ marginBottom: '12px', padding: '8px 10px', background: 'rgba(255,255,255,0.02)', borderRadius: '6px', border: '1px solid rgba(139,92,246,0.15)', fontSize: '11px', display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                                        <span style={{ color: 'var(--text-muted)' }}>שמור כרגע:</span>
-                                        <span style={{ color: 'var(--text-light)' }}>הקמה <strong style={{ color: '#c084fc' }}>₪{lead.quote_data.setup_cost?.toLocaleString('he-IL')}</strong></span>
-                                        <span style={{ color: 'var(--text-light)' }}>ריטיינר <strong style={{ color: 'var(--accent-cyan)' }}>₪{lead.quote_data.sla_price?.toLocaleString('he-IL')}/חודש</strong></span>
-                                        <span style={{ color: lead.quote_data.net_profit > 0 ? '#10b981' : '#ef4444' }}>רווח <strong>₪{lead.quote_data.net_profit?.toLocaleString('he-IL')}</strong></span>
-                                    </div>
-                                )}
-
-                                {/* Inputs */}
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '10px' }}>
-                                    {[
-                                        { label: 'שעות פיתוח', value: calcHours, setter: setCalcHours, min: 1 },
-                                        { label: 'תעריף שעתי (₪)', value: calcHourlyRate, setter: setCalcHourlyRate, min: 50 },
-                                        { label: 'מספר אינטגרציות', value: calcIntegrations, setter: setCalcIntegrations, min: 1 },
-                                        { label: 'זמן משימה (דקות)', value: calcTaskTime, setter: setCalcTaskTime, min: 1 },
-                                        { label: 'נפח חודשי (עסקאות)', value: calcMonthlyVolume, setter: setCalcMonthlyVolume, min: 10 },
-                                        { label: 'עלות שעת עובד (₪)', value: calcWage, setter: setCalcWage, min: 20 },
-                                        { label: 'עלויות צד ג׳ (₪/חודש)', value: calcThirdParty, setter: setCalcThirdParty, min: 0 },
-                                    ].map(f => (
-                                        <div key={f.label}>
-                                            <label style={{ fontSize: '10px', color: 'var(--text-muted)', display: 'block', marginBottom: '2px' }}>{f.label}</label>
-                                            <input
-                                                type="number"
-                                                className="form-control"
-                                                value={f.value}
-                                                min={f.min}
-                                                onChange={e => f.setter(Number(e.target.value) || f.min)}
-                                                style={{ padding: '5px 7px', fontSize: '12px', height: '28px' }}
-                                            />
-                                        </div>
-                                    ))}
-                                    <div>
-                                        <label style={{ fontSize: '10px', color: 'var(--text-muted)', display: 'block', marginBottom: '2px' }}>חבילת SLA</label>
-                                        <select
-                                            className="form-control"
-                                            value={calcSla}
-                                            onChange={e => setCalcSla(e.target.value)}
-                                            style={{ padding: '4px 6px', fontSize: '11px', height: '28px' }}
-                                        >
-                                            <option value="standard">Standard (₪400)</option>
-                                            <option value="premium">Premium (₪1,000)</option>
-                                            <option value="enterprise">Enterprise (₪3,000)</option>
-                                        </select>
-                                    </div>
-                                </div>
-
-                                {/* Results preview */}
-                                <div style={{ background: 'rgba(0,0,0,0.2)', borderRadius: '8px', padding: '10px 12px', marginBottom: '10px', fontSize: '12px', display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                        <span style={{ color: 'var(--text-secondary)' }}>עלות הקמה:</span>
-                                        <strong style={{ color: 'var(--text-light)' }}>₪{_calcSetup.toLocaleString('he-IL')}</strong>
-                                    </div>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                        <span style={{ color: 'var(--text-secondary)' }}>ריטיינר חודשי:</span>
-                                        <strong style={{ color: 'var(--accent-cyan)' }}>₪{_calcSlaPrice.toLocaleString('he-IL')}</strong>
-                                    </div>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                        <span style={{ color: 'var(--text-secondary)' }}>רווח נקי חודשי:</span>
-                                        <strong style={{ color: _calcNet > 0 ? '#10b981' : '#ef4444' }}>₪{_calcNet.toLocaleString('he-IL')}</strong>
-                                    </div>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                        <span style={{ color: 'var(--text-secondary)' }}>החזר השקעה:</span>
-                                        <strong style={{ color: '#f59e0b' }}>תוך {_calcBreakeven > 0 ? _calcBreakeven : '—'} חודשים</strong>
-                                    </div>
-                                </div>
-
-                                {/* Save button */}
-                                <button
-                                    id="calc-panel-save-btn"
-                                    onClick={handleSaveQuoteFromPanel}
-                                    disabled={calcSaving}
-                                    className="btn btn-primary"
-                                    style={{ width: '100%', fontSize: '12px', padding: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', background: calcSaved ? 'rgba(16,185,129,0.2)' : undefined, borderColor: calcSaved ? '#10b981' : undefined }}
-                                >
-                                    {calcSaving
-                                        ? <><RefreshCw size={13} style={{ animation: 'spin 1s linear infinite' }} /> שומר...</>
-                                        : calcSaved
-                                            ? <><CheckCircle2 size={13} style={{ color: '#10b981' }} /> נשמר בהצלחה!</>
-                                            : <><Save size={13} /> שמור הצעת מחיר לליד</>
-                                    }
-                                </button>
-                            </div>
+                            {/* Panel close padding */}
+                            <div style={{ height: '20px' }} />
                         </div>
                     </>
                 )}
@@ -1852,123 +1928,10 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
                             </div>
                         </div>
 
-                        {/* ═══════════════════════════════════════════════════════
-                             DOCUMENTS & FILES — visible to ALL lead statuses
-                             This section MUST appear before the won-gate so users
-                             can upload the NDA + Contract required to transition to 'won'.
-                        ══════════════════════════════════════════════════════════ */}
-                        <div className="glass-card" style={{ marginTop: '20px', padding: '20px' }}>
-                            <h3 style={{ fontSize: '14px', marginBottom: '8px', borderBottom: '1px solid var(--border-color)', paddingBottom: '6px', color: 'var(--text-light)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <FileText size={16} style={{ color: 'var(--accent-cyan)' }} />
-                                מסמכים וקבצים
-                                {documents.length > 0 && (
-                                    <span style={{ fontSize: '11px', background: 'rgba(6,182,212,0.15)', color: 'var(--accent-cyan)', padding: '1px 7px', borderRadius: '10px' }}>{documents.length}</span>
-                                )}
-                            </h3>
-
-                            {/* Required docs status banner */}
-                            {lead && lead.status !== 'won' && (
-                                <div style={{ display: 'flex', gap: '10px', marginBottom: '14px', flexWrap: 'wrap' }}>
-                                    {[
-                                        { type: 'proposal', label: 'הצעת מחיר', required: true, needed: ['proposal', 'won'] },
-                                        { type: 'nda', label: 'הסכם סודיות NDA', required: true, needed: ['won'] },
-                                        { type: 'contract', label: 'חוזה חתום', required: true, needed: ['won'] },
-                                    ].map(req => {
-                                        const has = documents.some(d => d.type === req.type);
-                                        return (
-                                            <div key={req.type} style={{
-                                                display: 'flex', alignItems: 'center', gap: '5px',
-                                                padding: '4px 10px', borderRadius: '20px', fontSize: '11px',
-                                                background: has ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.08)',
-                                                border: `1px solid ${has ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.25)'}`,
-                                                color: has ? '#10b981' : '#ef4444'
-                                            }}>
-                                                {has ? <CheckCircle2 size={11} /> : <AlertCircle size={11} />}
-                                                {req.label}
-                                            </div>
-                                        );
-                                    })}
-                                    <div style={{ fontSize: '10.5px', color: 'var(--text-muted)', alignSelf: 'center', marginRight: 'auto' }}>
-                                        העלה הצעת מחיר, NDA וחוזה כדי לאפשר מעבר לסטטוס Won
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Upload form */}
-                            <form onSubmit={handleUploadDocument} style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1.8fr auto', gap: '8px', marginBottom: '16px', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', padding: '10px', borderRadius: '6px', alignItems: 'end' }}>
-                                <div>
-                                    <label className="form-label" style={{ fontSize: '11px', marginBottom: '4px' }}>שם המסמך</label>
-                                    <input
-                                        type="text"
-                                        className="form-control"
-                                        placeholder="למשל: הצעת מחיר - ינואר 2025"
-                                        value={docUploadName}
-                                        onChange={e => setDocUploadName(e.target.value)}
-                                        style={{ padding: '6px 8px', fontSize: '12px', height: '30px' }}
-                                        required
-                                    />
-                                </div>
-                                <div>
-                                    <label className="form-label" style={{ fontSize: '11px', marginBottom: '4px' }}>סוג מסמך</label>
-                                    <select
-                                        className="form-control"
-                                        value={docUploadType}
-                                        onChange={e => setDocUploadType(e.target.value)}
-                                        style={{ padding: '4px 6px', fontSize: '12px', height: '30px' }}
-                                    >
-                                        <option value="proposal">הצעת מחיר</option>
-                                        <option value="nda">הסכם סודיות NDA</option>
-                                        <option value="contract">חוזה חתום</option>
-                                        <option value="invoice">חשבונית</option>
-                                        <option value="other">אחר</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="form-label" style={{ fontSize: '11px', marginBottom: '4px' }}>בחר קובץ</label>
-                                    <input
-                                        type="file"
-                                        className="form-control"
-                                        accept=".pdf,.doc,.docx,.png,.jpg,.jpeg"
-                                        style={{ padding: '3px 6px', fontSize: '11px', height: '30px' }}
-                                        required
-                                    />
-                                </div>
-                                <button type="submit" className="btn btn-primary" disabled={docUploading} style={{ height: '30px', padding: '0 12px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                    {docUploading ? <RefreshCw size={12} style={{ animation: 'spin 1s linear infinite' }} /> : <Plus size={12} />}
-                                    {docUploading ? 'מעלה...' : 'העלה'}
-                                </button>
-                            </form>
-
-                            {/* Documents list */}
-                            {documents.length === 0 ? (
-                                <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', fontStyle: 'italic', textAlign: 'center', padding: '14px 0' }}>טרם הועלו מסמכים לליד זה.</p>
-                            ) : (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                    {documents.map(doc => {
-                                        const typeColors = { proposal: '#8b5cf6', nda: '#f59e0b', contract: '#10b981', invoice: '#06b6d4', other: '#6b7280' };
-                                        const typeLabels = { proposal: 'הצעת מחיר', nda: 'NDA', contract: 'חוזה', invoice: 'חשבונית', other: 'אחר' };
-                                        return (
-                                            <div key={doc.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 12px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '6px', borderRight: `3px solid ${typeColors[doc.type] || '#6b7280'}` }}>
-                                                <FileText size={14} style={{ color: typeColors[doc.type] || '#6b7280', flexShrink: 0 }} />
-                                                <div style={{ flex: 1, minWidth: 0 }}>
-                                                    <div style={{ fontSize: '12.5px', color: 'var(--text-light)', fontWeight: '500', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{doc.name}</div>
-                                                    <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                                                        <span style={{ background: `${typeColors[doc.type]}22`, color: typeColors[doc.type] || '#6b7280', padding: '1px 6px', borderRadius: '8px', marginLeft: '6px' }}>{typeLabels[doc.type] || doc.type}</span>
-                                                        {doc.file_name} • {new Date(doc.created_at).toLocaleDateString('he-IL')}
-                                                    </div>
-                                                </div>
-                                                {doc.file_url && (
-                                                    <a href={doc.file_url} target="_blank" rel="noopener noreferrer" className="btn btn-secondary" style={{ padding: '4px 8px', fontSize: '11px', height: 'auto', textDecoration: 'none' }}>פתח</a>
-                                                )}
-                                                <button className="btn btn-secondary" onClick={() => handleDeleteDocument(doc.id)} style={{ padding: '4px', height: 'auto', background: 'transparent', border: 'none' }}>
-                                                    <Trash2 size={13} style={{ color: 'var(--text-muted)' }} />
-                                                </button>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            )}
-                        </div>
+                        {/* Documents & Files card removed — the 3 gating docs
+                             (proposal / nda / contract) are managed via the 📎
+                             side panel button in the modal header. All other
+                             documents live inside the automation rows (Won only). */}
 
                         {/* Won Lead - Automations & Bugs Dashboard */}
                         {lead && lead.status === 'won' && (
