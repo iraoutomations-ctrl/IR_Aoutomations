@@ -32,7 +32,11 @@ import {
     TrendingUp,
     Search,
     Upload,
-    Download
+    Download,
+    Paperclip,
+    Calculator,
+    ChevronRight,
+    Save
 } from 'lucide-react';
 import { db } from '../services/db';
 import { downloadTemplate } from '../services/templates';
@@ -239,6 +243,99 @@ export default function LeadDetailsModal({ leadId, onClose, onLeadUpdated }) {
 
     // Document drag-drop state for automation doc slots
     const [dragActive, setDragActive] = useState({});
+
+    // ── Docs & Calculator Panel ──────────────────────────────────────────────
+    const [showDocsPanel, setShowDocsPanel] = useState(false);
+    const [panelDragActive, setPanelDragActive] = useState(false);
+    // Inline calculator state inside the panel
+    const [calcHours, setCalcHours] = useState(20);
+    const [calcHourlyRate, setCalcHourlyRate] = useState(250);
+    const [calcIntegrations, setCalcIntegrations] = useState(2);
+    const [calcTaskTime, setCalcTaskTime] = useState(10);
+    const [calcMonthlyVolume, setCalcMonthlyVolume] = useState(500);
+    const [calcWage, setCalcWage] = useState(60);
+    const [calcSla, setCalcSla] = useState('standard');
+    const [calcThirdParty, setCalcThirdParty] = useState(0);
+    const [calcSaving, setCalcSaving] = useState(false);
+    const [calcSaved, setCalcSaved] = useState(false);
+    const CALC_SLA = {
+        standard: { name: 'Standard', price: 400 },
+        premium: { name: 'Premium', price: 1000 },
+        enterprise: { name: 'Enterprise', price: 3000 }
+    };
+    // Derived calc values
+    const _calcSetup = Math.round((calcHours * calcHourlyRate * (1 + (calcIntegrations - 1) * 0.15)) / 100) * 100;
+    const _calcSlaPrice = CALC_SLA[calcSla].price;
+    const _calcHoursSaved = Math.round((calcTaskTime / 60) * calcMonthlyVolume);
+    const _calcGross = Math.round(_calcHoursSaved * calcWage);
+    const _calcTotal = _calcSlaPrice + calcThirdParty;
+    const _calcNet = _calcGross - _calcTotal;
+    const _calcBreakeven = _calcTotal > 0 ? Math.ceil(_calcSetup / Math.max(1, _calcNet)) : 0;
+
+    const handleSaveQuoteFromPanel = async () => {
+        if (!leadId) return;
+        setCalcSaving(true);
+        try {
+            const quoteData = {
+                project_type: 'automation',
+                setup_cost: _calcSetup,
+                monthly_cost: _calcTotal,
+                sla_price: _calcSlaPrice,
+                hourly_rate: calcHourlyRate,
+                net_profit: _calcNet,
+                break_even: _calcBreakeven,
+                third_party_costs: calcThirdParty
+            };
+            await db.updateLead(leadId, { quote_data: quoteData });
+            await db.addNote({
+                lead_id: leadId,
+                content: `הצעת מחיר הוזנה ידנית מהמחשבון:\n• עלות הקמה: ₪${_calcSetup.toLocaleString('he-IL')}\n• ריטיינר חודשי: ₪${_calcSlaPrice.toLocaleString('he-IL')}\n• רווח חודשי נקי: ₪${_calcNet.toLocaleString('he-IL')}\n• החזר השקעה: תוך ${_calcBreakeven} חודשים`
+            });
+            // Refresh lead
+            const updatedLead = await db.getLead(leadId);
+            if (updatedLead) setLead(updatedLead);
+            const notesData = await db.getNotes(leadId);
+            setNotes(notesData);
+            onLeadUpdated();
+            setCalcSaved(true);
+            setTimeout(() => setCalcSaved(false), 3000);
+        } catch (err) {
+            console.error('Error saving quote from panel:', err);
+            alert('שגיאה בשמירת הצעת המחיר: ' + (err.message || err));
+        } finally {
+            setCalcSaving(false);
+        }
+    };
+
+    // Panel-level drag handlers
+    const handlePanelDrag = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (e.type === 'dragenter' || e.type === 'dragover') setPanelDragActive(true);
+        else if (e.type === 'dragleave' || e.type === 'drop') setPanelDragActive(false);
+    };
+    const handlePanelDrop = async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setPanelDragActive(false);
+        const file = e.dataTransfer.files?.[0];
+        if (!file || !leadId) return;
+        setDocUploading(true);
+        try {
+            const ext = file.name.split('.').pop().toLowerCase();
+            const guessType = ext === 'pdf' ? 'proposal' : 'other';
+            const newDoc = await db.uploadDocument(
+                { lead_id: leadId, name: file.name, type: guessType },
+                file
+            );
+            setDocuments(prev => [...prev, newDoc]);
+        } catch (err) {
+            console.error('Panel drop upload error:', err);
+        } finally {
+            setDocUploading(false);
+        }
+    };
+    // ─────────────────────────────────────────────────────────────────────────
 
     // Helper to check if a task is blocked by another uncompleted task
     const isTaskBlocked = (task) => {
@@ -1000,10 +1097,384 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
                         <Activity size={20} className="text-violet" style={{ color: '#8b5cf6' }} />
                         פרטי ליד מורחבים: {loading ? 'טוען...' : lead?.name}
                     </h2>
-                    <button className="btn btn-secondary btn-icon" onClick={onClose}>
-                        <X size={16} />
-                    </button>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        {/* Docs & Calculator Panel Button */}
+                        {!loading && lead && (
+                            <button
+                                id="lead-docs-panel-btn"
+                                className="btn btn-secondary"
+                                onClick={() => setShowDocsPanel(true)}
+                                style={{
+                                    display: 'flex', alignItems: 'center', gap: '6px',
+                                    fontSize: '12px', padding: '6px 12px',
+                                    background: documents.length > 0 ? 'rgba(139,92,246,0.15)' : 'rgba(255,255,255,0.05)',
+                                    border: documents.length > 0 ? '1px solid rgba(139,92,246,0.4)' : '1px solid var(--border-color)',
+                                    color: documents.length > 0 ? '#c084fc' : 'var(--text-secondary)',
+                                    borderRadius: '8px', transition: 'all 0.2s ease'
+                                }}
+                                title="פתח פאנל מסמכים ומחשבון"
+                            >
+                                <Paperclip size={14} />
+                                מסמכים ומחשבון
+                                {documents.length > 0 && (
+                                    <span style={{
+                                        background: '#8b5cf6', color: '#fff',
+                                        borderRadius: '10px', fontSize: '10px',
+                                        padding: '1px 6px', fontWeight: '700'
+                                    }}>{documents.length}</span>
+                                )}
+                            </button>
+                        )}
+                        <button className="btn btn-secondary btn-icon" onClick={onClose}>
+                            <X size={16} />
+                        </button>
+                    </div>
                 </div>
+
+                {/* ═══════════════════════════════════════════════════════════
+                     DOCS & CALCULATOR SIDE PANEL
+                ═══════════════════════════════════════════════════════════ */}
+                {showDocsPanel && lead && (
+                    <>
+                        {/* Backdrop */}
+                        <div
+                            onClick={() => setShowDocsPanel(false)}
+                            style={{
+                                position: 'fixed', inset: 0, zIndex: 9000,
+                                background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(3px)'
+                            }}
+                        />
+                        {/* Panel */}
+                        <div
+                            id="lead-docs-side-panel"
+                            onDragEnter={handlePanelDrag}
+                            onDragOver={handlePanelDrag}
+                            onDragLeave={handlePanelDrag}
+                            onDrop={handlePanelDrop}
+                            style={{
+                                position: 'fixed', top: 0, right: 0, bottom: 0,
+                                width: '420px', zIndex: 9001,
+                                background: 'var(--bg-secondary, #1a1a2e)',
+                                borderLeft: panelDragActive
+                                    ? '2px solid #8b5cf6'
+                                    : '1px solid rgba(139,92,246,0.25)',
+                                display: 'flex', flexDirection: 'column',
+                                overflowY: 'auto',
+                                transition: 'border-color 0.2s',
+                                boxShadow: '-8px 0 40px rgba(0,0,0,0.5)'
+                            }}
+                        >
+                            {/* Panel Header */}
+                            <div style={{
+                                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                padding: '16px 20px', borderBottom: '1px solid rgba(139,92,246,0.2)',
+                                background: 'rgba(139,92,246,0.07)', position: 'sticky', top: 0, zIndex: 1
+                            }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <Paperclip size={16} style={{ color: '#c084fc' }} />
+                                    <span style={{ fontSize: '15px', fontWeight: '600', color: 'var(--text-light)' }}>מסמכים ומחשבון</span>
+                                    <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>— {lead.name}</span>
+                                </div>
+                                <button
+                                    className="btn btn-secondary btn-icon"
+                                    onClick={() => setShowDocsPanel(false)}
+                                    style={{ width: '28px', height: '28px', padding: 0 }}
+                                >
+                                    <ChevronRight size={15} />
+                                </button>
+                            </div>
+
+                            {/* ── Drop Zone Hint ───────────────────────── */}
+                            <div style={{
+                                margin: '16px 20px 0',
+                                border: `2px dashed ${panelDragActive ? '#8b5cf6' : 'rgba(139,92,246,0.25)'}`,
+                                borderRadius: '10px',
+                                padding: '18px 12px',
+                                textAlign: 'center',
+                                background: panelDragActive ? 'rgba(139,92,246,0.08)' : 'rgba(255,255,255,0.01)',
+                                transition: 'all 0.2s ease',
+                                cursor: 'default'
+                            }}>
+                                <Upload size={22} style={{ color: panelDragActive ? '#c084fc' : 'var(--text-muted)', marginBottom: '6px' }} />
+                                <div style={{ fontSize: '12px', color: panelDragActive ? '#c084fc' : 'var(--text-muted)' }}>
+                                    {panelDragActive ? 'שחרר להעלאה...' : 'גרור קבצים לכאן להעלאה מהירה'}
+                                </div>
+                                {docUploading && (
+                                    <div style={{ marginTop: '6px', fontSize: '11px', color: '#8b5cf6', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                                        <RefreshCw size={11} style={{ animation: 'spin 1s linear infinite' }} /> מעלה...
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* ── Upload Form ──────────────────────────── */}
+                            <form
+                                onSubmit={async (e) => {
+                                    e.preventDefault();
+                                    const fileEl = e.target.querySelector('input[type=file]');
+                                    const file = fileEl?.files?.[0];
+                                    if (!file || !docUploadName.trim()) return;
+                                    setDocUploading(true);
+                                    try {
+                                        const newDoc = await db.uploadDocument(
+                                            { lead_id: leadId, name: docUploadName.trim(), type: docUploadType },
+                                            file
+                                        );
+                                        setDocuments(prev => [...prev, newDoc]);
+                                        setDocUploadName('');
+                                        fileEl.value = '';
+                                    } catch (err) {
+                                        console.error('Error uploading document:', err);
+                                    } finally {
+                                        setDocUploading(false);
+                                    }
+                                }}
+                                style={{ margin: '12px 20px 0', display: 'flex', flexDirection: 'column', gap: '8px' }}
+                            >
+                                <input
+                                    type="text"
+                                    className="form-control"
+                                    placeholder="שם המסמך (למשל: הצעת מחיר - יוני 2025)"
+                                    value={docUploadName}
+                                    onChange={e => setDocUploadName(e.target.value)}
+                                    style={{ padding: '7px 10px', fontSize: '12px' }}
+                                    required
+                                />
+                                <div style={{ display: 'flex', gap: '8px' }}>
+                                    <select
+                                        className="form-control"
+                                        value={docUploadType}
+                                        onChange={e => setDocUploadType(e.target.value)}
+                                        style={{ padding: '6px 8px', fontSize: '12px', flex: '0 0 140px' }}
+                                    >
+                                        <option value="proposal">הצעת מחיר</option>
+                                        <option value="nda">הסכם סודיות NDA</option>
+                                        <option value="contract">חוזה חתום</option>
+                                        <option value="invoice">חשבונית</option>
+                                        <option value="spec">אפיון טכני</option>
+                                        <option value="sla">הסכם SLA</option>
+                                        <option value="other">אחר</option>
+                                    </select>
+                                    <input
+                                        type="file"
+                                        className="form-control"
+                                        accept=".pdf,.doc,.docx,.png,.jpg,.jpeg"
+                                        style={{ padding: '4px 6px', fontSize: '11px', flex: 1 }}
+                                        required
+                                    />
+                                </div>
+                                <button
+                                    type="submit"
+                                    className="btn btn-primary"
+                                    disabled={docUploading}
+                                    style={{ fontSize: '12px', padding: '7px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}
+                                >
+                                    {docUploading ? <RefreshCw size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Upload size={13} />}
+                                    {docUploading ? 'מעלה...' : 'העלה מסמך'}
+                                </button>
+                            </form>
+
+                            {/* ── Required docs checklist ──────────────── */}
+                            {lead.status !== 'won' && (
+                                <div style={{ margin: '12px 20px 0', display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                                    {[
+                                        { type: 'proposal', label: 'הצעת מחיר' },
+                                        { type: 'nda', label: 'NDA' },
+                                        { type: 'contract', label: 'חוזה' },
+                                    ].map(req => {
+                                        const has = documents.some(d => d.type === req.type);
+                                        return (
+                                            <div key={req.type} style={{
+                                                display: 'flex', alignItems: 'center', gap: '4px',
+                                                padding: '3px 9px', borderRadius: '14px', fontSize: '11px',
+                                                background: has ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.08)',
+                                                border: `1px solid ${has ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.25)'}`,
+                                                color: has ? '#10b981' : '#ef4444'
+                                            }}>
+                                                {has ? <CheckCircle2 size={10} /> : <AlertCircle size={10} />}
+                                                {req.label}
+                                            </div>
+                                        );
+                                    })}
+                                    <div style={{ fontSize: '10.5px', color: 'var(--text-muted)', alignSelf: 'center' }}>
+                                        נדרשים למעבר ל-Won
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* ── Documents list ───────────────────────── */}
+                            <div style={{ padding: '12px 20px 0' }}>
+                                <div style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-secondary)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <FileText size={13} /> מסמכים שהועלו ({documents.length})
+                                </div>
+                                {documents.length === 0 ? (
+                                    <p style={{ fontSize: '12px', color: 'var(--text-muted)', fontStyle: 'italic', textAlign: 'center', padding: '10px 0' }}>אין מסמכים עדיין</p>
+                                ) : (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                                        {documents.map(doc => {
+                                            const typeColors = { proposal: '#8b5cf6', nda: '#f59e0b', contract: '#10b981', invoice: '#06b6d4', spec: '#ec4899', sla: '#f97316', other: '#6b7280' };
+                                            const typeLabels = { proposal: 'הצעת מחיר', nda: 'NDA', contract: 'חוזה', invoice: 'חשבונית', spec: 'אפיון', sla: 'SLA', other: 'אחר' };
+                                            const clr = typeColors[doc.type] || '#6b7280';
+                                            return (
+                                                <div key={doc.id} style={{
+                                                    display: 'flex', alignItems: 'center', gap: '8px',
+                                                    padding: '8px 10px',
+                                                    background: 'rgba(255,255,255,0.02)',
+                                                    border: '1px solid var(--border-color)',
+                                                    borderRight: `3px solid ${clr}`,
+                                                    borderRadius: '6px'
+                                                }}>
+                                                    <FileText size={13} style={{ color: clr, flexShrink: 0 }} />
+                                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                                        <div style={{ fontSize: '12px', color: 'var(--text-light)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{doc.name}</div>
+                                                        <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '1px' }}>
+                                                            <span style={{ background: `${clr}22`, color: clr, padding: '1px 5px', borderRadius: '6px', marginLeft: '4px', fontSize: '9px' }}>{typeLabels[doc.type] || doc.type}</span>
+                                                            {new Date(doc.created_at).toLocaleDateString('he-IL')}
+                                                        </div>
+                                                    </div>
+                                                    <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
+                                                        {doc.file_url && (
+                                                            <a href={doc.file_url} target="_blank" rel="noopener noreferrer"
+                                                                className="btn btn-secondary btn-icon"
+                                                                style={{ width: '24px', height: '24px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}
+                                                                title="הורד / פתח"
+                                                            ><Download size={11} /></a>
+                                                        )}
+                                                        <button
+                                                            className="btn btn-secondary btn-icon"
+                                                            onClick={() => handleDeleteDocument(doc.id)}
+                                                            style={{ width: '24px', height: '24px', padding: 0, background: 'transparent', border: 'none' }}
+                                                            title="מחק"
+                                                        ><Trash2 size={11} style={{ color: '#ef4444' }} /></button>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* ── Templates ────────────────────────────── */}
+                            <div style={{ margin: '16px 20px 0', padding: '12px', background: 'rgba(255,255,255,0.01)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '8px' }}>
+                                <div style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-secondary)', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <FileText size={13} /> תבניות שבלונות להורדה
+                                </div>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+                                    {[
+                                        { type: 'proposal', label: 'הצעת מחיר' },
+                                        { type: 'contract', label: 'חוזה' },
+                                        { type: 'nda', label: 'NDA סודיות' },
+                                        { type: 'spec', label: 'אפיון טכני' },
+                                        { type: 'sla', label: 'הסכם SLA' },
+                                        { type: 'handover', label: 'אישור מסירה' },
+                                    ].map(t => (
+                                        <button
+                                            key={t.type}
+                                            onClick={() => downloadTemplate(t.type, lead)}
+                                            className="btn btn-secondary"
+                                            style={{ fontSize: '10.5px', padding: '5px 8px', display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'center', width: '100%' }}
+                                        >
+                                            <Download size={10} />{t.label}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* ── Inline Calculator ────────────────────── */}
+                            <div style={{ margin: '16px 20px 20px', padding: '14px', background: 'rgba(139,92,246,0.04)', border: '1px solid rgba(139,92,246,0.2)', borderRadius: '10px' }}>
+                                <div style={{ fontSize: '13px', fontWeight: '600', color: '#c084fc', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <Calculator size={14} /> מחשבון הצעת מחיר
+                                    {lead.quote_data && (
+                                        <span style={{ fontSize: '10px', background: 'rgba(139,92,246,0.15)', color: '#a78bfa', padding: '1px 6px', borderRadius: '8px', marginRight: 'auto' }}>יש נתונים שמורים</span>
+                                    )}
+                                </div>
+
+                                {/* Current saved values */}
+                                {lead.quote_data && (
+                                    <div style={{ marginBottom: '12px', padding: '8px 10px', background: 'rgba(255,255,255,0.02)', borderRadius: '6px', border: '1px solid rgba(139,92,246,0.15)', fontSize: '11px', display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                                        <span style={{ color: 'var(--text-muted)' }}>שמור כרגע:</span>
+                                        <span style={{ color: 'var(--text-light)' }}>הקמה <strong style={{ color: '#c084fc' }}>₪{lead.quote_data.setup_cost?.toLocaleString('he-IL')}</strong></span>
+                                        <span style={{ color: 'var(--text-light)' }}>ריטיינר <strong style={{ color: 'var(--accent-cyan)' }}>₪{lead.quote_data.sla_price?.toLocaleString('he-IL')}/חודש</strong></span>
+                                        <span style={{ color: lead.quote_data.net_profit > 0 ? '#10b981' : '#ef4444' }}>רווח <strong>₪{lead.quote_data.net_profit?.toLocaleString('he-IL')}</strong></span>
+                                    </div>
+                                )}
+
+                                {/* Inputs */}
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '10px' }}>
+                                    {[
+                                        { label: 'שעות פיתוח', value: calcHours, setter: setCalcHours, min: 1 },
+                                        { label: 'תעריף שעתי (₪)', value: calcHourlyRate, setter: setCalcHourlyRate, min: 50 },
+                                        { label: 'מספר אינטגרציות', value: calcIntegrations, setter: setCalcIntegrations, min: 1 },
+                                        { label: 'זמן משימה (דקות)', value: calcTaskTime, setter: setCalcTaskTime, min: 1 },
+                                        { label: 'נפח חודשי (עסקאות)', value: calcMonthlyVolume, setter: setCalcMonthlyVolume, min: 10 },
+                                        { label: 'עלות שעת עובד (₪)', value: calcWage, setter: setCalcWage, min: 20 },
+                                        { label: 'עלויות צד ג׳ (₪/חודש)', value: calcThirdParty, setter: setCalcThirdParty, min: 0 },
+                                    ].map(f => (
+                                        <div key={f.label}>
+                                            <label style={{ fontSize: '10px', color: 'var(--text-muted)', display: 'block', marginBottom: '2px' }}>{f.label}</label>
+                                            <input
+                                                type="number"
+                                                className="form-control"
+                                                value={f.value}
+                                                min={f.min}
+                                                onChange={e => f.setter(Number(e.target.value) || f.min)}
+                                                style={{ padding: '5px 7px', fontSize: '12px', height: '28px' }}
+                                            />
+                                        </div>
+                                    ))}
+                                    <div>
+                                        <label style={{ fontSize: '10px', color: 'var(--text-muted)', display: 'block', marginBottom: '2px' }}>חבילת SLA</label>
+                                        <select
+                                            className="form-control"
+                                            value={calcSla}
+                                            onChange={e => setCalcSla(e.target.value)}
+                                            style={{ padding: '4px 6px', fontSize: '11px', height: '28px' }}
+                                        >
+                                            <option value="standard">Standard (₪400)</option>
+                                            <option value="premium">Premium (₪1,000)</option>
+                                            <option value="enterprise">Enterprise (₪3,000)</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                {/* Results preview */}
+                                <div style={{ background: 'rgba(0,0,0,0.2)', borderRadius: '8px', padding: '10px 12px', marginBottom: '10px', fontSize: '12px', display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                        <span style={{ color: 'var(--text-secondary)' }}>עלות הקמה:</span>
+                                        <strong style={{ color: 'var(--text-light)' }}>₪{_calcSetup.toLocaleString('he-IL')}</strong>
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                        <span style={{ color: 'var(--text-secondary)' }}>ריטיינר חודשי:</span>
+                                        <strong style={{ color: 'var(--accent-cyan)' }}>₪{_calcSlaPrice.toLocaleString('he-IL')}</strong>
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                        <span style={{ color: 'var(--text-secondary)' }}>רווח נקי חודשי:</span>
+                                        <strong style={{ color: _calcNet > 0 ? '#10b981' : '#ef4444' }}>₪{_calcNet.toLocaleString('he-IL')}</strong>
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                        <span style={{ color: 'var(--text-secondary)' }}>החזר השקעה:</span>
+                                        <strong style={{ color: '#f59e0b' }}>תוך {_calcBreakeven > 0 ? _calcBreakeven : '—'} חודשים</strong>
+                                    </div>
+                                </div>
+
+                                {/* Save button */}
+                                <button
+                                    id="calc-panel-save-btn"
+                                    onClick={handleSaveQuoteFromPanel}
+                                    disabled={calcSaving}
+                                    className="btn btn-primary"
+                                    style={{ width: '100%', fontSize: '12px', padding: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', background: calcSaved ? 'rgba(16,185,129,0.2)' : undefined, borderColor: calcSaved ? '#10b981' : undefined }}
+                                >
+                                    {calcSaving
+                                        ? <><RefreshCw size={13} style={{ animation: 'spin 1s linear infinite' }} /> שומר...</>
+                                        : calcSaved
+                                            ? <><CheckCircle2 size={13} style={{ color: '#10b981' }} /> נשמר בהצלחה!</>
+                                            : <><Save size={13} /> שמור הצעת מחיר לליד</>
+                                    }
+                                </button>
+                            </div>
+                        </div>
+                    </>
+                )}
 
                 {loading ? (
                     <div style={{ padding: '60px', textAlign: 'center' }}>
