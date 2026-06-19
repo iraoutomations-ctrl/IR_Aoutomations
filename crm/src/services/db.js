@@ -1694,6 +1694,42 @@ export const db = {
         }
     },
 
+    async linkExistingDocument(docData) {
+        if (isSupabaseConfigured) {
+            const { data, error } = await supabase
+                .from('documents')
+                .insert([{
+                    lead_id: docData.lead_id || null,
+                    automation_id: docData.automation_id || null,
+                    name: docData.name,
+                    type: docData.type,
+                    file_name: docData.file_name,
+                    file_size: docData.file_size,
+                    file_url: docData.file_url
+                }])
+                .select();
+                
+            if (error) throw error;
+            return data[0];
+        } else {
+            const newDoc = {
+                id: 'doc-' + Math.random().toString(36).substr(2, 9),
+                created_at: new Date().toISOString(),
+                lead_id: docData.lead_id || null,
+                automation_id: docData.automation_id || null,
+                name: docData.name,
+                type: docData.type,
+                file_name: docData.file_name,
+                file_size: docData.file_size,
+                file_url: docData.file_url
+            };
+            const docs = getLocalData(STORAGE_KEYS.DOCUMENTS, INITIAL_MOCK_DOCUMENTS);
+            docs.unshift(newDoc);
+            setLocalData(STORAGE_KEYS.DOCUMENTS, docs);
+            return newDoc;
+        }
+    },
+
     async deleteDocument(id) {
         if (isSupabaseConfigured) {
             // First fetch document row to remove from Storage
