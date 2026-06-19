@@ -160,7 +160,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{\n{\n  \"title\": \"✅ צ'אטבוט: מענה Gemini Flash\",\n  \"message\": \"קלט: \" + $('Webhook1').item.json.body.message + \"\\nתשובה: \" + ((() => { const t = $('HTTP Request').first().json.candidates[0].content.parts[0].text; try { return JSON.parse(t); } catch (e) { const s = t.indexOf('{'); if (s !== -1) { let c = 0; for (let i = s; i < t.length; i++) { if (t[i] === '{') c++; else if (t[i] === '}') { c--; if (c === 0) { try { return JSON.parse(t.substring(s, i + 1)); } catch (err) {} } } } } return { reply: t }; } })().reply),\n  \"type\": \"success\",\n  \"n8n_workflow_id\": \"lyCrWBmsGlRSMJmo\",\n  \"duration_ms\": new Date().getTime() - $('Set1').first().json.startTime\n}\n}}",
+        "jsonBody": "={{\n{\n  \"title\": \"✅ צ'אטבוט: מענה Gemini Flash\",\n  \"message\": \"קלט: \" + $('Webhook1').item.json.body.message + \"\\nתשובה: \" + ((() => { const t = $('HTTP Request').first().json.candidates[0].content.parts[0].text; try { return JSON.parse(t); } catch (e) { const s = t.indexOf('{'); if (s !== -1) { let c = 0; for (let i = s; i < t.length; i++) { if (t[i] === '{') c++; else if (t[i] === '}') { c--; if (c === 0) { try { return JSON.parse(t.substring(s, i + 1)); } catch (err) {} } } } } return { reply: t }; } })().reply),\n  \"type\": \"success\",\n  \"n8n_workflow_id\": \"{{ $workflow.id }}\",\n  \"duration_ms\": new Date().getTime() - $('Set1').first().json.startTime\n}\n}}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
@@ -214,7 +214,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{\n{\n  \"title\": \"⚠️ צ'אטבוט: גיבוי Gemini Pro\",\n  \"message\": \"קלט: \" + $('Webhook1').item.json.body.message + \"\\nתשובה: \" + ((() => { const t = $('HTTP Request (Gemini Fallback)').first().json.candidates[0].content.parts[0].text; try { return JSON.parse(t); } catch (e) { const s = t.indexOf('{'); if (s !== -1) { let c = 0; for (let i = s; i < t.length; i++) { if (t[i] === '{') c++; else if (t[i] === '}') { c--; if (c === 0) { try { return JSON.parse(t.substring(s, i + 1)); } catch (err) {} } } } } return { reply: t }; } })().reply),\n  \"type\": \"warning\",\n  \"n8n_workflow_id\": \"lyCrWBmsGlRSMJmo\",\n  \"duration_ms\": new Date().getTime() - $('Set1').first().json.startTime\n}\n}}",
+        "jsonBody": "={{\n{\n  \"title\": \"⚠️ צ'אטבוט: גיבוי Gemini Pro\",\n  \"message\": \"קלט: \" + $('Webhook1').item.json.body.message + \"\\nתשובה: \" + ((() => { const t = $('HTTP Request (Gemini Fallback)').first().json.candidates[0].content.parts[0].text; try { return JSON.parse(t); } catch (e) { const s = t.indexOf('{'); if (s !== -1) { let c = 0; for (let i = s; i < t.length; i++) { if (t[i] === '{') c++; else if (t[i] === '}') { c--; if (c === 0) { try { return JSON.parse(t.substring(s, i + 1)); } catch (err) {} } } } } return { reply: t }; } })().reply),\n  \"type\": \"warning\",\n  \"n8n_workflow_id\": \"{{ $workflow.id }}\",\n  \"duration_ms\": new Date().getTime() - $('Set1').first().json.startTime\n}\n}}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
@@ -311,7 +311,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"title\": \"❌ צ'אטבוט: הרצה נחסמה (חריגה ממכסה)\",\n  \"message\": \"ניסיון הרצה נחסם אוטומטית עקב הגעה למכסת הריצות של האוטומציה.\",\n  \"type\": \"error\",\n  \"n8n_workflow_id\": \"lyCrWBmsGlRSMJmo\"\n}",
+        "jsonBody": "={\n  \"title\": \"❌ צ'אטבוט: הרצה נחסמה (חריגה ממכסה)\",\n  \"message\": \"ניסיון הרצה נחסם אוטומטית עקב הגעה למכסת הריצות של האוטומציה.\",\n  \"type\": \"error\",\n  \"n8n_workflow_id\": \"{{ $workflow.id }}\"\n}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
@@ -365,7 +365,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{\n{\n  \"automation_id\": \"8da1d6bb-05a8-4ffc-b622-863522c1d54f\",\n  \"n8n_workflow_id\": \"lyCrWBmsGlRSMJmo\",\n  \"status\": \"success\",\n  \"duration_ms\": new Date().getTime() - $('Set1').first().json.startTime\n}\n}}",
+        "jsonBody": "={{\n{\n  \"automation_id\": \"8da1d6bb-05a8-4ffc-b622-863522c1d54f\",\n  \"n8n_workflow_id\": \"{{ $workflow.id }}\",\n  \"status\": \"success\",\n  \"duration_ms\": new Date().getTime() - $('Set1').first().json.startTime\n}\n}}",
         "options": {
           "timeout": 5000
         }
@@ -406,7 +406,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{\n{\n  \"automation_id\": \"8da1d6bb-05a8-4ffc-b622-863522c1d54f\",\n  \"n8n_workflow_id\": \"lyCrWBmsGlRSMJmo\",\n  \"status\": \"fallback\",\n  \"duration_ms\": new Date().getTime() - $('Set1').first().json.startTime\n}\n}}",
+        "jsonBody": "={{\n{\n  \"automation_id\": \"8da1d6bb-05a8-4ffc-b622-863522c1d54f\",\n  \"n8n_workflow_id\": \"{{ $workflow.id }}\",\n  \"status\": \"fallback\",\n  \"duration_ms\": new Date().getTime() - $('Set1').first().json.startTime\n}\n}}",
         "options": {
           "timeout": 5000
         }
@@ -751,7 +751,7 @@
           },
           "sendBody": true,
           "specifyBody": "json",
-          "jsonBody": "={{\n{\n  \"title\": \"✅ צ'אטבוט: מענה Gemini Flash\",\n  \"message\": \"קלט: \" + $('Webhook1').item.json.body.message + \"\\nתשובה: \" + ((() => { const t = $('HTTP Request').first().json.candidates[0].content.parts[0].text; try { return JSON.parse(t); } catch (e) { const s = t.indexOf('{'); if (s !== -1) { let c = 0; for (let i = s; i < t.length; i++) { if (t[i] === '{') c++; else if (t[i] === '}') { c--; if (c === 0) { try { return JSON.parse(t.substring(s, i + 1)); } catch (err) {} } } } } return { reply: t }; } })().reply),\n  \"type\": \"success\",\n  \"n8n_workflow_id\": \"lyCrWBmsGlRSMJmo\",\n  \"duration_ms\": new Date().getTime() - $('Set1').first().json.startTime\n}\n}}",
+          "jsonBody": "={{\n{\n  \"title\": \"✅ צ'אטבוט: מענה Gemini Flash\",\n  \"message\": \"קלט: \" + $('Webhook1').item.json.body.message + \"\\nתשובה: \" + ((() => { const t = $('HTTP Request').first().json.candidates[0].content.parts[0].text; try { return JSON.parse(t); } catch (e) { const s = t.indexOf('{'); if (s !== -1) { let c = 0; for (let i = s; i < t.length; i++) { if (t[i] === '{') c++; else if (t[i] === '}') { c--; if (c === 0) { try { return JSON.parse(t.substring(s, i + 1)); } catch (err) {} } } } } return { reply: t }; } })().reply),\n  \"type\": \"success\",\n  \"n8n_workflow_id\": \"{{ $workflow.id }}\",\n  \"duration_ms\": new Date().getTime() - $('Set1').first().json.startTime\n}\n}}",
           "options": {}
         },
         "type": "n8n-nodes-base.httpRequest",
@@ -805,7 +805,7 @@
           },
           "sendBody": true,
           "specifyBody": "json",
-          "jsonBody": "={{\n{\n  \"title\": \"⚠️ צ'אטבוט: גיבוי Gemini Pro\",\n  \"message\": \"קלט: \" + $('Webhook1').item.json.body.message + \"\\nתשובה: \" + ((() => { const t = $('HTTP Request (Gemini Fallback)').first().json.candidates[0].content.parts[0].text; try { return JSON.parse(t); } catch (e) { const s = t.indexOf('{'); if (s !== -1) { let c = 0; for (let i = s; i < t.length; i++) { if (t[i] === '{') c++; else if (t[i] === '}') { c--; if (c === 0) { try { return JSON.parse(t.substring(s, i + 1)); } catch (err) {} } } } } return { reply: t }; } })().reply),\n  \"type\": \"warning\",\n  \"n8n_workflow_id\": \"lyCrWBmsGlRSMJmo\",\n  \"duration_ms\": new Date().getTime() - $('Set1').first().json.startTime\n}\n}}",
+          "jsonBody": "={{\n{\n  \"title\": \"⚠️ צ'אטבוט: גיבוי Gemini Pro\",\n  \"message\": \"קלט: \" + $('Webhook1').item.json.body.message + \"\\nתשובה: \" + ((() => { const t = $('HTTP Request (Gemini Fallback)').first().json.candidates[0].content.parts[0].text; try { return JSON.parse(t); } catch (e) { const s = t.indexOf('{'); if (s !== -1) { let c = 0; for (let i = s; i < t.length; i++) { if (t[i] === '{') c++; else if (t[i] === '}') { c--; if (c === 0) { try { return JSON.parse(t.substring(s, i + 1)); } catch (err) {} } } } } return { reply: t }; } })().reply),\n  \"type\": \"warning\",\n  \"n8n_workflow_id\": \"{{ $workflow.id }}\",\n  \"duration_ms\": new Date().getTime() - $('Set1').first().json.startTime\n}\n}}",
           "options": {}
         },
         "type": "n8n-nodes-base.httpRequest",
@@ -900,7 +900,7 @@
           },
           "sendBody": true,
           "specifyBody": "json",
-          "jsonBody": "={\n  \"title\": \"❌ צ'אטבוט: הרצה נחסמה (חריגה ממכסה)\",\n  \"message\": \"ניסיון הרצה נחסם אוטומטית עקב הגעה למכסת הריצות של האוטומציה.\",\n  \"type\": \"error\",\n  \"n8n_workflow_id\": \"lyCrWBmsGlRSMJmo\"\n}",
+          "jsonBody": "={\n  \"title\": \"❌ צ'אטבוט: הרצה נחסמה (חריגה ממכסה)\",\n  \"message\": \"ניסיון הרצה נחסם אוטומטית עקב הגעה למכסת הריצות של האוטומציה.\",\n  \"type\": \"error\",\n  \"n8n_workflow_id\": \"{{ $workflow.id }}\"\n}",
           "options": {}
         },
         "type": "n8n-nodes-base.httpRequest",
