@@ -1219,7 +1219,95 @@ export const db = {
             // Synthesize historical runs
             const synthesizedRuns = dailyStats ? synthesizeRunsFromDailyStats(dailyStats, automationId, workflowIds) : [];
 
-            const merged = [...formattedRuns, ...alertRuns, ...synthesizedRuns];
+            const statusSeverity = { 'success': 1, 'fallback': 2, 'warning': 2, 'error': 3 };
+
+            // 1. Deduplicate replicated runs within formattedRuns (due to DB trigger copying system_alerts to automation_runs)
+            const cleanFormattedRuns = [];
+            const replicatedRuns = [];
+            
+            formattedRuns.forEach(run => {
+                if (run.automation_id) {
+                    cleanFormattedRuns.push(run);
+                } else {
+                    replicatedRuns.push(run);
+                }
+            });
+            
+            const finalReplicatedRuns = [];
+            for (const rep of replicatedRuns) {
+                let matched = false;
+                for (const direct of cleanFormattedRuns) {
+                    const timeDiff = Math.abs(new Date(direct.created_at) - new Date(rep.created_at));
+                    const sameWorkflow = direct.n8n_workflow_id === rep.n8n_workflow_id || 
+                        (workflowIds.includes(direct.n8n_workflow_id) && workflowIds.includes(rep.n8n_workflow_id));
+                    const closeTime = timeDiff < 5000;
+                    
+                    if (sameWorkflow && closeTime) {
+                        if (!direct.title || direct.title === 'ריצת אוטומציה') {
+                            direct.title = rep.title;
+                        }
+                        if (!direct.message) {
+                            direct.message = rep.message;
+                        }
+                        if (rep.ai_analysis) {
+                            direct.ai_analysis = rep.ai_analysis;
+                        }
+                        // Upgrade status if the replicated run has a more severe status
+                        if (statusSeverity[rep.status] > statusSeverity[direct.status]) {
+                            direct.status = rep.status;
+                        }
+                        matched = true;
+                        break;
+                    }
+                }
+                if (!matched) {
+                    finalReplicatedRuns.push(rep);
+                }
+            }
+            
+            const dedupedFormattedRuns = [...cleanFormattedRuns, ...finalReplicatedRuns];
+
+            // 2. Merge alertRuns (from system_alerts) with dedupedFormattedRuns to avoid duplicate entries
+            const finalAlertRuns = [];
+            
+            for (const alert of alertRuns) {
+                let matched = false;
+                
+                for (const run of dedupedFormattedRuns) {
+                    const timeDiff = Math.abs(new Date(run.created_at) - new Date(alert.created_at));
+                    
+                    const sameWorkflow = run.n8n_workflow_id === alert.n8n_workflow_id || 
+                        (workflowIds.includes(run.n8n_workflow_id) && workflowIds.includes(alert.n8n_workflow_id));
+                    const closeTime = timeDiff < 5000;
+                        
+                    if (sameWorkflow && closeTime) {
+                        if (alert.title) run.title = alert.title;
+                        if (alert.message) run.message = alert.message;
+                        if (alert.details) {
+                            run.details = {
+                                ...run.details,
+                                error_message: alert.details.error_message || run.details?.error_message,
+                                warning_message: alert.details.warning_message || run.details?.warning_message
+                            };
+                        }
+                        if (alert.ai_analysis) run.ai_analysis = alert.ai_analysis;
+                        
+                        // Upgrade status if the alert has a more severe status
+                        if (statusSeverity[alert.status] > statusSeverity[run.status]) {
+                            run.status = alert.status;
+                        }
+                        
+                        matched = true;
+                        break;
+                    }
+                }
+                
+                if (!matched) {
+                    finalAlertRuns.push(alert);
+                }
+            }
+
+            const merged = [...dedupedFormattedRuns, ...finalAlertRuns, ...synthesizedRuns];
             const seenIds = new Set();
             const unique = [];
             merged.forEach(run => {
@@ -1686,6 +1774,42 @@ export const db = {
                 file_name: file.name,
                 file_size: file.size,
                 file_url: '#'
+            };
+            const docs = getLocalData(STORAGE_KEYS.DOCUMENTS, INITIAL_MOCK_DOCUMENTS);
+            docs.unshift(newDoc);
+            setLocalData(STORAGE_KEYS.DOCUMENTS, docs);
+            return newDoc;
+        }
+    },
+
+    async linkExistingDocument(docData) {
+        if (isSupabaseConfigured) {
+            const { data, error } = await supabase
+                .from('documents')
+                .insert([{
+                    lead_id: docData.lead_id || null,
+                    automation_id: docData.automation_id || null,
+                    name: docData.name,
+                    type: docData.type,
+                    file_name: docData.file_name,
+                    file_size: docData.file_size,
+                    file_url: docData.file_url
+                }])
+                .select();
+                
+            if (error) throw error;
+            return data[0];
+        } else {
+            const newDoc = {
+                id: 'doc-' + Math.random().toString(36).substr(2, 9),
+                created_at: new Date().toISOString(),
+                lead_id: docData.lead_id || null,
+                automation_id: docData.automation_id || null,
+                name: docData.name,
+                type: docData.type,
+                file_name: docData.file_name,
+                file_size: docData.file_size,
+                file_url: docData.file_url
             };
             const docs = getLocalData(STORAGE_KEYS.DOCUMENTS, INITIAL_MOCK_DOCUMENTS);
             docs.unshift(newDoc);

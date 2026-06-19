@@ -30,9 +30,16 @@ import {
     FileText,
     Sparkles,
     TrendingUp,
-    Search
+    Search,
+    Upload,
+    Download,
+    Paperclip,
+    Calculator,
+    ChevronRight,
+    Save
 } from 'lucide-react';
 import { db } from '../services/db';
+import { downloadTemplate } from '../services/templates';
 
 const parseWorkflows = (workflowsData) => {
     if (!workflowsData) return [];
@@ -92,6 +99,16 @@ const WEBSITE_TYPES_MAP = {
     image: 'אתר תדמיתי מרובה עמודים',
     ecommerce: 'אתר חנות / איקומרס',
     custom: 'אתר פורטל / מערכת מותאמת אישית'
+};
+const DOC_DESCRIPTIONS = {
+    proposal: 'פירוט עלויות ההקמה, התחזוקה החודשית ותנאי הפיתוח של האוטומציות המתוכננות.',
+    contract: 'הסכם ההתקשרות המשפטי והכלכלי החתום המסדיר את התשלום החודשי והתחייבויות הצדדים.',
+    nda: 'הסכם שמירת סודיות להגנה על המידע העסקי הרגיש של הלקוח במהלך הפיתוח והתחזוקה.',
+    spec: 'תרשים זרימה ואפיון מפורט של שלבי האוטומציה, ה-Nodes ב-N8N, והמערכות המקושרות.',
+    credentials: 'פרטי גישה מאובטחים לחשבונות ומערכות הלקוח הדרושים לביצוע החיבורים והאינטגרציות.',
+    handover: 'מסמך אישור חתום על ידי הלקוח המעיד כי האוטומציה נבדקה, נמסרה ועובדת בצורה תקינה.',
+    sla: 'הסכם רמת שירות המפרט את זמני המענה, שעות התמיכה במקרה של תקלות ותנאי התחזוקה השוטפת.',
+    invoice: 'חשבונית מס / קבלה רשמית המאשרת את קבלת התשלום עבור עלויות ההקמה של האוטומציה.'
 };
 const WEBSITE_ADDONS_MAP = {
     chatbot: "צ'אטבוט AI מוטמע (Gemini)",
@@ -173,6 +190,16 @@ const formatDuration = (ms) => {
     return `${hr}h ${remainingMin}m ${remainingSec}.${msecStr}s`;
 };
 
+const formatMTTR = (ms) => {
+    if (ms === null || ms === undefined || ms <= 0) return '—';
+    const hours = ms / (1000 * 60 * 60);
+    if (hours < 24) {
+        return `${Math.round(hours * 10) / 10} שעות`;
+    }
+    const days = Math.round((hours / 24) * 10) / 10;
+    return `${days} ימים`;
+};
+
 export default function LeadDetailsModal({ leadId, onClose, onLeadUpdated }) {
     const [lead, setLead] = useState(null);
     const [notes, setNotes] = useState([]);
@@ -185,6 +212,12 @@ export default function LeadDetailsModal({ leadId, onClose, onLeadUpdated }) {
     // Advanced task state variables
     const [newTaskAssignedTo, setNewTaskAssignedTo] = useState('כללי');
     const [newTaskDependsOn, setNewTaskDependsOn] = useState('');
+
+    // Documents state - available for ALL leads (fixes circular dep: need docs to become won, but docs were only shown after won)
+    const [documents, setDocuments] = useState([]);
+    const [docUploadType, setDocUploadType] = useState('proposal');
+    const [docUploadName, setDocUploadName] = useState('');
+    const [docUploading, setDocUploading] = useState(false);
 
     // Automations and Bugs states for Won projects
     const [automations, setAutomations] = useState([]);
@@ -201,6 +234,10 @@ export default function LeadDetailsModal({ leadId, onClose, onLeadUpdated }) {
     // Additional dashboard/runs states
     const [autoRuns, setAutoRuns] = useState({});
     const [activeAutoTabs, setActiveAutoTabs] = useState({});
+    const [chartStates, setChartStates] = useState({});
+    const [roiSettingsOpen, setRoiSettingsOpen] = useState({});
+    const [tempRoiMins, setTempRoiMins] = useState({});
+    const [tempRoiWage, setTempRoiWage] = useState({});
     const [logStatusFilter, setLogStatusFilter] = useState({});
     const [logTimeFilter, setLogTimeFilter] = useState({});
     const [logSearchFilter, setLogSearchFilter] = useState({});
@@ -217,6 +254,102 @@ export default function LeadDetailsModal({ leadId, onClose, onLeadUpdated }) {
     // Inline workflow input states
     const [wfNameInput, setWfNameInput] = useState({});
     const [wfIdInput, setWfIdInput] = useState({});
+
+    // Document drag-drop state for automation doc slots
+    const [dragActive, setDragActive] = useState({});
+
+    // ── Docs & Calculator Panel ──────────────────────────────────────────────
+    const [showDocsPanel, setShowDocsPanel] = useState(false);
+    const [panelDragActive, setPanelDragActive] = useState(false);
+    // Inline calculator state inside the panel
+    const [calcHours, setCalcHours] = useState(20);
+    const [calcHourlyRate, setCalcHourlyRate] = useState(250);
+    const [calcIntegrations, setCalcIntegrations] = useState(2);
+    const [calcTaskTime, setCalcTaskTime] = useState(10);
+    const [calcMonthlyVolume, setCalcMonthlyVolume] = useState(500);
+    const [calcWage, setCalcWage] = useState(60);
+    const [calcSla, setCalcSla] = useState('standard');
+    const [calcThirdParty, setCalcThirdParty] = useState(0);
+    const [calcSaving, setCalcSaving] = useState(false);
+    const [calcSaved, setCalcSaved] = useState(false);
+    const CALC_SLA = {
+        standard: { name: 'Standard', price: 400 },
+        premium: { name: 'Premium', price: 1000 },
+        enterprise: { name: 'Enterprise', price: 3000 }
+    };
+    // Derived calc values
+    const _calcSetup = Math.round((calcHours * calcHourlyRate * (1 + (calcIntegrations - 1) * 0.15)) / 100) * 100;
+    const _calcSlaPrice = CALC_SLA[calcSla].price;
+    const _calcHoursSaved = Math.round((calcTaskTime / 60) * calcMonthlyVolume);
+    const _calcGross = Math.round(_calcHoursSaved * calcWage);
+    const _calcTotal = _calcSlaPrice + calcThirdParty;
+    const _calcNet = _calcGross - _calcTotal;
+    const _calcBreakeven = _calcTotal > 0 ? Math.ceil(_calcSetup / Math.max(1, _calcNet)) : 0;
+
+    const handleSaveQuoteFromPanel = async () => {
+        if (!leadId) return;
+        setCalcSaving(true);
+        try {
+            const quoteData = {
+                project_type: 'automation',
+                setup_cost: _calcSetup,
+                monthly_cost: _calcTotal,
+                sla_price: _calcSlaPrice,
+                hourly_rate: calcHourlyRate,
+                net_profit: _calcNet,
+                break_even: _calcBreakeven,
+                third_party_costs: calcThirdParty
+            };
+            await db.updateLead(leadId, { quote_data: quoteData });
+            await db.addNote({
+                lead_id: leadId,
+                content: `הצעת מחיר הוזנה ידנית מהמחשבון:\n• עלות הקמה: ₪${_calcSetup.toLocaleString('he-IL')}\n• ריטיינר חודשי: ₪${_calcSlaPrice.toLocaleString('he-IL')}\n• רווח חודשי נקי: ₪${_calcNet.toLocaleString('he-IL')}\n• החזר השקעה: תוך ${_calcBreakeven} חודשים`
+            });
+            // Refresh lead
+            const updatedLead = await db.getLead(leadId);
+            if (updatedLead) setLead(updatedLead);
+            const notesData = await db.getNotes(leadId);
+            setNotes(notesData);
+            onLeadUpdated();
+            setCalcSaved(true);
+            setTimeout(() => setCalcSaved(false), 3000);
+        } catch (err) {
+            console.error('Error saving quote from panel:', err);
+            alert('שגיאה בשמירת הצעת המחיר: ' + (err.message || err));
+        } finally {
+            setCalcSaving(false);
+        }
+    };
+
+    // Panel-level drag handlers
+    const handlePanelDrag = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (e.type === 'dragenter' || e.type === 'dragover') setPanelDragActive(true);
+        else if (e.type === 'dragleave' || e.type === 'drop') setPanelDragActive(false);
+    };
+    const handlePanelDrop = async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setPanelDragActive(false);
+        const file = e.dataTransfer.files?.[0];
+        if (!file || !leadId) return;
+        setDocUploading(true);
+        try {
+            const ext = file.name.split('.').pop().toLowerCase();
+            const guessType = ext === 'pdf' ? 'proposal' : 'other';
+            const newDoc = await db.uploadDocument(
+                { lead_id: leadId, name: file.name, type: guessType },
+                file
+            );
+            setDocuments(prev => [...prev, newDoc]);
+        } catch (err) {
+            console.error('Panel drop upload error:', err);
+        } finally {
+            setDocUploading(false);
+        }
+    };
+    // ─────────────────────────────────────────────────────────────────────────
 
     // Helper to check if a task is blocked by another uncompleted task
     const isTaskBlocked = (task) => {
@@ -547,6 +680,15 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
                 setNotes(notesData);
                 setTasks(tasksData);
 
+                // Load documents for ALL leads (not just won) to allow pre-won document upload
+                try {
+                    const docsData = await db.getDocuments(leadId);
+                    setDocuments(docsData || []);
+                } catch (docErr) {
+                    console.warn("Documents not available:", docErr);
+                    setDocuments([]);
+                }
+
                 if (leadData && leadData.status === 'won') {
                     const autosData = await db.getAutomations(leadId);
                     const bugsData = await db.getBugs();
@@ -570,10 +712,30 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
     }, [leadId]);
 
     const handleUpdateStatus = async (status) => {
+        // ── Document gating (same rules as KanbanBoard) ──
+        if (status === 'proposal' || status === 'won') {
+            const hasProposal = documents.some(d => d.type === 'proposal');
+            if (!hasProposal) {
+                alert("חסימת שלב: חסר מסמך 'הצעת מחיר'.\nלחץ על כפתור 📎 מסמכים בראש החלון כדי להעלות אותו.");
+                return;
+            }
+        }
+        if (status === 'won') {
+            const hasContract = documents.some(d => d.type === 'contract');
+            const hasNDA = documents.some(d => d.type === 'nda');
+            if (!hasContract || !hasNDA) {
+                let missing = [];
+                if (!hasContract) missing.push("חוזה חתום");
+                if (!hasNDA) missing.push("הסכם סודיות NDA");
+                alert(`חסימת שלב: חסרים מסמכי חובה: ${missing.join(' ו')}\nלחץ על כפתור 📎 מסמכים בראש החלון כדי להעלות אותם.`);
+                return;
+            }
+        }
+        // ──────────────────────────────────────────────────
         try {
             const updated = await db.updateLeadStatus(leadId, status);
             setLead(updated);
-            
+
             // If changed to Won, fetch projects tables
             if (status === 'won') {
                 const autosData = await db.getAutomations(leadId);
@@ -590,6 +752,241 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
         } catch (err) {
             console.error("Error updating status:", err);
         }
+    };
+
+    // Document handlers - available for all lead statuses
+    const handleUploadDocument = async (e) => {
+        e.preventDefault();
+        const file = e.target.querySelector('input[type="file"]').files[0];
+        if (!file || !docUploadName.trim()) return;
+        setDocUploading(true);
+        try {
+            const newDoc = await db.uploadDocument(
+                { lead_id: leadId, name: docUploadName.trim(), type: docUploadType },
+                file
+            );
+            setDocuments(prev => [newDoc, ...prev]);
+            setDocUploadName('');
+            e.target.reset();
+        } catch (err) {
+            console.error('Error uploading document:', err);
+            alert('שגיאה בהעלאת המסמך: ' + (err.message || err));
+        } finally {
+            setDocUploading(false);
+        }
+    };
+
+    const handleDeleteDocument = async (docId) => {
+        if (!window.confirm('האם למחוק מסמך זה?')) return;
+        try {
+            await db.deleteDocument(docId);
+            setDocuments(prev => prev.filter(d => d.id !== docId));
+        } catch (err) {
+            console.error('Error deleting document:', err);
+        }
+    };
+
+    // Drag-drop and file upload for per-automation document slots (Won tab)
+    const handleDocDrag = (e, type) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (e.type === "dragenter" || e.type === "dragover") {
+            setDragActive(prev => ({ ...prev, [type]: true }));
+        } else if (e.type === "dragleave") {
+            setDragActive(prev => ({ ...prev, [type]: false }));
+        }
+    };
+
+    const handleDocDrop = async (e, type, automationId = null) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setDragActive(prev => ({ ...prev, [type]: false }));
+        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+            await handleAutoFileUpload(e.dataTransfer.files[0], type, automationId);
+        }
+    };
+
+    const handleAutoFileUpload = async (file, type, automationId = null) => {
+        if (!file) return;
+        const auto = automations.find(a => a.id === automationId);
+        const docNames = {
+            proposal: 'הצעת מחיר', contract: 'חוזה התקשרות חתום', nda: 'הסכם סודיות NDA',
+            spec: 'מסמך אפיון טכני', credentials: 'פרטי גישות וסיסמאות',
+            handover: 'פרוטוקול מסירה חתום', sla: 'תנאי תחזוקה SLA', invoice: 'חשבונית מס'
+        };
+        try {
+            const added = await db.uploadDocument({
+                lead_id: leadId,
+                automation_id: automationId,
+                name: docNames[type] || 'מסמך כללי',
+                type: type
+            }, file);
+            setDocuments(prev => [added, ...prev]);
+            if (leadId) {
+                await db.addNote({ lead_id: leadId, content: `הועלה מסמך חדש מסוג ${docNames[type] || 'כללי'} לאוטומציה ${auto?.name || ''}: ${file.name}` });
+                const notesData = await db.getNotes(leadId);
+                setNotes(notesData);
+            }
+        } catch (err) {
+            console.error("Error uploading document:", err);
+            alert("שגיאה בהעלאת הקובץ: " + (err.message || err));
+        }
+    };
+
+    const handleDeleteAutoDoc = async (docId, docName) => {
+        if (window.confirm(`האם למחוק את המסמך "${docName}"?`)) {
+            try {
+                await db.deleteDocument(docId);
+                setDocuments(prev => prev.filter(d => d.id !== docId));
+            } catch (err) {
+                console.error("Error deleting document:", err);
+                alert("שגיאה במחיקת המסמך: " + (err.message || err));
+            }
+        }
+    };
+
+    const handleLinkExistingDoc = async (existingDoc, type, automationId) => {
+        const auto = automations.find(a => a.id === automationId);
+        const docNames = {
+            proposal: 'הצעת מחיר', contract: 'חוזה התקשרות חתום', nda: 'הסכם סודיות NDA',
+            spec: 'מסמך אפיון טכני', credentials: 'פרטי גישות וסיסמאות',
+            handover: 'פרוטוקול מסירה חתום', sla: 'תנאי תחזוקה SLA', invoice: 'חשבונית מס'
+        };
+        try {
+            const added = await db.linkExistingDocument({
+                lead_id: leadId,
+                automation_id: automationId,
+                name: docNames[type] || existingDoc.name,
+                type: type,
+                file_name: existingDoc.file_name,
+                file_size: existingDoc.file_size,
+                file_url: existingDoc.file_url
+            });
+            setDocuments(prev => [added, ...prev]);
+            if (leadId) {
+                await db.addNote({ lead_id: leadId, content: `קושר מסמך קיים מסוג ${docNames[type] || 'כללי'} לאוטומציה ${auto?.name || ''}: ${existingDoc.file_name}` });
+                const notesData = await db.getNotes(leadId);
+                setNotes(notesData);
+            }
+        } catch (err) {
+            console.error("Error linking document:", err);
+            alert("שגיאה בשיוך הקובץ: " + (err.message || err));
+        }
+    };
+
+    // Render a single document slot for automation (spec, credentials, handover, etc.)
+    const renderAutoDocumentSlot = (auto, type, label, requiredForStatus) => {
+        const doc = documents.find(d => d.automation_id === auto.id && d.type === type);
+        const uniqueKey = `${auto.id}_${type}`;
+        const isDragActive = dragActive[uniqueKey];
+        const existingDocs = documents.filter(d => d.type === type && d.automation_id !== auto.id);
+
+        return (
+            <div
+                key={type}
+                className={`glass-card ${isDragActive ? 'drag-active' : ''}`}
+                style={{
+                    padding: '12px', border: isDragActive ? '2px dashed #8b5cf6' : '1px solid rgba(255,255,255,0.05)',
+                    borderRadius: '6px', background: isDragActive ? 'rgba(139, 92, 246, 0.04)' : 'rgba(255,255,255,0.01)',
+                    position: 'relative', transition: 'all 0.2s ease', display: 'flex', flexDirection: 'column', gap: '8px'
+                }}
+                onDragEnter={(e) => handleDocDrag(e, uniqueKey)}
+                onDragOver={(e) => handleDocDrag(e, uniqueKey)}
+                onDragLeave={(e) => handleDocDrag(e, uniqueKey)}
+                onDrop={(e) => handleDocDrop(e, uniqueKey, auto.id)}
+            >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '11px', fontWeight: '600', color: 'var(--text-light)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        {label}
+                        {requiredForStatus && (
+                            <span style={{ fontSize: '9px', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', padding: '1px 4px', borderRadius: '3px' }}>
+                                חובה ל-{requiredForStatus}
+                            </span>
+                        )}
+                    </span>
+                    {doc && (
+                        <span style={{ fontSize: '9px', color: '#10b981', background: 'rgba(16, 185, 129, 0.1)', padding: '1px 4px', borderRadius: '3px' }}>קיים</span>
+                    )}
+                </div>
+                <span style={{ fontSize: '9.5px', color: 'var(--text-secondary)', lineHeight: '1.3', marginTop: '-2px' }}>
+                    {DOC_DESCRIPTIONS[type]}
+                </span>
+
+                {doc ? (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(255,255,255,0.02)', padding: '6px 8px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.03)' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', overflow: 'hidden', maxWidth: '75%' }}>
+                            <span style={{ fontSize: '11px', color: 'var(--text-light)', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }} title={doc.file_name}>{doc.file_name}</span>
+                            <span style={{ fontSize: '9px', color: 'var(--text-secondary)' }}>{(doc.file_size / 1024).toFixed(1)} KB</span>
+                        </div>
+                        <div style={{ display: 'flex', gap: '4px' }}>
+                            <a href={doc.file_url} target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-icon" style={{ width: '22px', height: '22px', padding: '0', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="הורד/צפה">
+                                <Download size={10} />
+                            </a>
+                            <button className="btn btn-danger btn-icon" style={{ width: '22px', height: '22px', padding: '0', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: 'none' }} onClick={() => handleDeleteAutoDoc(doc.id, doc.name)} title="מחק מסמך">
+                                <Trash2 size={10} />
+                            </button>
+                        </div>
+                    </div>
+                ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1 }}>
+                        <label style={{ border: '1px dashed rgba(255,255,255,0.1)', borderRadius: '4px', padding: '12px 6px', textAlign: 'center', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '4px', background: 'transparent', transition: 'all 0.2s ease' }}>
+                            <Upload size={14} style={{ color: 'var(--text-secondary)' }} />
+                            <span style={{ fontSize: '9.5px', color: 'var(--text-secondary)' }}>
+                                גרור קובץ או <span style={{ color: '#c084fc', textDecoration: 'underline' }}>לחץ לבחירה</span>
+                            </span>
+                            <input type="file" style={{ display: 'none' }} onChange={(e) => { if (e.target.files && e.target.files[0]) handleAutoFileUpload(e.target.files[0], type, auto.id); }} />
+                        </label>
+                        
+                        {existingDocs.length > 0 && (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                <span style={{ fontSize: '9px', color: 'var(--text-muted)' }}>שיוך מסמך קיים של הלקוח:</span>
+                                <select
+                                    onChange={(e) => {
+                                        const selectedId = e.target.value;
+                                        if (selectedId) {
+                                            const selectedDoc = existingDocs.find(d => d.id === selectedId);
+                                            if (selectedDoc) handleLinkExistingDoc(selectedDoc, type, auto.id);
+                                        }
+                                    }}
+                                    defaultValue=""
+                                    className="form-control"
+                                    style={{
+                                        padding: '4px 6px',
+                                        fontSize: '9.5px',
+                                        background: 'rgba(0,0,0,0.2)',
+                                        border: '1px solid rgba(255,255,255,0.05)',
+                                        borderRadius: '4px',
+                                        color: 'var(--text-secondary)',
+                                        cursor: 'pointer',
+                                        width: '100%',
+                                        outline: 'none',
+                                        height: '24px'
+                                    }}
+                                >
+                                    <option value="" disabled>בחר מסמך לשיוך...</option>
+                                    {existingDocs.map(d => (
+                                        <option key={d.id} value={d.id}>
+                                            {d.file_name} ({automations.find(a => a.id === d.automation_id)?.name || 'מסמכים כלליים'})
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
+
+                        <button
+                            type="button"
+                            onClick={() => downloadTemplate(type, lead)}
+                            className="btn btn-secondary"
+                            style={{ fontSize: '9.5px', padding: '3px 6px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)', borderRadius: '4px', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', width: '100%', transition: 'all 0.2s ease' }}
+                            onMouseEnter={(e) => { e.target.style.background = 'rgba(255,255,255,0.06)'; e.target.style.color = 'var(--text-light)'; }}
+                            onMouseLeave={(e) => { e.target.style.background = 'rgba(255,255,255,0.02)'; e.target.style.color = 'var(--text-secondary)'; }}
+                        >
+                            <FileText size={10} /> הורד תבנית שבלונה
+                        </button>
+                    </div>
+                )}
+            </div>
+        );
     };
 
     const handleUpdatePriority = async (priority) => {
@@ -706,6 +1103,22 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
 
     // Update automation status handler
     const handleUpdateAutoStatus = async (autoId, status) => {
+        // ── Live gating: requires spec + credentials + handover ────────────────
+        if (status === 'live') {
+            const autoDocs = documents.filter(d => d.automation_id === autoId);
+            const hasSpec = autoDocs.some(d => d.type === 'spec');
+            const hasCreds = autoDocs.some(d => d.type === 'credentials');
+            const hasHandover = autoDocs.some(d => d.type === 'handover');
+            if (!hasSpec || !hasCreds || !hasHandover) {
+                const missing = [];
+                if (!hasSpec) missing.push('מסמך אפיון טכני');
+                if (!hasCreds) missing.push('כרטיס גישות מאובטח');
+                if (!hasHandover) missing.push('פרוטוקול מסירה');
+                alert(`חסימת שלב: כדי להעביר אוטומציה ל-Live, יש להעלות:\n• ${missing.join('\n• ')}\n\nלחץ על האוטומציה כדי לפתוח את לוח המסמכים.`);
+                return;
+            }
+        }
+        // ────────────────────────────────────────────────────────────────────────
         try {
             const updated = await db.updateAutomation(autoId, { status });
             setAutomations(prev => prev.map(a => a.id === autoId ? updated : a));
@@ -784,6 +1197,122 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
 
     const leadAutos = automations.filter(a => a.lead_id === leadId);
 
+    const additionalDocs = documents.filter(d => !d.automation_id && d.type !== 'proposal' && d.type !== 'nda' && d.type !== 'contract');
+
+    const renderLeadDocumentSlot = (type, label, requiredForStatus) => {
+        const doc = documents.find(d => d.type === type && !d.automation_id);
+        const uniqueKey = `lead_${type}`;
+        const isDragActive = dragActive[uniqueKey];
+
+        return (
+            <div
+                key={type}
+                className={`glass-card ${isDragActive ? 'drag-active' : ''}`}
+                style={{
+                    padding: '12px', border: isDragActive ? '2px dashed #8b5cf6' : '1px solid rgba(255,255,255,0.05)',
+                    borderRadius: '6px', background: isDragActive ? 'rgba(139, 92, 246, 0.04)' : 'rgba(255,255,255,0.01)',
+                    position: 'relative', transition: 'all 0.2s ease', display: 'flex', flexDirection: 'column', gap: '8px'
+                }}
+                onDragEnter={(e) => handleDocDrag(e, uniqueKey)}
+                onDragOver={(e) => handleDocDrag(e, uniqueKey)}
+                onDragLeave={(e) => handleDocDrag(e, uniqueKey)}
+                onDrop={async (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setDragActive(prev => ({ ...prev, [uniqueKey]: false }));
+                    const file = e.dataTransfer.files?.[0];
+                    if (!file || !leadId) return;
+                    setDocUploading(true);
+                    try {
+                        const added = await db.uploadDocument({ lead_id: leadId, name: label, type: type }, file);
+                        setDocuments(prev => [...prev, added]);
+                        await db.addNote({ lead_id: leadId, content: `הועלה מסמך חדש: ${label} (${file.name})` });
+                        const notesData = await db.getNotes(leadId);
+                        setNotes(notesData);
+                    } catch (err) {
+                        alert('שגיאה בהעלאה: ' + (err.message || err));
+                    } finally {
+                        setDocUploading(false);
+                    }
+                }}
+            >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '11px', fontWeight: '600', color: 'var(--text-light)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        {label}
+                        {requiredForStatus && (
+                            <span style={{ fontSize: '9px', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', padding: '1px 4px', borderRadius: '3px' }}>
+                                חובה ל-{requiredForStatus}
+                            </span>
+                        )}
+                    </span>
+                    {doc ? (
+                        <span style={{ fontSize: '9px', color: '#10b981', background: 'rgba(16, 185, 129, 0.1)', padding: '1px 4px', borderRadius: '3px' }}>קיים</span>
+                    ) : (
+                        <span style={{ fontSize: '9px', color: '#ef4444', background: 'rgba(239, 68, 68, 0.08)', padding: '1px 4px', borderRadius: '3px' }}>חסר</span>
+                    )}
+                </div>
+                <span style={{ fontSize: '9.5px', color: 'var(--text-secondary)', lineHeight: '1.3', marginTop: '-2px' }}>
+                    {DOC_DESCRIPTIONS[type]}
+                </span>
+
+                {doc ? (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(255,255,255,0.02)', padding: '6px 8px', borderRadius: '4px', border: '1px solid rgba(255, 255, 255, 0.03)' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', overflow: 'hidden', maxWidth: '75%' }}>
+                            <span style={{ fontSize: '11px', color: 'var(--text-light)', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }} title={doc.file_name || doc.name}>{doc.file_name || doc.name}</span>
+                            <span style={{ fontSize: '9px', color: 'var(--text-secondary)' }}>{doc.file_size ? `${(doc.file_size / 1024).toFixed(1)} KB` : new Date(doc.created_at).toLocaleDateString('he-IL')}</span>
+                        </div>
+                        <div style={{ display: 'flex', gap: '4px' }}>
+                            {doc.file_url && (
+                                <a href={doc.file_url} target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-icon" style={{ width: '22px', height: '22px', padding: '0', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="הורד/צפה">
+                                    <Download size={10} />
+                                </a>
+                            )}
+                            <button className="btn btn-danger btn-icon" style={{ width: '22px', height: '22px', padding: '0', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: 'none' }} onClick={() => handleDeleteDocument(doc.id)} title="مחק מסמך">
+                                <Trash2 size={10} />
+                            </button>
+                        </div>
+                    </div>
+                ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1 }}>
+                        <label style={{ border: '1px dashed rgba(255,255,255,0.1)', borderRadius: '4px', padding: '12px 6px', textAlign: 'center', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '4px', background: 'transparent', transition: 'all 0.2s ease' }}>
+                            <Upload size={14} style={{ color: 'var(--text-secondary)' }} />
+                            <span style={{ fontSize: '9.5px', color: 'var(--text-secondary)' }}>
+                                גרור קובץ או <span style={{ color: '#c084fc', textDecoration: 'underline' }}>לחץ לבחירה</span>
+                            </span>
+                            <input type="file" style={{ display: 'none' }} onChange={async (e) => {
+                                if (e.target.files && e.target.files[0]) {
+                                    const file = e.target.files[0];
+                                    setDocUploading(true);
+                                    try {
+                                        const added = await db.uploadDocument({ lead_id: leadId, name: label, type: type }, file);
+                                        setDocuments(prev => [...prev, added]);
+                                        await db.addNote({ lead_id: leadId, content: `הועלה מסמך חדש: ${label} (${file.name})` });
+                                        const notesData = await db.getNotes(leadId);
+                                        setNotes(notesData);
+                                    } catch (err) {
+                                        alert('שגיאה בהעלאה: ' + (err.message || err));
+                                    } finally {
+                                        setDocUploading(false);
+                                    }
+                                }
+                            }} />
+                        </label>
+                        <button
+                            type="button"
+                            onClick={() => downloadTemplate(type, lead)}
+                            className="btn btn-secondary"
+                            style={{ fontSize: '9.5px', padding: '3px 6px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)', borderRadius: '4px', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', width: '100%', transition: 'all 0.2s ease' }}
+                            onMouseEnter={(e) => { e.target.style.background = 'rgba(255,255,255,0.06)'; e.target.style.color = 'var(--text-light)'; }}
+                            onMouseLeave={(e) => { e.target.style.background = 'rgba(255,255,255,0.02)'; e.target.style.color = 'var(--text-secondary)'; }}
+                        >
+                            <FileText size={10} /> הורד תבנית שבלונה
+                        </button>
+                    </div>
+                )}
+            </div>
+        );
+    };
+
     const statusBadges = {
         design: <span className="badge badge-new" style={{ fontSize: '10px', padding: '1px 6px' }}>אפיון</span>,
         development: <span className="badge badge-contacted" style={{ fontSize: '10px', padding: '1px 6px' }}>פיתוח</span>,
@@ -801,10 +1330,186 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
                         <Activity size={20} className="text-violet" style={{ color: '#8b5cf6' }} />
                         פרטי ליד מורחבים: {loading ? 'טוען...' : lead?.name}
                     </h2>
-                    <button className="btn btn-secondary btn-icon" onClick={onClose}>
-                        <X size={16} />
-                    </button>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        {/* Docs & Calculator Panel Button */}
+                        {!loading && lead && (
+                            <button
+                                id="lead-docs-panel-btn"
+                                className="btn btn-secondary"
+                                onClick={() => setShowDocsPanel(true)}
+                                style={{
+                                    display: 'flex', alignItems: 'center', gap: '6px',
+                                    fontSize: '12px', padding: '6px 12px',
+                                    background: documents.length > 0 ? 'rgba(139,92,246,0.15)' : 'rgba(255,255,255,0.05)',
+                                    border: documents.length > 0 ? '1px solid rgba(139,92,246,0.4)' : '1px solid var(--border-color)',
+                                    color: documents.length > 0 ? '#c084fc' : 'var(--text-secondary)',
+                                    borderRadius: '8px', transition: 'all 0.2s ease'
+                                }}
+                                title="פתח פאנל מסמכים"
+                            >
+                                <Paperclip size={14} />
+                                מסמכים
+                                {documents.length > 0 && (
+                                    <span style={{
+                                        background: '#8b5cf6', color: '#fff',
+                                        borderRadius: '10px', fontSize: '10px',
+                                        padding: '1px 6px', fontWeight: '700'
+                                    }}>{documents.length}</span>
+                                )}
+                            </button>
+                        )}
+                        <button className="btn btn-secondary btn-icon" onClick={onClose}>
+                            <X size={16} />
+                        </button>
+                    </div>
                 </div>
+
+                {/* ═══════════════════════════════════════════════════════════
+                     DOCS & CALCULATOR SIDE PANEL
+                ═══════════════════════════════════════════════════════════ */}
+                {showDocsPanel && lead && (
+                    <>
+                        {/* Backdrop */}
+                        <div
+                            onClick={() => setShowDocsPanel(false)}
+                            style={{
+                                position: 'fixed', inset: 0, zIndex: 9000,
+                                background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(3px)'
+                            }}
+                        />
+                        {/* Panel */}
+                        <div
+                            id="lead-docs-side-panel"
+                            onDragEnter={handlePanelDrag}
+                            onDragOver={handlePanelDrag}
+                            onDragLeave={handlePanelDrag}
+                            onDrop={handlePanelDrop}
+                            style={{
+                                position: 'fixed', top: 0, right: 0, bottom: 0,
+                                width: '420px', zIndex: 9001,
+                                background: 'var(--bg-secondary, #1a1a2e)',
+                                borderLeft: panelDragActive
+                                    ? '2px solid #8b5cf6'
+                                    : '1px solid rgba(139,92,246,0.25)',
+                                display: 'flex', flexDirection: 'column',
+                                overflowY: 'auto',
+                                transition: 'border-color 0.2s',
+                                boxShadow: '-8px 0 40px rgba(0,0,0,0.5)'
+                            }}
+                        >
+                            {/* Panel Header */}
+                            <div style={{
+                                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                padding: '16px 20px', borderBottom: '1px solid rgba(139,92,246,0.2)',
+                                background: 'rgba(139,92,246,0.07)', position: 'sticky', top: 0, zIndex: 1
+                            }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <Paperclip size={16} style={{ color: '#c084fc' }} />
+                                    <span style={{ fontSize: '15px', fontWeight: '600', color: 'var(--text-light)' }}>מסמכים</span>
+                                    <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>— {lead.name}</span>
+                                </div>
+                                <button
+                                    className="btn btn-secondary btn-icon"
+                                    onClick={() => setShowDocsPanel(false)}
+                                    style={{ width: '28px', height: '28px', padding: 0 }}
+                                >
+                                    <ChevronRight size={15} />
+                                </button>
+                            </div>
+
+                            {/* Panel Body */}
+                            <div style={{ padding: '16px 0', display: 'flex', flexDirection: 'column', gap: '16px', flex: 1, overflowY: 'auto' }}>
+                                
+                                {/* ── Gating Documents Cards Section ── */}
+                                <div style={{ padding: '0 20px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                    <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', letterSpacing: '0.06em', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                                        <Lock size={11} /> מסמכי חובה לעסקה
+                                    </div>
+                                    {renderLeadDocumentSlot('proposal', 'הצעת מחיר', 'הצעת מחיר')}
+                                    {renderLeadDocumentSlot('nda', 'הסכם סודיות NDA', 'נסגר בהצלחה')}
+                                    {renderLeadDocumentSlot('contract', 'חוזה חתום', 'נסגר בהצלחה')}
+                                </div>
+
+                                {/* ── Additional Documents Section ── */}
+                                <div style={{ padding: '0 20px' }}>
+                                    <div style={{ padding: '12px', background: 'rgba(255,255,255,0.01)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '8px' }}>
+                                        <div style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-secondary)', marginBottom: '10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                <Paperclip size={13} /> מסמכים נוספים ({additionalDocs.length})
+                                            </span>
+                                            <label style={{ fontSize: '10.5px', color: '#c084fc', cursor: 'pointer', textDecoration: 'underline', margin: 0, display: 'flex', alignItems: 'center', gap: '3px' }}>
+                                                <Plus size={10} /> הוסף מסמך
+                                                <input
+                                                    type="file"
+                                                    style={{ display: 'none' }}
+                                                    onChange={async (e) => {
+                                                        if (e.target.files && e.target.files[0]) {
+                                                            const file = e.target.files[0];
+                                                            setDocUploading(true);
+                                                            try {
+                                                                const added = await db.uploadDocument({ lead_id: leadId, name: file.name, type: 'other' }, file);
+                                                                setDocuments(prev => [...prev, added]);
+                                                                await db.addNote({ lead_id: leadId, content: `הועלה מסמך נוסף: ${file.name}` });
+                                                                const notesData = await db.getNotes(leadId);
+                                                                setNotes(notesData);
+                                                            } catch (err) {
+                                                                alert('שגיאה בהעלאה: ' + (err.message || err));
+                                                            } finally {
+                                                                setDocUploading(false);
+                                                            }
+                                                        }
+                                                    }}
+                                                />
+                                            </label>
+                                        </div>
+
+                                        {additionalDocs.length === 0 ? (
+                                            <p style={{ fontSize: '11px', color: 'var(--text-muted)', fontStyle: 'italic', textAlign: 'center', margin: '8px 0 0' }}>אין מסמכים נוספים</p>
+                                        ) : (
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '8px' }}>
+                                                {additionalDocs.map(doc => (
+                                                    <div key={doc.id} style={{
+                                                        display: 'flex', alignItems: 'center', gap: '8px',
+                                                        padding: '8px 10px',
+                                                        background: 'rgba(255,255,255,0.02)',
+                                                        border: '1px solid var(--border-color)',
+                                                        borderRight: '3px solid #6b7280',
+                                                        borderRadius: '6px'
+                                                    }}>
+                                                        <FileText size={13} style={{ color: '#6b7280', flexShrink: 0 }} />
+                                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                                            <div style={{ fontSize: '11px', color: 'var(--text-light)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={doc.name}>{doc.name}</div>
+                                                            <div style={{ fontSize: '9px', color: 'var(--text-muted)', marginTop: '1px' }}>
+                                                                {doc.file_size ? `${(doc.file_size / 1024).toFixed(1)} KB` : new Date(doc.created_at).toLocaleDateString('he-IL')}
+                                                            </div>
+                                                        </div>
+                                                        <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
+                                                            {doc.file_url && (
+                                                                <a href={doc.file_url} target="_blank" rel="noopener noreferrer"
+                                                                    className="btn btn-secondary btn-icon"
+                                                                    style={{ width: '22px', height: '22px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}
+                                                                    title="הורד / פתח"
+                                                                ><Download size={10} /></a>
+                                                            )}
+                                                            <button
+                                                                className="btn btn-secondary btn-icon"
+                                                                onClick={() => handleDeleteDocument(doc.id)}
+                                                                style={{ width: '22px', height: '22px', padding: 0, background: 'transparent', border: 'none' }}
+                                                                title="מחק"
+                                                            ><Trash2 size={10} style={{ color: '#ef4444' }} /></button>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                            {/* Panel close padding */}
+                            <div style={{ height: '20px' }} />
+                        </div>
+                    </>
+                )}
 
                 {loading ? (
                     <div style={{ padding: '60px', textAlign: 'center' }}>
@@ -1182,6 +1887,11 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
                             </div>
                         </div>
 
+                        {/* Documents & Files card removed — the 3 gating docs
+                             (proposal / nda / contract) are managed via the 📎
+                             side panel button in the modal header. All other
+                             documents live inside the automation rows (Won only). */}
+
                         {/* Won Lead - Automations & Bugs Dashboard */}
                         {lead && lead.status === 'won' && (
                             <div className="glass-card" style={{ marginTop: '20px', padding: '20px' }}>
@@ -1352,12 +2062,13 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
                                                                                 
                                                                                 {/* Tabs Row */}
                                                                                 <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '6px', marginBottom: '10px' }} onClick={(e) => e.stopPropagation()}>
-                                                                                    {['ops', 'stats', 'runs'].map(tab => {
+                                                                                    {['ops', 'stats', 'runs', 'docs'].map(tab => {
                                                                                         const runsCount = (autoRuns[auto.id] || []).length;
                                                                                         const labels = { 
                                                                                             ops: 'תפעול ואפיון', 
                                                                                             stats: 'מדדים וסטטיסטיקות', 
-                                                                                            runs: `לוג ריצות (${runsCount})` 
+                                                                                            runs: `לוג ריצות (${runsCount})`,
+                                                                                            docs: 'מסמכים'
                                                                                         };
                                                                                         const isActive = (activeAutoTabs[auto.id] || 'ops') === tab;
                                                                                         return (
@@ -2686,6 +3397,25 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
                                                                                                     );
                                                                                                 });
                                                                                             })()}
+                                                                                        </div>
+                                                                                    </div>
+                                                                                )}
+
+                                                                                {/* Tab Content: Documents (per automation) */}
+                                                                                {(activeAutoTabs[auto.id] || 'ops') === 'docs' && (
+                                                                                    <div onClick={(e) => e.stopPropagation()} style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '10px 0' }}>
+                                                                                        <div style={{ display: 'flex', gap: '8px', background: 'rgba(139,92,246,0.03)', border: '1px solid rgba(139,92,246,0.1)', borderRadius: '6px', padding: '10px 12px', alignItems: 'flex-start' }}>
+                                                                                            <Info size={14} style={{ color: '#c084fc', marginTop: '2px', flexShrink: 0 }} />
+                                                                                            <span style={{ fontSize: '11px', color: 'var(--text-secondary)', lineHeight: '1.4' }}>
+                                                                                                <strong>מצב Live (באוויר):</strong> האוטומציה פועלת באופן רציף בסביבת הייצור (ייצור/פרודקשן) ומבצעת משימות אמיתיות עבור הלקוח. העברה ל-Live חסומה עד להעלאת שלושת מסמכי החובה הטכניים (אפיון טכני, כרטיס גישות מאובטח ופרוטוקול מסירה חתום).
+                                                                                            </span>
+                                                                                        </div>
+                                                                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px' }}>
+                                                                                            {renderAutoDocumentSlot(auto, 'spec', 'מסמך אפיון טכני', 'Live')}
+                                                                                            {renderAutoDocumentSlot(auto, 'credentials', 'כרטיס גישות מאובטח', 'Live')}
+                                                                                            {renderAutoDocumentSlot(auto, 'handover', 'פרוטוקול מסירה', 'Live')}
+                                                                                            {renderAutoDocumentSlot(auto, 'sla', 'תנאי תחזוקה SLA', null)}
+                                                                                            {renderAutoDocumentSlot(auto, 'invoice', 'חשבונית מס', null)}
                                                                                         </div>
                                                                                     </div>
                                                                                 )}
