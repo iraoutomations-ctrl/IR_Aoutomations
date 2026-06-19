@@ -1219,7 +1219,47 @@ export const db = {
             // Synthesize historical runs
             const synthesizedRuns = dailyStats ? synthesizeRunsFromDailyStats(dailyStats, automationId, workflowIds) : [];
 
-            const merged = [...formattedRuns, ...alertRuns, ...synthesizedRuns];
+            // Merge alerts with automation runs to avoid duplicate entries for the same execution
+            const finalAlertRuns = [];
+            
+            for (const alert of alertRuns) {
+                let matched = false;
+                
+                for (const run of formattedRuns) {
+                    const timeDiff = Math.abs(new Date(run.created_at) - new Date(alert.created_at));
+                    
+                    const sameWorkflow = run.n8n_workflow_id === alert.n8n_workflow_id;
+                    const closeTime = timeDiff < 5000;
+                    const statusMatch = 
+                        (run.status === 'success' && alert.status === 'success') ||
+                        (run.status === 'fallback' && alert.status === 'warning') ||
+                        (run.status === 'error' && alert.status === 'error') ||
+                        (run.status === 'warning' && alert.status === 'warning');
+                        
+                    if (sameWorkflow && closeTime && statusMatch) {
+                        // Merge alert details into the main run record
+                        if (alert.title) run.title = alert.title;
+                        if (alert.message) run.message = alert.message;
+                        if (alert.details) {
+                            run.details = {
+                                ...run.details,
+                                error_message: alert.details.error_message || run.details?.error_message,
+                                warning_message: alert.details.warning_message || run.details?.warning_message
+                            };
+                        }
+                        if (alert.ai_analysis) run.ai_analysis = alert.ai_analysis;
+                        
+                        matched = true;
+                        break;
+                    }
+                }
+                
+                if (!matched) {
+                    finalAlertRuns.push(alert);
+                }
+            }
+
+            const merged = [...formattedRuns, ...finalAlertRuns, ...synthesizedRuns];
             const seenIds = new Set();
             const unique = [];
             merged.forEach(run => {
