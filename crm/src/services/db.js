@@ -1219,6 +1219,8 @@ export const db = {
             // Synthesize historical runs
             const synthesizedRuns = dailyStats ? synthesizeRunsFromDailyStats(dailyStats, automationId, workflowIds) : [];
 
+            const statusSeverity = { 'success': 1, 'fallback': 2, 'warning': 2, 'error': 3 };
+
             // 1. Deduplicate replicated runs within formattedRuns (due to DB trigger copying system_alerts to automation_runs)
             const cleanFormattedRuns = [];
             const replicatedRuns = [];
@@ -1236,7 +1238,8 @@ export const db = {
                 let matched = false;
                 for (const direct of cleanFormattedRuns) {
                     const timeDiff = Math.abs(new Date(direct.created_at) - new Date(rep.created_at));
-                    const sameWorkflow = direct.n8n_workflow_id === rep.n8n_workflow_id;
+                    const sameWorkflow = direct.n8n_workflow_id === rep.n8n_workflow_id || 
+                        (workflowIds.includes(direct.n8n_workflow_id) && workflowIds.includes(rep.n8n_workflow_id));
                     const closeTime = timeDiff < 5000;
                     
                     if (sameWorkflow && closeTime) {
@@ -1248,6 +1251,10 @@ export const db = {
                         }
                         if (rep.ai_analysis) {
                             direct.ai_analysis = rep.ai_analysis;
+                        }
+                        // Upgrade status if the replicated run has a more severe status
+                        if (statusSeverity[rep.status] > statusSeverity[direct.status]) {
+                            direct.status = rep.status;
                         }
                         matched = true;
                         break;
@@ -1269,15 +1276,11 @@ export const db = {
                 for (const run of dedupedFormattedRuns) {
                     const timeDiff = Math.abs(new Date(run.created_at) - new Date(alert.created_at));
                     
-                    const sameWorkflow = run.n8n_workflow_id === alert.n8n_workflow_id;
+                    const sameWorkflow = run.n8n_workflow_id === alert.n8n_workflow_id || 
+                        (workflowIds.includes(run.n8n_workflow_id) && workflowIds.includes(alert.n8n_workflow_id));
                     const closeTime = timeDiff < 5000;
-                    const statusMatch = 
-                        (run.status === 'success' && alert.status === 'success') ||
-                        (run.status === 'fallback' && alert.status === 'warning') ||
-                        (run.status === 'error' && alert.status === 'error') ||
-                        (run.status === 'warning' && alert.status === 'warning');
                         
-                    if (sameWorkflow && closeTime && statusMatch) {
+                    if (sameWorkflow && closeTime) {
                         if (alert.title) run.title = alert.title;
                         if (alert.message) run.message = alert.message;
                         if (alert.details) {
@@ -1288,6 +1291,11 @@ export const db = {
                             };
                         }
                         if (alert.ai_analysis) run.ai_analysis = alert.ai_analysis;
+                        
+                        // Upgrade status if the alert has a more severe status
+                        if (statusSeverity[alert.status] > statusSeverity[run.status]) {
+                            run.status = alert.status;
+                        }
                         
                         matched = true;
                         break;
