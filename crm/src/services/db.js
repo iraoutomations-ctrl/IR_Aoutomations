@@ -1219,13 +1219,54 @@ export const db = {
             // Synthesize historical runs
             const synthesizedRuns = dailyStats ? synthesizeRunsFromDailyStats(dailyStats, automationId, workflowIds) : [];
 
-            // Merge alerts with automation runs to avoid duplicate entries for the same execution
+            // 1. Deduplicate replicated runs within formattedRuns (due to DB trigger copying system_alerts to automation_runs)
+            const cleanFormattedRuns = [];
+            const replicatedRuns = [];
+            
+            formattedRuns.forEach(run => {
+                if (run.automation_id) {
+                    cleanFormattedRuns.push(run);
+                } else {
+                    replicatedRuns.push(run);
+                }
+            });
+            
+            const finalReplicatedRuns = [];
+            for (const rep of replicatedRuns) {
+                let matched = false;
+                for (const direct of cleanFormattedRuns) {
+                    const timeDiff = Math.abs(new Date(direct.created_at) - new Date(rep.created_at));
+                    const sameWorkflow = direct.n8n_workflow_id === rep.n8n_workflow_id;
+                    const closeTime = timeDiff < 5000;
+                    
+                    if (sameWorkflow && closeTime) {
+                        if (!direct.title || direct.title === 'ריצת אוטומציה') {
+                            direct.title = rep.title;
+                        }
+                        if (!direct.message) {
+                            direct.message = rep.message;
+                        }
+                        if (rep.ai_analysis) {
+                            direct.ai_analysis = rep.ai_analysis;
+                        }
+                        matched = true;
+                        break;
+                    }
+                }
+                if (!matched) {
+                    finalReplicatedRuns.push(rep);
+                }
+            }
+            
+            const dedupedFormattedRuns = [...cleanFormattedRuns, ...finalReplicatedRuns];
+
+            // 2. Merge alertRuns (from system_alerts) with dedupedFormattedRuns to avoid duplicate entries
             const finalAlertRuns = [];
             
             for (const alert of alertRuns) {
                 let matched = false;
                 
-                for (const run of formattedRuns) {
+                for (const run of dedupedFormattedRuns) {
                     const timeDiff = Math.abs(new Date(run.created_at) - new Date(alert.created_at));
                     
                     const sameWorkflow = run.n8n_workflow_id === alert.n8n_workflow_id;
@@ -1237,7 +1278,6 @@ export const db = {
                         (run.status === 'warning' && alert.status === 'warning');
                         
                     if (sameWorkflow && closeTime && statusMatch) {
-                        // Merge alert details into the main run record
                         if (alert.title) run.title = alert.title;
                         if (alert.message) run.message = alert.message;
                         if (alert.details) {
@@ -1259,7 +1299,7 @@ export const db = {
                 }
             }
 
-            const merged = [...formattedRuns, ...finalAlertRuns, ...synthesizedRuns];
+            const merged = [...dedupedFormattedRuns, ...finalAlertRuns, ...synthesizedRuns];
             const seenIds = new Set();
             const unique = [];
             merged.forEach(run => {
