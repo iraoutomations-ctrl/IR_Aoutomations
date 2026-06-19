@@ -138,6 +138,7 @@ export default function App() {
                         key="projects" 
                         onSelectLead={handleSelectLead} 
                         activeTab={activeTab}
+                        onLeadUpdated={handleLeadUpdated}
                     />
                 );
             case 'calculator':
