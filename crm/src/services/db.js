@@ -1987,13 +1987,18 @@ export const db = {
 
     async getServerMetrics() {
         if (isSupabaseConfigured) {
-            const { data, error } = await supabase
-                .from('server_metrics')
-                .select('*')
-                .order('created_at', { ascending: true })
-                .limit(100);
-            if (error) throw error;
-            return data && data.length > 0 ? data : INITIAL_MOCK_SERVER_METRICS;
+            try {
+                const { data, error } = await supabase
+                    .from('server_metrics')
+                    .select('*')
+                    .order('created_at', { ascending: true })
+                    .limit(100);
+                if (error) throw error;
+                return data && data.length > 0 ? data : INITIAL_MOCK_SERVER_METRICS;
+            } catch (err) {
+                console.warn("Supabase server_metrics table error, falling back to mock data:", err);
+                return INITIAL_MOCK_SERVER_METRICS;
+            }
         } else {
             return getLocalData(STORAGE_KEYS.SERVER_METRICS, INITIAL_MOCK_SERVER_METRICS);
         }
@@ -2018,12 +2023,17 @@ export const db = {
 
     async getContainers() {
         if (isSupabaseConfigured) {
-            const { data, error } = await supabase
-                .from('server_containers')
-                .select('*')
-                .order('name', { ascending: true });
-            if (error) throw error;
-            return data && data.length > 0 ? data : INITIAL_MOCK_SERVER_CONTAINERS;
+            try {
+                const { data, error } = await supabase
+                    .from('server_containers')
+                    .select('*')
+                    .order('name', { ascending: true });
+                if (error) throw error;
+                return data && data.length > 0 ? data : INITIAL_MOCK_SERVER_CONTAINERS;
+            } catch (err) {
+                console.warn("Supabase server_containers table error, falling back to mock data:", err);
+                return INITIAL_MOCK_SERVER_CONTAINERS;
+            }
         } else {
             return getLocalData(STORAGE_KEYS.SERVER_CONTAINERS, INITIAL_MOCK_SERVER_CONTAINERS);
         }
