@@ -16,9 +16,10 @@ import {
     X,
     Calculator,
     BookOpen,
-    Map
+    Map,
+    LogOut
 } from 'lucide-react';
-import { isSupabaseConfigured } from '../services/db';
+import { isSupabaseConfigured, db } from '../services/db';
 
 export default function Sidebar({ 
     activeTab, 
@@ -31,6 +32,16 @@ export default function Sidebar({
     onDeleteAllAlerts
 }) {
     const [showNotifications, setShowNotifications] = useState(false);
+
+    const handleLogout = async () => {
+        if (confirm("האם אתה בטוח שברצונך להתנתק מהמערכת?")) {
+            try {
+                await db.signOut();
+            } catch (err) {
+                console.error("Error signing out:", err);
+            }
+        }
+    };
 
     const menuItems = [
         { id: 'dashboard', label: 'לוח בקרה', icon: LayoutDashboard },
@@ -115,7 +126,7 @@ export default function Sidebar({
                         </div>
 
                         {/* Connection Status Indicator */}
-                        <div className="sidebar-footer" style={{ borderTop: '1px solid var(--border-color)', paddingTop: '16px' }}>
+                        <div className="sidebar-footer" style={{ borderTop: '1px solid var(--border-color)', paddingTop: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                             <div className="connection-status">
                                 <Database size={16} />
                                 <div className="flex-col" style={{ display: 'flex', flexDirection: 'column' }}>
@@ -128,6 +139,38 @@ export default function Sidebar({
                                     </span>
                                 </div>
                             </div>
+                            
+                            {/* Logout Action */}
+                            <button 
+                                onClick={handleLogout}
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px',
+                                    width: '100%',
+                                    padding: '8px 12px',
+                                    background: 'rgba(239, 68, 68, 0.08)',
+                                    border: '1px solid rgba(239, 68, 68, 0.15)',
+                                    borderRadius: '6px',
+                                    color: '#fca5a5',
+                                    cursor: 'pointer',
+                                    fontSize: '12.5px',
+                                    fontWeight: '500',
+                                    transition: 'all 0.2s ease',
+                                    textAlign: 'right'
+                                }}
+                                onMouseEnter={(e) => {
+                                    e.currentTarget.style.background = 'rgba(239, 68, 68, 0.15)';
+                                    e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.3)';
+                                }}
+                                onMouseLeave={(e) => {
+                                    e.currentTarget.style.background = 'rgba(239, 68, 68, 0.08)';
+                                    e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.15)';
+                                }}
+                            >
+                                <LogOut size={14} />
+                                <span>התנתק מהמערכת</span>
+                            </button>
                         </div>
                     </div>
                 </div>

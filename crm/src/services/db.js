@@ -1878,5 +1878,92 @@ export const db = {
         } else {
             return () => {};
         }
+    },
+
+    // --------------------------------------------------
+    // AUTHENTICATION ACTIONS (Password-Only)
+    // --------------------------------------------------
+    async signInWithPasswordOnly(password) {
+        if (isSupabaseConfigured) {
+            const email = import.meta.env.VITE_ADMIN_EMAIL || 'admin@atri.co.il';
+            const { data, error } = await supabase.auth.signInWithPassword({
+                email,
+                password
+            });
+            if (error) {
+                // Return clear error message in Hebrew if possible
+                if (error.message.includes('Invalid login credentials')) {
+                    throw new Error('סיסמה שגויה. אנא נסה שוב.');
+                }
+                throw error;
+            }
+            return data.user;
+        } else {
+            // Mock authentication
+            const mockPassword = import.meta.env.VITE_MOCK_PASSWORD || 'admin123';
+            if (password === mockPassword) {
+                const mockUser = { 
+                    email: import.meta.env.VITE_ADMIN_EMAIL || 'admin@atri.co.il', 
+                    id: 'mock-admin-id' 
+                };
+                localStorage.setItem('autoRI_mock_user', JSON.stringify(mockUser));
+                window.dispatchEvent(new Event('mock-auth-change'));
+                return mockUser;
+            } else {
+                throw new Error('סיסמה שגויה. אנא נסה שוב.');
+            }
+        }
+    },
+
+    async signOut() {
+        if (isSupabaseConfigured) {
+            const { error } = await supabase.auth.signOut();
+            if (error) throw error;
+        } else {
+            localStorage.removeItem('autoRI_mock_user');
+            window.dispatchEvent(new Event('mock-auth-change'));
+        }
+    },
+
+    async getCurrentUser() {
+        if (isSupabaseConfigured) {
+            const { data: { user } } = await supabase.auth.getUser();
+            return user;
+        } else {
+            const stored = localStorage.getItem('autoRI_mock_user');
+            return stored ? JSON.parse(stored) : null;
+        }
+    },
+
+    onAuthStateChange(callback) {
+        if (isSupabaseConfigured) {
+            // Initial call
+            supabase.auth.getUser().then(({ data: { user } }) => {
+                callback(user);
+            }).catch(() => {
+                callback(null);
+            });
+
+            const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+                console.log('[Auth] Auth state changed event:', event);
+                callback(session?.user || null);
+            });
+            return () => {
+                subscription.unsubscribe();
+            };
+        } else {
+            // Initial call
+            const stored = localStorage.getItem('autoRI_mock_user');
+            callback(stored ? JSON.parse(stored) : null);
+
+            const listener = () => {
+                const user = localStorage.getItem('autoRI_mock_user');
+                callback(user ? JSON.parse(user) : null);
+            };
+            window.addEventListener('mock-auth-change', listener);
+            return () => {
+                window.removeEventListener('mock-auth-change', listener);
+            };
+        }
     }
 };

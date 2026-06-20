@@ -10,15 +10,29 @@ import LeadDetailsModal from './components/LeadDetailsModal';
 import AddLeadModal from './components/AddLeadModal';
 import Documentation from './components/Documentation';
 import Roadmap from './components/Roadmap';
+import Auth from './components/Auth';
 import { db } from './services/db';
 
 export default function App() {
+    const [user, setUser] = useState(null);
+    const [authLoading, setAuthLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('dashboard');
     const [selectedLeadId, setSelectedLeadId] = useState(null);
     const [showAddLeadModal, setShowAddLeadModal] = useState(false);
     // Key used to force re-render components on data updates
     const [refreshTrigger, setRefreshTrigger] = useState(0);
     const [alerts, setAlerts] = useState([]);
+
+    // Listen to authentication changes
+    useEffect(() => {
+        const unsubscribe = db.onAuthStateChange((currentUser) => {
+            setUser(currentUser);
+            setAuthLoading(false);
+        });
+        return () => {
+            if (typeof unsubscribe === 'function') unsubscribe();
+        };
+    }, []);
 
     const handleSelectLead = (id) => {
         setSelectedLeadId(id);
@@ -153,6 +167,42 @@ export default function App() {
                 return <Dashboard onSelectLead={handleSelectLead} activeTab={activeTab} alerts={alerts} />;
         }
     };
+
+    if (authLoading) {
+        return (
+            <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                minHeight: '100vh',
+                backgroundColor: '#0a0b10',
+                color: '#f3f4f6',
+                fontFamily: 'system-ui, sans-serif'
+            }}>
+                <div style={{ textAlign: 'center' }}>
+                    <div style={{
+                        width: '40px',
+                        height: '40px',
+                        border: '4px solid rgba(139, 92, 246, 0.1)',
+                        borderTopColor: '#8b5cf6',
+                        borderRadius: '50%',
+                        margin: '0 auto 16px auto',
+                        animation: 'spin 1s linear infinite'
+                    }}></div>
+                    <p style={{ color: '#9ca3af', fontSize: '14px' }}>בודק חיבור מאובטח...</p>
+                </div>
+                <style>{`
+                    @keyframes spin {
+                        to { transform: rotate(360deg); }
+                    }
+                `}</style>
+            </div>
+        );
+    }
+
+    if (!user) {
+        return <Auth />;
+    }
 
     return (
         <div className="app-container">
