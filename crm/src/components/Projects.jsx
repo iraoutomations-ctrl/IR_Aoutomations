@@ -586,6 +586,10 @@ export default function Projects({ onSelectLead, activeTab, onLeadUpdated }) {
                     let fetchUrl = `${cleanUrl}/api/v1/workflows/${run.n8n_workflow_id}`;
                     if (cleanUrl.includes('localhost') || cleanUrl.includes('127.0.0.1')) {
                         fetchUrl = `/api-n8n/api/v1/workflows/${run.n8n_workflow_id}`;
+                    } else if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+                        if (cleanUrl.includes('autori-n8n.autori-studio.com')) {
+                            fetchUrl = `/api-n8n/api/v1/workflows/${run.n8n_workflow_id}`;
+                        }
                     }
                     const response = await fetch(fetchUrl, {
                         headers: {

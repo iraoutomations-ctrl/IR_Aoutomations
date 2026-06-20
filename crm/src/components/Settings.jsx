@@ -349,6 +349,10 @@ export default function Settings() {
             let fetchUrl = `${cleanUrl}/api/v1/workflows?limit=1`;
             if (cleanUrl.includes('localhost') || cleanUrl.includes('127.0.0.1')) {
                 fetchUrl = `/api-n8n/api/v1/workflows?limit=1`;
+            } else if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+                if (cleanUrl.includes('autori-n8n.autori-studio.com')) {
+                    fetchUrl = `/api-n8n/api/v1/workflows?limit=1`;
+                }
             }
             const response = await fetch(fetchUrl, {
                 headers: {

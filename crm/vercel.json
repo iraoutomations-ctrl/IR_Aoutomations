@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/api-n8n/:path*",
+      "destination": "https://autori-n8n.autori-studio.com/:path*"
+    }
+  ]
+}
