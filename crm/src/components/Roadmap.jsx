@@ -169,8 +169,21 @@ export default function Roadmap() {
             n8n: 'שליפת אגרגציות שבועיות מ-Supabase ➔ השוואה מול שבוע קודם ➔ פתיחת משימת סוכן ב-CRM במקרה של חריגה.'
         },
         {
+            id: 'coolify_monitor',
+            title: '12. ממשק ניטור שרתים וקונטיינרים (Coolify Server Monitor)',
+            category: 'ops',
+            status: 'planned',
+            icon: Activity,
+            percentage: 0,
+            description: 'דף ייעודי ב-CRM המציג מדדים בזמן אמת על בריאות השרת (CPU, RAM, נפח דיסק) וסטטוס הקונטיינרים של N8N ומסדי הנתונים המנוהלים דרך Coolify, כולל אפשרות לביצוע פעולות הפעלה מחדש (Restart) ישירות מהממשק.',
+            integration: 'התממשקות ל-Coolify REST API לשליפת נתוני אפליקציות ומשאבים ➔ כתיבת מטריקות לטבלת server_metrics ב-Supabase ➔ שליחת פקודות ריסטרט לקונטיינרים דרך ה-API במקרה הצורך.',
+            value: 'ריכוז השליטה והמעקב במקום אחד ללא צורך בכניסה לפאנל הניהול של Coolify, זיהוי מוקדם של זליגות זיכרון, וצמצום זמני השבתה.',
+            supabase: 'server_metrics, system_alerts.',
+            n8n: 'וורקפלו ניטור מתוזמן (Cron) ➔ קריאה ל-Coolify API ➔ כתיבה ל-Supabase.'
+        },
+        {
             id: 'agent_planner',
-            title: '12. סוכן 1: אפיון ותכנון אוטומציות (Planner Agent)',
+            title: '13. סוכן 1: אפיון ותכנון אוטומציות (Planner Agent)',
             category: 'core',
             status: 'in_progress',
             icon: Cpu,
@@ -183,7 +196,7 @@ export default function Roadmap() {
         },
         {
             id: 'agent_builder_qa',
-            title: '13. סוכנים 2 ו-3: בנייה אוטומטית ובקרת איכות (Builder & QA Agents)',
+            title: '14. סוכנים 2 ו-3: בנייה אוטומטית ובקרת איכות (Builder & QA Agents)',
             category: 'core',
             status: 'in_progress',
             icon: Zap,
@@ -196,7 +209,7 @@ export default function Roadmap() {
         },
         {
             id: 'agent_healer_monitor',
-            title: '14. סוכן 4: ניטור, תיקון עצמי והפעלה מחדש (Self-Healing & Monitor Agent)',
+            title: '15. סוכן 4: ניטור, תיקון עצמי והפעלה מחדש (Self-Healing & Monitor Agent)',
             category: 'ops',
             status: 'in_progress',
             icon: Activity,
