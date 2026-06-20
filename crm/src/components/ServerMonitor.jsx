@@ -32,8 +32,23 @@ export default function ServerMonitor() {
             const containersData = await db.getContainers();
             const allAlerts = await db.getSystemAlerts();
             
-            // Filter only warnings and errors for the server log
-            const serverAlerts = allAlerts.filter(a => a.type === 'error' || a.type === 'warning');
+            // Filter only server-related warnings and errors for the server log
+            const serverAlerts = allAlerts.filter(a => {
+                const isErrorOrWarning = a.type === 'error' || a.type === 'warning';
+                if (!isErrorOrWarning) return false;
+                
+                const text = ((a.title || '') + ' ' + (a.message || '')).toLowerCase();
+                return text.includes('שרת') || 
+                       text.includes('קונטיינר') || 
+                       text.includes('מעבד') || 
+                       text.includes('זיכרון') || 
+                       text.includes('דיסק') || 
+                       text.includes('coolify') ||
+                       text.includes('server') ||
+                       text.includes('container') ||
+                       text.includes('cpu') ||
+                       text.includes('ram');
+            });
 
             setMetrics(metricsData);
             setContainers(containersData);
