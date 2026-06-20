@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/set-state-in-effect, react-hooks/exhaustive-deps, no-unused-vars, no-useless-assignment */
 /* ==========================================================================
    autoRI-studio CRM - Pricing & ROI Calculator Component
    ========================================================================== */

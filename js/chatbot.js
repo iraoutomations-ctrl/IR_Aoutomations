@@ -197,9 +197,14 @@ export function initAIChatbot() {
                 const jsonString = text.substring(start, end + 1);
                 return JSON.parse(jsonString);
             }
-            return JSON.parse(text);
+            // Check if it looks like a JSON array or simple primitive before parsing
+            const trimmed = text.trim();
+            if (trimmed.startsWith('[') || trimmed.startsWith('"') || trimmed === 'true' || trimmed === 'false' || trimmed === 'null' || (trimmed !== '' && !isNaN(Number(trimmed)))) {
+                return JSON.parse(trimmed);
+            }
+            return null;
         } catch (e) {
-            console.error("Robust JSON parse failed:", e, text);
+            console.warn("Robust JSON parse failed:", e, text);
             return null;
         }
     }

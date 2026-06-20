@@ -148,7 +148,7 @@ const formatMTTR = (ms) => {
     return `${days} ימים`;
 };
 
-export default function Projects({ onSelectLead, activeTab }) {
+export default function Projects({ onSelectLead, activeTab, onLeadUpdated }) {
     const [projects, setProjects] = useState([]);
     const [automations, setAutomations] = useState([]);
     const [bugs, setBugs] = useState([]);

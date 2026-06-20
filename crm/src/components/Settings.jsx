@@ -141,41 +141,53 @@ ALTER TABLE bugs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE system_alerts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE automation_runs ENABLE ROW LEVEL SECURITY;
 
--- 8. פתיחת הרשאות גישה לטבלאות (בדיקה ויצירה בטוחה של מדיניות גישה)
+-- 8. פוליסיז להגבלת גישה למשתמשים מחוברים בלבד (עמידות ל-SQL Injection וגישה לא מורשית)
 DO $$
 BEGIN
-    -- פוליסיז לטבלת leads
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow public read access' AND tablename = 'leads') THEN
-        CREATE POLICY "Allow public read access" ON leads FOR SELECT USING (true);
+    -- הסרת פוליסיז ציבוריים ישנים אם קיימים
+    DROP POLICY IF EXISTS "Allow public read access" ON leads;
+    DROP POLICY IF EXISTS "Allow public insert access" ON leads;
+    DROP POLICY IF EXISTS "Allow public update access" ON leads;
+    DROP POLICY IF EXISTS "Allow public delete access" ON leads;
+    DROP POLICY IF EXISTS "Allow public access for tasks" ON tasks;
+    DROP POLICY IF EXISTS "Allow public access for notes" ON notes;
+    DROP POLICY IF EXISTS "Allow public access for automations" ON automations;
+    DROP POLICY IF EXISTS "Allow public access for bugs" ON bugs;
+    DROP POLICY IF EXISTS "Allow public access for system_alerts" ON system_alerts;
+    DROP POLICY IF EXISTS "Allow public access for automation_runs" ON automation_runs;
+
+    -- פוליסיז מאובטחים לטבלת leads
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow authenticated read access' AND tablename = 'leads') THEN
+        CREATE POLICY "Allow authenticated read access" ON leads FOR SELECT USING (auth.role() = 'authenticated');
     END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow public insert access' AND tablename = 'leads') THEN
-        CREATE POLICY "Allow public insert access" ON leads FOR INSERT WITH CHECK (true);
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow authenticated insert access' AND tablename = 'leads') THEN
+        CREATE POLICY "Allow authenticated insert access" ON leads FOR INSERT WITH CHECK (auth.role() = 'authenticated');
     END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow public update access' AND tablename = 'leads') THEN
-        CREATE POLICY "Allow public update access" ON leads FOR UPDATE USING (true);
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow authenticated update access' AND tablename = 'leads') THEN
+        CREATE POLICY "Allow authenticated update access" ON leads FOR UPDATE USING (auth.role() = 'authenticated');
     END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow public delete access' AND tablename = 'leads') THEN
-        CREATE POLICY "Allow public delete access" ON leads FOR DELETE USING (true);
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow authenticated delete access' AND tablename = 'leads') THEN
+        CREATE POLICY "Allow authenticated delete access" ON leads FOR DELETE USING (auth.role() = 'authenticated');
     END IF;
 
-    -- פוליסיז לטבלאות הנוספות
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow public access for tasks' AND tablename = 'tasks') THEN
-        CREATE POLICY "Allow public access for tasks" ON tasks FOR ALL USING (true);
+    -- פוליסיז מאובטחים לטבלאות הנוספות
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow authenticated access for tasks' AND tablename = 'tasks') THEN
+        CREATE POLICY "Allow authenticated access for tasks" ON tasks FOR ALL USING (auth.role() = 'authenticated');
     END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow public access for notes' AND tablename = 'notes') THEN
-        CREATE POLICY "Allow public access for notes" ON notes FOR ALL USING (true);
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow authenticated access for notes' AND tablename = 'notes') THEN
+        CREATE POLICY "Allow authenticated access for notes" ON notes FOR ALL USING (auth.role() = 'authenticated');
     END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow public access for automations' AND tablename = 'automations') THEN
-        CREATE POLICY "Allow public access for automations" ON automations FOR ALL USING (true);
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow authenticated access for automations' AND tablename = 'automations') THEN
+        CREATE POLICY "Allow authenticated access for automations" ON automations FOR ALL USING (auth.role() = 'authenticated');
     END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow public access for bugs' AND tablename = 'bugs') THEN
-        CREATE POLICY "Allow public access for bugs" ON bugs FOR ALL USING (true);
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow authenticated access for bugs' AND tablename = 'bugs') THEN
+        CREATE POLICY "Allow authenticated access for bugs" ON bugs FOR ALL USING (auth.role() = 'authenticated');
     END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow public access for system_alerts' AND tablename = 'system_alerts') THEN
-        CREATE POLICY "Allow public access for system_alerts" ON system_alerts FOR ALL USING (true);
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow authenticated access for system_alerts' AND tablename = 'system_alerts') THEN
+        CREATE POLICY "Allow authenticated access for system_alerts" ON system_alerts FOR ALL USING (auth.role() = 'authenticated');
     END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow public access for automation_runs' AND tablename = 'automation_runs') THEN
-        CREATE POLICY "Allow public access for automation_runs" ON automation_runs FOR ALL USING (true);
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow authenticated access for automation_runs' AND tablename = 'automation_runs') THEN
+        CREATE POLICY "Allow authenticated access for automation_runs" ON automation_runs FOR ALL USING (auth.role() = 'authenticated');
     END IF;
 END
 $$;
