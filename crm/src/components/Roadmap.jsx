@@ -26,21 +26,8 @@ export default function Roadmap() {
 
     const roadmapItems = [
         {
-            id: 'auth',
-            title: 'אבטחה ואוטנטיקציית משתמשים (User Authentication)',
-            category: 'core',
-            status: 'in_progress', // completed, in_progress, planned
-            icon: Shield,
-            percentage: 30,
-            description: 'מערכת התחברות (Login) ורישום מאובטחת המבוססת על Supabase Auth. המערכת תגביל את הגישה ל-CRM רק לאנשי הצוות המורשים בארגון.',
-            integration: 'שימוש במנגנון ה-JWT של Supabase להגדרת חוקי RLS מפורשים (Row Level Security) בטבלאות - כך שמשתמשים שאינם מחוברים ייחסמו טוטאלית.',
-            value: 'אבטחת מידע ארגוני רגיש ומניעת גישה לא מורשית ללידים, מפתחות API, ולנתוני הרצה.',
-            supabase: 'storage.buckets (docs), public.users, public.leads, ופוליסיס לכלל הטבלאות.',
-            n8n: 'אין צורך, הגדרה ברמת ה-React App וה-Supabase Client.'
-        },
-        {
             id: 'runs_capping',
-            title: 'בקרת הרצות וחסימת מכסות (Runs Capping)',
+            title: '1. בקרת הרצות וחסימת מכסות (Runs Capping)',
             category: 'sales',
             status: 'completed',
             icon: Zap,
@@ -53,12 +40,12 @@ export default function Roadmap() {
         },
         {
             id: 'ai_diagnostics',
-            title: 'דיאגנוסטיקה מונחית AI וניתוח תקלות',
+            title: '2. דיאגנוסטיקה מונחית AI וניתוח תקלות',
             category: 'ops',
             status: 'completed',
             icon: Activity,
             percentage: 100,
-            description: 'פענוח שגיאות ריצה מתוך N8N: ניתוח מבוסס חוקים לבעיות נפוצות + כפתור דיאגנוסטיקה חיה בעזרת Gemini Flash.',
+            description: 'פענוח שגיאות ריצה מתוך N8N: ניתוח מבוסס חוקים לבעיות נפוצות + כפתור דיאגנוסטיקה חיה בעזרת Gemini Flash (ממשק ידני בתוך ה-CRM).',
             integration: 'ה-CRM שולף את מבנה ה-Workflow שנכשל ישירות משרת ה-N8N (דרך Vite CORS Proxy), מזין אותו ל-Gemini Flash ומקבל הסבר והנחיות לתיקון בעברית.',
             value: 'קיצור זמן הטיפול בתקלות (MTTR) מאינטגרציות מורכבות ללא צורך בכניסה ידנית ללוגים של N8N.',
             supabase: 'automation_runs, system_alerts.',
@@ -66,7 +53,7 @@ export default function Roadmap() {
         },
         {
             id: 'data_rollups',
-            title: 'אגרגציה וצמצום נתונים (Daily Rollups)',
+            title: '3. אגרגציה וצמצום נתונים (Daily Rollups)',
             category: 'ops',
             status: 'completed',
             icon: Clock,
@@ -79,7 +66,7 @@ export default function Roadmap() {
         },
         {
             id: 'hard_gating',
-            title: 'חסימת שלבים מבוססת מסמכים (Hard Gating)',
+            title: '4. חסימת שלבים מבוססת מסמכים (Hard Gating)',
             category: 'sales',
             status: 'completed',
             icon: FileText,
@@ -91,8 +78,21 @@ export default function Roadmap() {
             n8n: 'אין צורך, מיושם ישירות ברמת ה-Client.'
         },
         {
+            id: 'auth',
+            title: '5. אבטחה ואוטנטיקציית משתמשים (User Authentication)',
+            category: 'core',
+            status: 'completed',
+            icon: Shield,
+            percentage: 100,
+            description: 'מערכת התחברות (Login) ורישום מאובטחת המבוססת על Supabase Auth. המערכת מגבילה את הגישה ל-CRM רק לאנשי הצוות המורשים בארגון.',
+            integration: 'שימוש במנגנון ה-JWT של Supabase והגדרת חוקי RLS מפורשים (Row Level Security) בטבלאות - כך שמשתמשים שאינם מחוברים ייחסמו טוטאלית, כולל ניתובים מאובטחים בפרונטאנד.',
+            value: 'אבטחת מידע ארגוני רגיש ומניעת גישה לא מורשית ללידים, מפתחות API, ולנתוני הרצה.',
+            supabase: 'storage.buckets (docs), public.users, public.leads, ופוליסיס לכלל הטבלאות.',
+            n8n: 'אין צורך, מיושם ברמת ה-React App וה-Supabase Client.'
+        },
+        {
             id: 'auto_docs',
-            title: 'מחולל מסמכים וחתימות דיגיטליות (Auto-Doc & E-Sign)',
+            title: '6. מחולל מסמכים וחתימות דיגיטליות (Auto-Doc & E-Sign)',
             category: 'sales',
             status: 'planned',
             icon: FileText,
@@ -105,7 +105,7 @@ export default function Roadmap() {
         },
         {
             id: 'metered_billing',
-            title: 'הפקת חשבוניות וסליקה לפי שימוש (Metered Billing)',
+            title: '7. הפקת חשבוניות וסליקה לפי שימוש (Metered Billing)',
             category: 'sales',
             status: 'planned',
             icon: CreditCard,
@@ -118,7 +118,7 @@ export default function Roadmap() {
         },
         {
             id: 'client_portal',
-            title: 'פורטל לקוחות בשירות עצמי (Client Portal)',
+            title: '8. פורטל לקוחות בשירות עצמי (Client Portal)',
             category: 'support',
             status: 'planned',
             icon: Users,
@@ -130,47 +130,8 @@ export default function Roadmap() {
             n8n: 'אין צורך, מיושם ברמת ה-CRM Client.'
         },
         {
-            id: 'spec_to_code',
-            title: 'מחולל שלד N8N מאפיון טכני (Spec-to-Workflow AI)',
-            category: 'core',
-            status: 'planned',
-            icon: Cpu,
-            percentage: 0,
-            description: 'קריאת מסמך האפיון הטכני (Spec) ע"י בינה מלאכותית, והורדת קובץ JSON של Workflow מוכן ל-N8N המכיל את כל החיבורים הנדרשים.',
-            integration: 'פנייה ל-Gemini Flash המנתח את קובץ האפיון, מזהה את ה-triggers וה-actions, בונה מבנה JSON תקין של N8N ומציג כפתור הורדה.',
-            value: 'חיסכון עצום בזמני הפיתוח הראשוניים של האוטומציות והפחתת טעויות אנוש.',
-            supabase: 'documents, automations.',
-            n8n: 'שליפת נתוני האפיון וייצור ה-Workflow JSON.'
-        },
-        {
-            id: 'self_healing',
-            title: 'תיקון תקלות עצמי אוטומטי (Self-Healing)',
-            category: 'ops',
-            status: 'planned',
-            icon: Zap,
-            percentage: 0,
-            description: 'זיהוי כשלים קריטיים בריצות (כגון שגיאות Timeout או OAuth expired) והפעלת תהליכי התאוששות ותיקון אוטומטיים.',
-            integration: 'מנטר השגיאות N8N מזהה כשל ➔ פונה ל-API של N8N לביצוע Retry (במידה וזו בעיית רשת) או שולח הודעת WhatsApp ללקוח עם קישור להתחברות מחדש (במידה ותוקף החיבור פג).',
-            value: 'מניעת השבתת מערכות ממושכת וצמצום של כ-50% בפניות תמיכה טכנית.',
-            supabase: 'automation_runs, system_alerts.',
-            n8n: 'Error Trigger ➔ ניתוח שגיאה ב-Code Node ➔ ניסיון הפעלה מחדש (Retry HTTP API) או שליחת קישור שחזור ללקוח.'
-        },
-        {
-            id: 'server_monitor',
-            title: 'ניטור שרתים והפעלה מחדש עצמית (Server Monitor)',
-            category: 'ops',
-            status: 'planned',
-            icon: Activity,
-            percentage: 0,
-            description: 'מעקב שוטף אחרי זמינות שרת ה-N8N וזמינות ה-Workflows. הפעלה מחדש של Workflows שנכבו בטעות וקריאת חירום במקרה של קריסה.',
-            integration: 'סקריפט ב-N8N או CRM המאזין ל-Active state של ה-Workflows, ומבצע קריאת API להפעלתם מחדש. במקרה של חוסר תגובה מהשרת - הפעלת התראת שיחת טלפון.',
-            value: 'שרידות (Uptime) מקסימלית של מערכות הייצור ומענה מיידי לקריסות שרת.',
-            supabase: 'system_alerts.',
-            n8n: 'Interval Trigger ➔ בדיקת סטטוס שרת N8N ➔ בדיקת Active/Inactive ➔ במידת הצורך קריאת Twilio Call API.'
-        },
-        {
             id: 'onboarding',
-            title: 'מערכת קליטת לקוח אוטומטית (Automated Onboarding)',
+            title: '9. מערכת קליטת לקוח אוטומטית (Automated Onboarding)',
             category: 'support',
             status: 'planned',
             icon: Users,
@@ -183,7 +144,7 @@ export default function Roadmap() {
         },
         {
             id: 'csat_reviews',
-            title: 'סקר שביעות רצון ואיסוף ביקורות (Auto CSAT)',
+            title: '10. סקר שביעות רצון ואיסוף ביקורות (Auto CSAT)',
             category: 'support',
             status: 'planned',
             icon: TrendingUp,
@@ -196,16 +157,55 @@ export default function Roadmap() {
         },
         {
             id: 'churn_detection',
-            title: 'זיהוי סיכוני נטישה ואופטימיזציה (Churn Detection)',
+            title: '11. זיהוי סיכוני נטישה ואופטימיזציה (Churn Detection)',
             category: 'support',
             status: 'planned',
-            icon: Shield,
+            icon: TrendingUp,
             percentage: 0,
             description: 'ניתוח דפוסי שימוש בריצות האוטומציה. התרעה על ירידות חדות בשימוש או ריבוי שגיאות המעידים על סיכון נטישת לקוח.',
             integration: 'סקריפט SQL/N8N המנתח את סך הריצות השבועי. ירידה של מעל 50% בנפח הריצות או שגיאות חוזרות במשך 3 ימים יוצרות התראה "Churn Risk" ב-CRM.',
             value: 'מניעת נטישת לקוחות באופן פרואקטיבי על ידי מתן מענה עוד לפני שהלקוח מדווח על בעיה.',
             supabase: 'automation_daily_stats, leads (שינוי תגית Churn Risk).',
             n8n: 'שליפת אגרגציות שבועיות מ-Supabase ➔ השוואה מול שבוע קודם ➔ פתיחת משימת סוכן ב-CRM במקרה של חריגה.'
+        },
+        {
+            id: 'agent_planner',
+            title: '12. סוכן 1: אפיון ותכנון אוטומציות (Planner Agent)',
+            category: 'core',
+            status: 'in_progress',
+            icon: Cpu,
+            percentage: 10,
+            description: 'סוכן AI המקבל את סיכום שיחת האיפיון של הלקוח מחלון ייעודי ב-CRM, מציע אוטומציות לאישור המשתמש ומייצר מפרט טכני מובנה (JSON Spec) הכולל טריגרים ושלבי עיבוד.',
+            integration: 'הסוכן רץ בשרת Hetzner, מתחבר ב-API ל-CRM ושולח הצעות לאישור אנושי מובנה (Human-in-the-loop) לפני העברה לבנייה.',
+            value: 'מייתר לחלוטין אפיון טכני ידני ראשוני ומקצר דרסטית את תחילת העבודה.',
+            supabase: 'leads, automations, spec_templates.',
+            n8n: 'CRM Webhooks לשליחת האפיון והחזרת ההצעות.'
+        },
+        {
+            id: 'agent_builder_qa',
+            title: '13. סוכנים 2 ו-3: בנייה אוטומטית ובקרת איכות (Builder & QA Agents)',
+            category: 'core',
+            status: 'in_progress',
+            icon: Zap,
+            percentage: 10,
+            description: 'צמד סוכנים העובדים בלולאת פידבק סגורה (Ping-Pong) ליצירת וורקפלוס של N8N. הבונה מייצר/מעדכן וה-QA מריץ בדיקות קצה-לקצה עם Mock Data ומדווח על שגיאות לתיקון.',
+            integration: 'סוכן הבנייה עובד מול N8N Dev REST API (בסביבת Sandbox). לאחר בדיקה תקינה של סוכן ה-QA, יופיע כפתור Deploy ב-CRM להעברה ל-N8N Production.',
+            value: 'אוטומציה מלאה של פיתוח ה-Workflows ובדיקות איכות (QA) ללא צורך במגע יד אדם.',
+            supabase: 'automations, qa_logs.',
+            n8n: 'N8N REST API (Workflows CRUD & execution triggering).'
+        },
+        {
+            id: 'agent_healer_monitor',
+            title: '14. סוכן 4: ניטור, תיקון עצמי והפעלה מחדש (Self-Healing & Monitor Agent)',
+            category: 'ops',
+            status: 'in_progress',
+            icon: Activity,
+            percentage: 10,
+            description: 'סוכן AI המנטר את ריצות הייצור ב-Production N8N בזמן אמת, מנתח תקלות ריצה, ומבצע תיקון עצמי אוטומטי תחת מגבלת תקציב קשיחה (עד 3 ניסיונות תיקון) למניעת לולאות שגיאות ובזבוז API.',
+            integration: 'שימוש ב-Error Trigger של N8N לשליחת כשלים לסוכן ➔ ביצוע תיקונים לוגיים בוורקפלו או שליחת התראת רענון חיבור ללקוח ➔ בדיקת זמינות שרת והפעלה מחדש.',
+            value: 'שרידות (Uptime) מקסימלית של האוטומציות ללא צורך במעורבות אנושית בשעות הלילה.',
+            supabase: 'automation_runs, system_alerts, agent_healing_budgets.',
+            n8n: 'Error Trigger Workflow ➔ API Updates.'
         }
     ];
 
