@@ -22,7 +22,9 @@ const STORAGE_KEYS = {
     SYSTEM_ALERTS: 'autoRI_system_alerts',
     AUTOMATION_RUNS: 'autoRI_automation_runs',
     AUTOMATION_DAILY_STATS: 'autoRI_automation_daily_stats',
-    DOCUMENTS: 'autoRI_documents'
+    DOCUMENTS: 'autoRI_documents',
+    SERVER_METRICS: 'autoRI_server_metrics',
+    SERVER_CONTAINERS: 'autoRI_server_containers'
 };
 
 const INITIAL_MOCK_LEADS = [
@@ -274,6 +276,22 @@ const INITIAL_MOCK_SYSTEM_ALERTS = [
         n8n_workflow_id: 'lyCrWBmsGlRSMJmo',
         duration_ms: 3120
     }
+];
+
+const INITIAL_MOCK_SERVER_METRICS = Array.from({ length: 24 }, (_, i) => {
+    const time = new Date(Date.now() - (23 - i) * 60 * 60 * 1000).toISOString();
+    const cpu = Math.floor(15 + Math.sin(i / 2) * 8 + Math.random() * 10);
+    const ram = Math.floor(45 + Math.cos(i / 3) * 5 + Math.random() * 3);
+    const disk = 38.4;
+    return { created_at: time, cpu_usage: cpu, ram_usage: ram, disk_usage: disk };
+});
+
+const INITIAL_MOCK_SERVER_CONTAINERS = [
+    { id: 'n8n-prod', name: 'N8N Production', status: 'running', cpu_percent: 1.2, ram_bytes: 345000000, updated_at: new Date().toISOString() },
+    { id: 'n8n-dev', name: 'N8N Development', status: 'running', cpu_percent: 0.4, ram_bytes: 290000000, updated_at: new Date().toISOString() },
+    { id: 'supabase-db', name: 'PostgreSQL Database', status: 'running', cpu_percent: 2.1, ram_bytes: 512000000, updated_at: new Date().toISOString() },
+    { id: 'redis-cache', name: 'Redis Cache', status: 'running', cpu_percent: 0.1, ram_bytes: 64000000, updated_at: new Date().toISOString() },
+    { id: 'coolify', name: 'Coolify Console', status: 'running', cpu_percent: 0.8, ram_bytes: 180000000, updated_at: new Date().toISOString() }
 ];
 
 const INITIAL_MOCK_AUTOMATION_RUNS = [
@@ -1965,5 +1983,136 @@ export const db = {
                 window.removeEventListener('mock-auth-change', listener);
             };
         }
+    },
+
+    async getServerMetrics() {
+        if (isSupabaseConfigured) {
+            const { data, error } = await supabase
+                .from('server_metrics')
+                .select('*')
+                .order('created_at', { ascending: true })
+                .limit(100);
+            if (error) throw error;
+            return data && data.length > 0 ? data : INITIAL_MOCK_SERVER_METRICS;
+        } else {
+            return getLocalData(STORAGE_KEYS.SERVER_METRICS, INITIAL_MOCK_SERVER_METRICS);
+        }
+    },
+
+    async saveServerMetrics(metrics) {
+        if (isSupabaseConfigured) {
+            const { data, error } = await supabase
+                .from('server_metrics')
+                .insert([metrics])
+                .select();
+            if (error) throw error;
+            return data[0];
+        } else {
+            const current = getLocalData(STORAGE_KEYS.SERVER_METRICS, INITIAL_MOCK_SERVER_METRICS);
+            current.push({ ...metrics, created_at: new Date().toISOString() });
+            if (current.length > 100) current.shift();
+            setLocalData(STORAGE_KEYS.SERVER_METRICS, current);
+            return metrics;
+        }
+    },
+
+    async getContainers() {
+        if (isSupabaseConfigured) {
+            const { data, error } = await supabase
+                .from('server_containers')
+                .select('*')
+                .order('name', { ascending: true });
+            if (error) throw error;
+            return data && data.length > 0 ? data : INITIAL_MOCK_SERVER_CONTAINERS;
+        } else {
+            return getLocalData(STORAGE_KEYS.SERVER_CONTAINERS, INITIAL_MOCK_SERVER_CONTAINERS);
+        }
+    },
+
+    async saveContainers(containers) {
+        if (isSupabaseConfigured) {
+            const { error } = await supabase
+                .from('server_containers')
+                .upsert(containers);
+            if (error) throw error;
+        } else {
+            setLocalData(STORAGE_KEYS.SERVER_CONTAINERS, containers);
+        }
+    },
+
+    async triggerContainerAction(containerId, action) {
+        console.log(`[Coolify Service] Triggered action: ${action} on container: ${containerId}`);
+        if (!isSupabaseConfigured) {
+            const containers = getLocalData(STORAGE_KEYS.SERVER_CONTAINERS, INITIAL_MOCK_SERVER_CONTAINERS);
+            const idx = containers.findIndex(c => c.id === containerId);
+            if (idx !== -1) {
+                if (action === 'restart') {
+                    containers[idx].status = 'restarting';
+                    containers[idx].cpu_percent = 0;
+                    setLocalData(STORAGE_KEYS.SERVER_CONTAINERS, containers);
+                    setTimeout(() => {
+                        const latest = getLocalData(STORAGE_KEYS.SERVER_CONTAINERS, INITIAL_MOCK_SERVER_CONTAINERS);
+                        const lIdx = latest.findIndex(c => c.id === containerId);
+                        if (lIdx !== -1 && latest[lIdx].status === 'restarting') {
+                            latest[lIdx].status = 'running';
+                            latest[lIdx].cpu_percent = Math.random() * 2 + 0.5;
+                            latest[lIdx].updated_at = new Date().toISOString();
+                            setLocalData(STORAGE_KEYS.SERVER_CONTAINERS, latest);
+                            window.dispatchEvent(new CustomEvent('server-monitor-refresh'));
+                        }
+                    }, 3000);
+                } else if (action === 'stop') {
+                    containers[idx].status = 'stopped';
+                    containers[idx].cpu_percent = 0;
+                    containers[idx].updated_at = new Date().toISOString();
+                    setLocalData(STORAGE_KEYS.SERVER_CONTAINERS, containers);
+                } else if (action === 'start') {
+                    containers[idx].status = 'running';
+                    containers[idx].cpu_percent = Math.random() * 2 + 0.5;
+                    containers[idx].updated_at = new Date().toISOString();
+                    setLocalData(STORAGE_KEYS.SERVER_CONTAINERS, containers);
+                }
+                window.dispatchEvent(new CustomEvent('server-monitor-refresh'));
+            }
+        } else {
+            const n8nUrl = localStorage.getItem('n8n_url');
+            if (n8nUrl) {
+                try {
+                    await fetch(`${n8nUrl}/webhook/coolify-action`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ containerId, action })
+                    });
+                } catch (e) {
+                    console.warn("Could not call N8N action endpoint, simulating locally:", e);
+                }
+            }
+            const { data } = await supabase
+                .from('server_containers')
+                .select('*')
+                .eq('id', containerId)
+                .single();
+            
+            if (data) {
+                let targetStatus = 'running';
+                if (action === 'stop') targetStatus = 'stopped';
+                if (action === 'restart') targetStatus = 'restarting';
+                
+                await supabase
+                    .from('server_containers')
+                    .update({ status: targetStatus, updated_at: new Date().toISOString() })
+                    .eq('id', containerId);
+                
+                if (action === 'restart') {
+                    setTimeout(async () => {
+                        await supabase
+                            .from('server_containers')
+                            .update({ status: 'running', updated_at: new Date().toISOString() })
+                            .eq('id', containerId);
+                    }, 3000);
+                }
+            }
+        }
+        return { success: true };
     }
 };

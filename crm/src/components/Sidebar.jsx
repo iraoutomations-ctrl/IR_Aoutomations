@@ -17,7 +17,8 @@ import {
     Calculator,
     BookOpen,
     Map,
-    LogOut
+    LogOut,
+    Activity
 } from 'lucide-react';
 import { isSupabaseConfigured, db } from '../services/db';
 
@@ -51,6 +52,7 @@ export default function Sidebar({
         { id: 'calculator', label: 'מחשבון תמחור ו-ROI', icon: Calculator },
         { id: 'docs', label: 'מדריך ודוקומנטציה', icon: BookOpen },
         { id: 'roadmap', label: 'מפת דרכים לאוטומציה', icon: Map },
+        { id: 'server_monitor', label: 'ניטור שרתים', icon: Activity },
         { id: 'settings', label: 'הגדרות חיבור', icon: SettingsIcon }
     ];
 
