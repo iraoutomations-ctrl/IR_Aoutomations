@@ -20,6 +20,7 @@ const STORAGE_KEYS = {
     AUTOMATIONS: 'autoRI_automations',
     BUGS: 'autoRI_bugs',
     SYSTEM_ALERTS: 'autoRI_system_alerts',
+    SERVER_ALERTS: 'autoRI_server_alerts',
     AUTOMATION_RUNS: 'autoRI_automation_runs',
     AUTOMATION_DAILY_STATS: 'autoRI_automation_daily_stats',
     DOCUMENTS: 'autoRI_documents',
@@ -278,12 +279,60 @@ const INITIAL_MOCK_SYSTEM_ALERTS = [
     }
 ];
 
+const INITIAL_MOCK_SERVER_ALERTS = [
+    {
+        id: 'mock-server-alert-1',
+        created_at: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
+        title: '🚨 עומס חריג: מעבד (CPU) גבוה',
+        message: 'עומס המעבד עלה על 95% למשך יותר מ-5 דקות. ערך נוכחי: 98.4%.',
+        type: 'error',
+        read: false,
+        container_id: null
+    },
+    {
+        id: 'mock-server-alert-2',
+        created_at: new Date(Date.now() - 45 * 60 * 1000).toISOString(),
+        title: '⚠️ אזהרה: זיכרון RAM גבוה',
+        message: 'ניצול הזיכרון עבר את רף ה-90%. ערך נוכחי: 91.2% (7.3 GB מתוך 8 GB).',
+        type: 'warning',
+        read: false,
+        container_id: null
+    },
+    {
+        id: 'mock-server-alert-3',
+        created_at: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
+        title: '🔄 קונטיינר הופעל מחדש: N8N Development',
+        message: 'הקונטיינר n8n-dev קרס או הופעל מחדש באופן יזום על ידי המערכת.',
+        type: 'warning',
+        read: true,
+        container_id: 'n8n-dev'
+    },
+    {
+        id: 'mock-server-alert-4',
+        created_at: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString(),
+        title: '✅ תקין: שטח דיסק',
+        message: 'ביצוע בדיקת שטח דיסק תקין: 38.4 GB בשימוש (51.6 GB פנויים).',
+        type: 'success',
+        read: true,
+        container_id: null
+    }
+];
+
 const INITIAL_MOCK_SERVER_METRICS = Array.from({ length: 24 }, (_, i) => {
     const time = new Date(Date.now() - (23 - i) * 60 * 60 * 1000).toISOString();
     const cpu = Math.floor(15 + Math.sin(i / 2) * 8 + Math.random() * 10);
     const ram = Math.floor(45 + Math.cos(i / 3) * 5 + Math.random() * 3);
     const disk = 38.4;
-    return { created_at: time, cpu_usage: cpu, ram_usage: ram, disk_usage: disk };
+    return { 
+        created_at: time, 
+        cpu_usage: cpu, 
+        ram_usage: ram, 
+        disk_usage: disk,
+        cpu_cores: 2,
+        cpu_model: "AMD EPYC",
+        ram_total: 4294967296,
+        disk_total: 85899345920
+    };
 });
 
 const INITIAL_MOCK_SERVER_CONTAINERS = [
@@ -1699,6 +1748,113 @@ export const db = {
     },
 
     // --------------------------------------------------
+    // SERVER ALERTS ACTIONS
+    // --------------------------------------------------
+    async getServerAlerts() {
+        if (isSupabaseConfigured) {
+            const { data, error } = await supabase
+                .from('server_alerts')
+                .select('*')
+                .order('created_at', { ascending: false });
+            if (error) throw error;
+            return data;
+        } else {
+            const alerts = getLocalData(STORAGE_KEYS.SERVER_ALERTS, INITIAL_MOCK_SERVER_ALERTS);
+            return alerts.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        }
+    },
+
+    async addServerAlert(alert) {
+        if (isSupabaseConfigured) {
+            const { data, error } = await supabase
+                .from('server_alerts')
+                .insert([alert])
+                .select();
+            if (error) throw error;
+            return data[0];
+        } else {
+            const alerts = getLocalData(STORAGE_KEYS.SERVER_ALERTS, INITIAL_MOCK_SERVER_ALERTS);
+            const newAlert = {
+                id: 'server-alert-' + Math.random().toString(36).substr(2, 9),
+                created_at: new Date().toISOString(),
+                read: false,
+                ...alert
+            };
+            alerts.unshift(newAlert);
+            setLocalData(STORAGE_KEYS.SERVER_ALERTS, alerts);
+            return newAlert;
+        }
+    },
+
+    async markServerAlertAsRead(id) {
+        if (isSupabaseConfigured) {
+            const { data, error } = await supabase
+                .from('server_alerts')
+                .update({ read: true })
+                .eq('id', id)
+                .select();
+            if (error) throw error;
+            return data[0];
+        } else {
+            const alerts = getLocalData(STORAGE_KEYS.SERVER_ALERTS, INITIAL_MOCK_SERVER_ALERTS);
+            const idx = alerts.findIndex(a => a.id === id);
+            if (idx !== -1) {
+                alerts[idx].read = true;
+                setLocalData(STORAGE_KEYS.SERVER_ALERTS, alerts);
+                return alerts[idx];
+            }
+            throw new Error('Server alert not found');
+        }
+    },
+
+    async markAllServerAlertsAsRead() {
+        if (isSupabaseConfigured) {
+            const { data, error } = await supabase
+                .from('server_alerts')
+                .update({ read: true })
+                .eq('read', false)
+                .select();
+            if (error) throw error;
+            return data;
+        } else {
+            const alerts = getLocalData(STORAGE_KEYS.SERVER_ALERTS, INITIAL_MOCK_SERVER_ALERTS);
+            alerts.forEach(a => { a.read = true; });
+            setLocalData(STORAGE_KEYS.SERVER_ALERTS, alerts);
+            return alerts;
+        }
+    },
+
+    async deleteServerAlert(id) {
+        if (isSupabaseConfigured) {
+            const { error } = await supabase
+                .from('server_alerts')
+                .delete()
+                .eq('id', id);
+            if (error) throw error;
+            return true;
+        } else {
+            const alerts = getLocalData(STORAGE_KEYS.SERVER_ALERTS, INITIAL_MOCK_SERVER_ALERTS);
+            const updated = alerts.filter(a => a.id !== id);
+            setLocalData(STORAGE_KEYS.SERVER_ALERTS, updated);
+            return true;
+        }
+    },
+
+    async deleteAllServerAlerts() {
+        if (isSupabaseConfigured) {
+            const { error } = await supabase
+                .from('server_alerts')
+                .delete()
+                .gt('created_at', '1970-01-01T00:00:00Z');
+            if (error) throw error;
+            return true;
+        } else {
+            setLocalData(STORAGE_KEYS.SERVER_ALERTS, []);
+            return true;
+        }
+    },
+
+    // --------------------------------------------------
     // AUTOMATION DAILY STATS ACTIONS
     // --------------------------------------------------
     async getAutomationDailyStats(automationId) {
@@ -1985,22 +2141,44 @@ export const db = {
         }
     },
 
-    async getServerMetrics() {
+    async getServerMetrics(timeframe = '24h') {
         if (isSupabaseConfigured) {
             try {
                 const { data, error } = await supabase
-                    .from('server_metrics')
-                    .select('*')
-                    .order('created_at', { ascending: true })
-                    .limit(100);
+                    .rpc('get_server_metrics_downsampled', { timeframe_param: timeframe });
                 if (error) throw error;
-                return data && data.length > 0 ? data : INITIAL_MOCK_SERVER_METRICS;
+                return data && data.length > 0 ? data : this.getMockServerMetricsForTimeframe(timeframe);
             } catch (err) {
-                console.warn("Supabase server_metrics table error, falling back to mock data:", err);
-                return INITIAL_MOCK_SERVER_METRICS;
+                console.warn("Supabase server_metrics downsampled RPC error, falling back to mock data:", err);
+                return this.getMockServerMetricsForTimeframe(timeframe);
             }
         } else {
-            return getLocalData(STORAGE_KEYS.SERVER_METRICS, INITIAL_MOCK_SERVER_METRICS);
+            return this.getMockServerMetricsForTimeframe(timeframe);
+        }
+    },
+
+    getMockServerMetricsForTimeframe(timeframe) {
+        if (timeframe === '7d') {
+            // 7 ימים, נקודה כל 6 שעות = 28 נקודות
+            return Array.from({ length: 28 }, (_, i) => {
+                const time = new Date(Date.now() - (27 - i) * 6 * 60 * 60 * 1000).toISOString();
+                const cpu = Math.floor(20 + Math.sin(i / 2) * 12 + Math.random() * 8);
+                const ram = Math.floor(50 + Math.cos(i / 3) * 6 + Math.random() * 4);
+                const disk = 38.4;
+                return { created_at: time, cpu_usage: cpu, ram_usage: ram, disk_usage: disk };
+            });
+        } else if (timeframe === '30d') {
+            // 30 ימים, נקודה אחת ליום = 30 נקודות
+            return Array.from({ length: 30 }, (_, i) => {
+                const time = new Date(Date.now() - (29 - i) * 24 * 60 * 60 * 1000).toISOString();
+                const cpu = Math.floor(25 + Math.sin(i / 4) * 15 + Math.random() * 5);
+                const ram = Math.floor(55 + Math.cos(i / 5) * 8 + Math.random() * 3);
+                const disk = 38.4;
+                return { created_at: time, cpu_usage: cpu, ram_usage: ram, disk_usage: disk };
+            });
+        } else {
+            // 24 שעות ברירת מחדל
+            return INITIAL_MOCK_SERVER_METRICS;
         }
     },
 
@@ -2015,7 +2193,7 @@ export const db = {
         } else {
             const current = getLocalData(STORAGE_KEYS.SERVER_METRICS, INITIAL_MOCK_SERVER_METRICS);
             current.push({ ...metrics, created_at: new Date().toISOString() });
-            if (current.length > 100) current.shift();
+            if (current.length > 288) current.shift();
             setLocalData(STORAGE_KEYS.SERVER_METRICS, current);
             return metrics;
         }

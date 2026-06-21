@@ -14,6 +14,11 @@ import {
 } from 'lucide-react';
 
 const SQL_SCRIPT = `-- *** אם כבר הרצת את הסקריפט בעבר, הרץ רק את השורות הבאות ב-SQL Editor כדי לשדרג את מסד הנתונים: ***
+-- ALTER TABLE public.server_metrics ADD COLUMN IF NOT EXISTS cpu_cores integer;
+-- ALTER TABLE public.server_metrics ADD COLUMN IF NOT EXISTS cpu_model text;
+-- ALTER TABLE public.server_metrics ADD COLUMN IF NOT EXISTS ram_total bigint;
+-- ALTER TABLE public.server_metrics ADD COLUMN IF NOT EXISTS disk_total bigint;
+-- CREATE OR REPLACE FUNCTION upsert_server_containers(containers_json jsonb) RETURNS void AS $$ BEGIN INSERT INTO public.server_containers (id, name, status, cpu_percent, ram_bytes, updated_at) SELECT (value->>'id')::text, (value->>'name')::text, (value->>'status')::text, (value->>'cpu_percent')::numeric, (value->>'ram_bytes')::bigint, (value->>'updated_at')::timestamptz FROM jsonb_array_elements(containers_json) ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, status = EXCLUDED.status, cpu_percent = EXCLUDED.cpu_percent, ram_bytes = EXCLUDED.ram_bytes, updated_at = EXCLUDED.updated_at; END; $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- ALTER TABLE leads ADD COLUMN IF NOT EXISTS quote_data JSONB;
 -- ALTER TABLE tasks ADD COLUMN IF NOT EXISTS assigned_to TEXT;
 -- ALTER TABLE tasks ADD COLUMN IF NOT EXISTS depends_on_task_id UUID REFERENCES tasks(id) ON DELETE SET NULL;
@@ -119,7 +124,19 @@ CREATE TABLE IF NOT EXISTS system_alerts (
     duration_ms INTEGER
 );
 
--- 7. יצירת טבלת ריצות אוטומציה (automation_runs)
+-- 7. יצירת טבלת התראות שרת (server_alerts)
+CREATE TABLE IF NOT EXISTS server_alerts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    title TEXT NOT NULL,
+    message TEXT NOT NULL,
+    type TEXT DEFAULT 'info'::text,
+    read BOOLEAN DEFAULT false NOT NULL,
+    container_id TEXT,
+    metric_value NUMERIC
+);
+
+-- 8. יצירת טבלת ריצות אוטומציה (automation_runs)
 CREATE TABLE IF NOT EXISTS automation_runs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
@@ -132,13 +149,14 @@ CREATE TABLE IF NOT EXISTS automation_runs (
     ai_analysis TEXT
 );
 
--- 8. הפעלת RLS (Row Level Security) על כל הטבלאות
+-- 9. הפעלת RLS (Row Level Security) על כל הטבלאות
 ALTER TABLE leads ENABLE ROW LEVEL SECURITY;
 ALTER TABLE tasks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE automations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE bugs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE system_alerts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE server_alerts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE automation_runs ENABLE ROW LEVEL SECURITY;
 
 -- 8. פוליסיז להגבלת גישה למשתמשים מחוברים בלבד (עמידות ל-SQL Injection וגישה לא מורשית)
@@ -154,6 +172,7 @@ BEGIN
     DROP POLICY IF EXISTS "Allow public access for automations" ON automations;
     DROP POLICY IF EXISTS "Allow public access for bugs" ON bugs;
     DROP POLICY IF EXISTS "Allow public access for system_alerts" ON system_alerts;
+    DROP POLICY IF EXISTS "Allow public access for server_alerts" ON server_alerts;
     DROP POLICY IF EXISTS "Allow public access for automation_runs" ON automation_runs;
 
     -- פוליסיז מאובטחים לטבלת leads
@@ -186,18 +205,21 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow authenticated access for system_alerts' AND tablename = 'system_alerts') THEN
         CREATE POLICY "Allow authenticated access for system_alerts" ON system_alerts FOR ALL USING (auth.role() = 'authenticated');
     END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow authenticated access for server_alerts' AND tablename = 'server_alerts') THEN
+        CREATE POLICY "Allow authenticated access for server_alerts" ON server_alerts FOR ALL USING (auth.role() = 'authenticated');
+    END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow authenticated access for automation_runs' AND tablename = 'automation_runs') THEN
         CREATE POLICY "Allow authenticated access for automation_runs" ON automation_runs FOR ALL USING (auth.role() = 'authenticated');
     END IF;
 END
 $$;
 
--- 9. הפעלת שכפול בזמן אמת (Realtime Replication) עבור כל הטבלאות ב-Supabase
+-- 10. הפעלת שכפול בזמן אמת (Realtime Replication) עבור כל הטבלאות ב-Supabase
 DO $$
 DECLARE
     pub_exists BOOLEAN;
     t_name TEXT;
-    tables_to_add TEXT[] := ARRAY['leads', 'tasks', 'notes', 'automations', 'bugs', 'system_alerts', 'automation_runs'];
+    tables_to_add TEXT[] := ARRAY['leads', 'tasks', 'notes', 'automations', 'bugs', 'system_alerts', 'server_alerts', 'automation_runs'];
 BEGIN
     -- בדיקה האם פירסום supabase_realtime קיים, ואם לא - יצירתו
     SELECT EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') INTO pub_exists;
@@ -267,6 +289,133 @@ CREATE TRIGGER tr_copy_alert_to_run
 AFTER INSERT ON system_alerts
 FOR EACH ROW
 EXECUTE FUNCTION copy_alert_to_run();
+
+-- 10.1. יצירת טבלת מדדי שרת (server_metrics)
+CREATE TABLE IF NOT EXISTS server_metrics (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    cpu_usage NUMERIC,
+    ram_usage NUMERIC,
+    disk_usage NUMERIC,
+    cpu_cores INTEGER,
+    cpu_model TEXT,
+    ram_total BIGINT,
+    disk_total BIGINT
+);
+ALTER TABLE server_metrics ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow public access for server_metrics" ON server_metrics FOR ALL USING (true);
+
+-- 10.2. יצירת טבלת קונטיינרים של שרת (server_containers)
+CREATE TABLE IF NOT EXISTS server_containers (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    status TEXT NOT NULL,
+    cpu_percent NUMERIC DEFAULT 0,
+    ram_bytes BIGINT DEFAULT 0,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+ALTER TABLE server_containers ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow public access for server_containers" ON server_containers FOR ALL USING (true);
+
+-- 10.3. פונקציית upsert עבור קונטיינרים (במעקף RLS על ידי SECURITY DEFINER)
+CREATE OR REPLACE FUNCTION upsert_server_containers(containers_json jsonb)
+RETURNS void AS $$
+BEGIN
+    INSERT INTO public.server_containers (id, name, status, cpu_percent, ram_bytes, updated_at)
+    SELECT 
+        (value->>'id')::text,
+        (value->>'name')::text,
+        (value->>'status')::text,
+        (value->>'cpu_percent')::numeric,
+        (value->>'ram_bytes')::bigint,
+        (value->>'updated_at')::timestamptz
+    FROM jsonb_array_elements(containers_json)
+    ON CONFLICT (id) DO UPDATE 
+    SET 
+        name = EXCLUDED.name,
+        status = EXCLUDED.status,
+        cpu_percent = EXCLUDED.cpu_percent,
+        ram_bytes = EXCLUDED.ram_bytes,
+        updated_at = EXCLUDED.updated_at;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- 11. יצירת טריגר לניקוי אוטומטי של מטריקות שרת ישנות (מעבר ל-30 יום)
+CREATE OR REPLACE FUNCTION prune_old_server_metrics()
+RETURNS TRIGGER AS $$
+BEGIN
+    DELETE FROM public.server_metrics 
+    WHERE created_at < NOW() - INTERVAL '30 days';
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS tr_prune_old_server_metrics ON server_metrics;
+CREATE TRIGGER tr_prune_old_server_metrics
+AFTER INSERT ON server_metrics
+FOR EACH ROW
+EXECUTE FUNCTION prune_old_server_metrics();
+
+-- 12. פונקציית צמצום נתונים דינמית (Downsampling) למטריקות שרת
+CREATE OR REPLACE FUNCTION get_server_metrics_downsampled(timeframe_param text)
+RETURNS TABLE (
+    created_at timestamptz,
+    cpu_usage numeric,
+    ram_usage numeric,
+    disk_usage numeric,
+    cpu_cores integer,
+    cpu_model text,
+    ram_total bigint,
+    disk_total bigint
+) AS $$
+BEGIN
+    IF timeframe_param = '7d' THEN
+        RETURN QUERY 
+        SELECT 
+            date_trunc('hour', m.created_at) AS created_at,
+            ROUND(AVG(m.cpu_usage), 1) AS cpu_usage,
+            ROUND(AVG(m.ram_usage), 1) AS ram_usage,
+            ROUND(AVG(m.disk_usage), 1) AS disk_usage,
+            MAX(m.cpu_cores) AS cpu_cores,
+            MAX(m.cpu_model) AS cpu_model,
+            MAX(m.ram_total) AS ram_total,
+            MAX(m.disk_total) AS disk_total
+        FROM server_metrics m
+        WHERE m.created_at >= NOW() - INTERVAL '7 days'
+        GROUP BY 1
+        ORDER BY 1 ASC;
+    ELSIF timeframe_param = '30d' THEN
+        RETURN QUERY 
+        SELECT 
+            date_trunc('day', m.created_at) AS created_at,
+            ROUND(AVG(m.cpu_usage), 1) AS cpu_usage,
+            ROUND(AVG(m.ram_usage), 1) AS ram_usage,
+            ROUND(AVG(m.disk_usage), 1) AS disk_usage,
+            MAX(m.cpu_cores) AS cpu_cores,
+            MAX(m.cpu_model) AS cpu_model,
+            MAX(m.ram_total) AS ram_total,
+            MAX(m.disk_total) AS disk_total
+        FROM server_metrics m
+        WHERE m.created_at >= NOW() - INTERVAL '30 days'
+        GROUP BY 1
+        ORDER BY 1 ASC;
+    ELSE -- default 24h raw
+        RETURN QUERY 
+        SELECT 
+            m.created_at,
+            m.cpu_usage,
+            m.ram_usage,
+            m.disk_usage,
+            m.cpu_cores,
+            m.cpu_model,
+            m.ram_total,
+            m.disk_total
+        FROM server_metrics m
+        WHERE m.created_at >= NOW() - INTERVAL '24 hours'
+        ORDER BY m.created_at ASC;
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
 `;
 
 export default function Settings() {

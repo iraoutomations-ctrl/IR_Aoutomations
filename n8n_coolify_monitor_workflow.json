@@ -204,7 +204,7 @@
     },
     {
       "parameters": {
-        "table": "system_alerts",
+        "table": "server_alerts",
         "dataToSend": "defineBelow",
         "fieldsToSend": {
           "properties": [
