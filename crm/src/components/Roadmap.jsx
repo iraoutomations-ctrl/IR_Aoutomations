@@ -172,14 +172,14 @@ export default function Roadmap() {
             id: 'coolify_monitor',
             title: '12. ממשק ניטור שרתים וקונטיינרים (Coolify Server Monitor)',
             category: 'ops',
-            status: 'planned',
+            status: 'completed',
             icon: Activity,
-            percentage: 0,
-            description: 'דף ייעודי ב-CRM המציג מדדים בזמן אמת על בריאות השרת (CPU, RAM, נפח דיסק) וסטטוס הקונטיינרים של N8N ומסדי הנתונים המנוהלים דרך Coolify, כולל אפשרות לביצוע פעולות הפעלה מחדש (Restart) ישירות מהממשק.',
-            integration: 'התממשקות ל-Coolify REST API לשליפת נתוני אפליקציות ומשאבים ➔ כתיבת מטריקות לטבלת server_metrics ב-Supabase ➔ שליחת פקודות ריסטרט לקונטיינרים דרך ה-API במקרה הצורך.',
-            value: 'ריכוז השליטה והמעקב במקום אחד ללא צורך בכניסה לפאנל הניהול של Coolify, זיהוי מוקדם של זליגות זיכרון, וצמצום זמני השבתה.',
-            supabase: 'server_metrics, system_alerts.',
-            n8n: 'וורקפלו ניטור מתוזמן (Cron) ➔ קריאה ל-Coolify API ➔ כתיבה ל-Supabase.'
+            percentage: 100,
+            description: 'דף ייעודי ב-CRM המציג מדדים בזמן אמת על בריאות השרת (CPU, RAM, נפח דיסק) ומפרט החומרה הדינמי, לצד מעקב וניטור סטטוס ומדדי משאבים של קונטיינרים הפועלים בשרת.',
+            integration: 'חיבור SSH מאובטח והרצת סקריפט Python בשרת Hetzner ➔ כתיבת מטריקות חומרה וקונטיינרים לטבלאות server_metrics ו-server_containers ב-Supabase.',
+            value: 'מעקב רציף ואמין אחר משאבי שרת ה-CRM והסוכנים במקום אחד ללא צורך בכניסה ידנית לפאנלי ניהול, זיהוי מוקדם של עומסים וזליגות זיכרון.',
+            supabase: 'server_metrics, server_containers, system_alerts.',
+            n8n: 'וורקפלו ניטור מתוזמן (Cron) ➔ הרצת סקריפט בחיבור SSH ➔ עדכון מרוכז של מדדים וקונטיינרים ב-Supabase RPC.'
         },
         {
             id: 'agent_planner',
