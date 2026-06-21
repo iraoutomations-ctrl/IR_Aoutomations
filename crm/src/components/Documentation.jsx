@@ -1118,6 +1118,14 @@ CREATE POLICY "Allow all update" ON public.automation_daily_stats FOR UPDATE USI
                                     </p>
                                 </div>
 
+                                {/* Feature 7 */}
+                                <div style={{ border: '1px solid var(--border-color)', padding: '18px', borderRadius: '10px', background: 'rgba(255,255,255,0.02)' }}>
+                                    <h4 style={{ color: '#a78bfa', margin: '0 0 8px 0', fontSize: '14.5px', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '600' }}>🖥️ ניטור שרתים וקונטיינרים בזמן אמת (Server Monitor)</h4>
+                                    <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0, lineHeight: '1.6' }}>
+                                        מציג מדדי משאבים חיים של שרת ה-Hetzner (מעבד, זיכרון, שטח דיסק) ואת מצבם של קונטיינרי ה-Docker הפעילים במערכת (כמו N8N ו-PostgreSQL). הנתונים נמשכים באופן מאובטח באמצעות חיבור SSH ישיר וסקריפט Python ייעודי, בממשק מאובטח לקריאה בלבד (Read-Only) ללא כפתורי שליטה למניעת השבתת שירותים.
+                                    </p>
+                                </div>
+
                             </div>
                         </div>
                     )}
@@ -1165,7 +1173,7 @@ CREATE POLICY "Allow all update" ON public.automation_daily_stats FOR UPDATE USI
                                 </div>
 
                                 {/* Step 4 */}
-                                <div style={{ paddingBottom: '8px' }}>
+                                <div style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '16px' }}>
                                     <h4 style={{ color: '#ef4444', margin: '0 0 6px 0', fontSize: '14.5px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' }}><AlertTriangle size={16}/> מעקב תקלות, באגים ודיאגנוסטיקה</h4>
                                     <ul style={{ margin: 0, paddingRight: '20px', fontSize: '13px', color: 'var(--text-secondary)', lineHeight: '1.6' }}>
                                         <li>אם אוטומציה מדווחת על שגיאה (Error) או שיעור ההצלחה שלה ירד, נווט ללשונית <strong>"לוג ריצות"</strong> באוטומציה שלה.</li>
@@ -1174,6 +1182,18 @@ CREATE POLICY "Allow all update" ON public.automation_daily_stats FOR UPDATE USI
                                         <li>לחץ על כפתור <strong>"דיאגנוסטיקת AI (Gemini)"</strong>. המערכת תתחבר לשרת N8N, תמשוך את שלבי האוטומציה ותספק לך ניתוח מעמיק והוראות מדויקות לתיקון התקלה בעברית פשוטה.</li>
                                         <li>אם התקלה דורשת פיתוח, לחץ על לשונית <strong>"תפעול ואפיון"</strong>, והוסף באג חדש תחת פאנל הבאגים כדי שהצוות הטכנולוגי יקבל התראה.</li>
                                     </ul>
+                                </div>
+
+                                {/* Step 5 */}
+                                <div style={{ paddingBottom: '8px' }}>
+                                    <h4 style={{ color: '#a78bfa', margin: '0 0 6px 0', fontSize: '14.5px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' }}><Activity size={16}/> ניטור שרתים וקונטיינרים (Server Monitor)</h4>
+                                    <ol style={{ margin: 0, paddingRight: '20px', fontSize: '13px', color: 'var(--text-secondary)', lineHeight: '1.6' }}>
+                                        <li>נווט אל דף <strong>"ניטור שרת"</strong> בסרגל הצד.</li>
+                                        <li>בחלון העליון תוכל לראות תצוגה גרפית של משאבי שרת ה-Hetzner בזמן אמת (CPU, RAM, דיסק).</li>
+                                        <li>בלשונית הקונטיינרים מוצגת רשימת ה-Docker Containers הרצים (כמו N8N ו-PostgreSQL) עם אחוזי המשאבים שלהם וסטטוס פעילות ירוק (running).</li>
+                                        <li>בצד שמאל מופיע יומן התראות שרת המרכז חריגות או עומסי יתר. ניתן לסמן התראות כנקראות או לנקות את היומן.</li>
+                                        <li>שים לב: הממשק הוא לקריאה בלבד (Read-Only) ללא כפתורי שליטה (כיבוי/הפעלה מחדש) למניעת השבתות שירות בשוגג.</li>
+                                    </ol>
                                 </div>
 
                             </div>
