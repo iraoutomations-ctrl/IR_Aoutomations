@@ -1,7 +1,7 @@
 {
-  "updatedAt": "2026-06-22T07:45:33.881Z",
+  "updatedAt": "2026-06-22T08:00:33.949Z",
   "createdAt": "2026-06-15T14:00:49.503Z",
-  "id": "bRNz7Lq79wYJ5Dvo",
+  "id": "HiDfZnHekNay93TY",
   "name": "autoRI - Chatbot Error Monitor",
   "description": null,
   "active": true,
@@ -23,8 +23,9 @@
         "sendTo": "iraoutomations@gmail.com",
         "subject": "=\"🚨 אזעקה: האוטומציה \" + ($json.workflow?.name || 'באתר autoRI-studio') + \" נכשלה!\"",
         "options": {},
-        "html": "=={{ `<div style=\"font-family: system-ui, -apple-system, sans-serif; direction: rtl; text-align: right; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px; background-color: #ffffff;\">\n  <div style=\"background-color: #ff4d4f; color: white; padding: 15px; border-radius: 6px 6px 0 0; text-align: center;\">\n    <h2 style=\"margin: 0; font-size: 20px;\">🚨 אזעקת קריסה: האוטומציה נכשלה!</h2>\n  </div>\n  <div style=\"padding: 20px; color: #333333; line-height: 1.6;\">\n    <p>שלום,</p>\n    <p>מערכת הניטור זיהתה קריסה בלתי צפויה באוטומציה <strong>${$json.workflow?.name || 'autoRI-studio'}</strong>.</p>\n    \n    <div style=\"background-color: #fff2f0; border-right: 4px solid #ff4d4f; padding: 15px; margin: 20px 0; border-radius: 4px;\">\n      <h3 style=\"margin: 0 0 10px 0; color: #cf1322; font-size: 16px;\">פרטי התקלה הטכנית:</h3>\n      <table style=\"width: 100%; border-collapse: collapse;\">\n        <tr>\n          <td style=\"padding: 5px 0; font-weight: bold; width: 120px; color: #555555;\">האוטומציה שנכשלה:</td>\n          <td style=\"padding: 5px 0; color: #333333;\">${$json.workflow?.name || 'לא ידוע'}</td>\n        </tr>\n        <tr>\n          <td style=\"padding: 5px 0; font-weight: bold; width: 120px; color: #555555;\">הקובייה שנכשלה:</td>\n          <td style=\"padding: 5px 0; color: #cf1322;\">${$json.execution.lastNodeExecuted || 'לא ידוע'}</td>\n        </tr>\n        <tr>\n          <td style=\"padding: 5px 0; font-weight: bold; color: #555555;\">תיאור השגיאה:</td>\n          <td style=\"padding: 5px 0; color: #333333;\">${$json.execution.error.message || 'שגיאה כללית'}</td>\n        </tr>\n        <tr>\n          <td style=\"padding: 5px 0; font-weight: bold; color: #555555;\">מזהה ריצה (ID):</td>\n          <td style=\"padding: 5px 0; color: #666666;\">#${$json.execution.id}</td>\n        </tr>\n      </table>\n    </div>\n    \n    <div style=\"text-align: center; margin: 30px 0 15px 0;\">\n      <a href=\"${$json.execution.url}\" target=\"_blank\" style=\"background-color: #1890ff; color: white; padding: 12px 24px; text-decoration: none; font-weight: bold; border-radius: 4px; display: inline-block; box-shadow: 0 2px 4px rgba(24,144,255,0.2);\">כניסה ישירה לפרטי הריצה ב-n8n 🔍</a>\n    </div>\n    \n    <p style=\"font-size: 13px; color: #888888; text-align: center; margin-top: 35px; border-top: 1px solid #f0f0f0; padding-top: 15px;\">\n      נשלח אוטומטית על ידי מערכת הניטור של autoRI-studio\n    </p>\n  </div>\n</div>` }};",
-        "message": "=\"אזעקת קריסה: האוטומציה \" + ($json.workflow?.name || 'האוטומציה') + \" נכשלה בקובייה '\" + ($json.execution?.lastNodeExecuted || 'לא ידוע') + \"'.\""
+        "html": "=<div style=\"font-family: system-ui, -apple-system, sans-serif; direction: rtl; text-align: right; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px; background-color: #ffffff;\">\n  <div style=\"background-color: #ff4d4f; color: white; padding: 15px; border-radius: 6px 6px 0 0; text-align: center;\">\n    <h2 style=\"margin: 0; font-size: 20px;\">🚨 אזעקת קריסה: האוטומציה נכשלה!</h2>\n  </div>\n  <div style=\"padding: 20px; color: #333333; line-height: 1.6;\">\n    <p>שלום,</p>\n    <p>מערכת הניטור זיהתה קריסה בלתי צפויה באוטומציה <strong>{{$json.workflow?.name || 'autoRI-studio'}}</strong>.</p>\n    \n    <div style=\"background-color: #fff2f0; border-right: 4px solid #ff4d4f; padding: 15px; margin: 20px 0; border-radius: 4px;\">\n      <h3 style=\"margin: 0 0 10px 0; color: #cf1322; font-size: 16px;\">פרטי התקלה הטכנית:</h3>\n      <table style=\"width: 100%; border-collapse: collapse;\">\n        <tr>\n          <td style=\"padding: 5px 0; font-weight: bold; width: 120px; color: #555555;\">האוטומציה שנכשלה:</td>\n          <td style=\"padding: 5px 0; color: #333333;\">{{$json.workflow?.name || 'לא ידוע'}}</td>\n        </tr>\n        <tr>\n          <td style=\"padding: 5px 0; font-weight: bold; width: 120px; color: #555555;\">הקובייה שנכשלה:</td>\n          <td style=\"padding: 5px 0; color: #cf1322;\">{{$json.execution.lastNodeExecuted || 'לא ידוע'}}</td>\n        </tr>\n        <tr>\n          <td style=\"padding: 5px 0; font-weight: bold; color: #555555;\">תיאור השגיאה:</td>\n          <td style=\"padding: 5px 0; color: #333333;\">{{$json.execution.error.message || 'שגיאה כללית'}}</td>\n        </tr>\n        <tr>\n          <td style=\"padding: 5px 0; font-weight: bold; color: #555555;\">מזהה ריצה (ID):</td>\n          <td style=\"padding: 5px 0; color: #666666;\">#{{$json.execution.id}}</td>\n        </tr>\n      </table>\n    </div>\n    \n    <div style=\"text-align: center; margin: 30px 0 15px 0;\">\n      <a href=\"{{$json.execution.url}}\" target=\"_blank\" style=\"background-color: #1890ff; color: white; padding: 12px 24px; text-decoration: none; font-weight: bold; border-radius: 4px; display: inline-block; box-shadow: 0 2px 4px rgba(24,144,255,0.2);\">כניסה ישירה לפרטי הריצה ב-n8n 🔍</a>\n    </div>\n    \n    <p style=\"font-size: 13px; color: #888888; text-align: center; margin-top: 35px; border-top: 1px solid #f0f0f0; padding-top: 15px;\">\n      נשלח אוטומטית על ידי מערכת הניטור של autoRI-studio\n    </p>\n  </div>\n</div>",
+        "message": "=\"אזעקת קריסה: האוטומציה \" + ($json.workflow?.name || 'האוטומציה') + \" נכשלה בקובייה '\" + ($json.execution?.lastNodeExecuted || 'לא ידוע') + \"'.\"",
+        "emailType": "html"
       },
       "type": "n8n-nodes-base.gmail",
       "typeVersion": 2.2,
@@ -37,7 +38,7 @@
       "webhookId": "ae6f535a-f5ed-4ea0-bda2-bca6ee98cf6f",
       "credentials": {
         "gmailOAuth2": {
-          "id": "88mOPaW6Msk92RQE",
+          "id": "nqBuFTExJqt1m1zE",
           "name": "Gmail account"
         }
       }
@@ -111,7 +112,170 @@
   },
   "nodeGroups": [],
   "pinData": {},
-  "versionId": "d11c2d3d-5540-46d5-bb75-d8e374e9e227",
-  "activeVersionId": "d11c2d3d-5540-46d5-bb75-d8e374e9e227",
-  "tags": []
+  "versionId": "7d98853d-eb72-439c-8ba8-6162506f86c9",
+  "activeVersionId": "7d98853d-eb72-439c-8ba8-6162506f86c9",
+  "versionCounter": 8,
+  "triggerCount": 0,
+  "sourceWorkflowId": null,
+  "shared": [
+    {
+      "updatedAt": "2026-06-15T14:00:49.503Z",
+      "createdAt": "2026-06-15T14:00:49.503Z",
+      "role": "workflow:owner",
+      "workflowId": "HiDfZnHekNay93TY",
+      "projectId": "KAiqBGLXDQaaTEmM",
+      "project": {
+        "updatedAt": "2026-06-15T13:38:12.169Z",
+        "createdAt": "2026-06-15T12:18:15.850Z",
+        "id": "KAiqBGLXDQaaTEmM",
+        "name": "Ron Eini <iraoutomations@gmail.com>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "customTelemetryTags": [],
+        "creatorId": "22dab5e1-57b6-4126-8f94-3d6d42b1e397"
+      }
+    }
+  ],
+  "tags": [],
+  "activeVersion": {
+    "updatedAt": "2026-06-22T08:00:33.950Z",
+    "createdAt": "2026-06-22T08:00:33.950Z",
+    "versionId": "7d98853d-eb72-439c-8ba8-6162506f86c9",
+    "workflowId": "HiDfZnHekNay93TY",
+    "nodes": [
+      {
+        "parameters": {},
+        "type": "n8n-nodes-base.errorTrigger",
+        "typeVersion": 1,
+        "position": [
+          -16,
+          176
+        ],
+        "id": "6b12891b-bd21-44d8-8d91-625531f7fde9",
+        "name": "Error Trigger"
+      },
+      {
+        "parameters": {
+          "sendTo": "iraoutomations@gmail.com",
+          "subject": "=\"🚨 אזעקה: האוטומציה \" + ($json.workflow?.name || 'באתר autoRI-studio') + \" נכשלה!\"",
+          "options": {},
+          "html": "=<div style=\"font-family: system-ui, -apple-system, sans-serif; direction: rtl; text-align: right; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px; background-color: #ffffff;\">\n  <div style=\"background-color: #ff4d4f; color: white; padding: 15px; border-radius: 6px 6px 0 0; text-align: center;\">\n    <h2 style=\"margin: 0; font-size: 20px;\">🚨 אזעקת קריסה: האוטומציה נכשלה!</h2>\n  </div>\n  <div style=\"padding: 20px; color: #333333; line-height: 1.6;\">\n    <p>שלום,</p>\n    <p>מערכת הניטור זיהתה קריסה בלתי צפויה באוטומציה <strong>{{$json.workflow?.name || 'autoRI-studio'}}</strong>.</p>\n    \n    <div style=\"background-color: #fff2f0; border-right: 4px solid #ff4d4f; padding: 15px; margin: 20px 0; border-radius: 4px;\">\n      <h3 style=\"margin: 0 0 10px 0; color: #cf1322; font-size: 16px;\">פרטי התקלה הטכנית:</h3>\n      <table style=\"width: 100%; border-collapse: collapse;\">\n        <tr>\n          <td style=\"padding: 5px 0; font-weight: bold; width: 120px; color: #555555;\">האוטומציה שנכשלה:</td>\n          <td style=\"padding: 5px 0; color: #333333;\">{{$json.workflow?.name || 'לא ידוע'}}</td>\n        </tr>\n        <tr>\n          <td style=\"padding: 5px 0; font-weight: bold; width: 120px; color: #555555;\">הקובייה שנכשלה:</td>\n          <td style=\"padding: 5px 0; color: #cf1322;\">{{$json.execution.lastNodeExecuted || 'לא ידוע'}}</td>\n        </tr>\n        <tr>\n          <td style=\"padding: 5px 0; font-weight: bold; color: #555555;\">תיאור השגיאה:</td>\n          <td style=\"padding: 5px 0; color: #333333;\">{{$json.execution.error.message || 'שגיאה כללית'}}</td>\n        </tr>\n        <tr>\n          <td style=\"padding: 5px 0; font-weight: bold; color: #555555;\">מזהה ריצה (ID):</td>\n          <td style=\"padding: 5px 0; color: #666666;\">#{{$json.execution.id}}</td>\n        </tr>\n      </table>\n    </div>\n    \n    <div style=\"text-align: center; margin: 30px 0 15px 0;\">\n      <a href=\"{{$json.execution.url}}\" target=\"_blank\" style=\"background-color: #1890ff; color: white; padding: 12px 24px; text-decoration: none; font-weight: bold; border-radius: 4px; display: inline-block; box-shadow: 0 2px 4px rgba(24,144,255,0.2);\">כניסה ישירה לפרטי הריצה ב-n8n 🔍</a>\n    </div>\n    \n    <p style=\"font-size: 13px; color: #888888; text-align: center; margin-top: 35px; border-top: 1px solid #f0f0f0; padding-top: 15px;\">\n      נשלח אוטומטית על ידי מערכת הניטור של autoRI-studio\n    </p>\n  </div>\n</div>",
+          "message": "=\"אזעקת קריסה: האוטומציה \" + ($json.workflow?.name || 'האוטומציה') + \" נכשלה בקובייה '\" + ($json.execution?.lastNodeExecuted || 'לא ידוע') + \"'.\"",
+          "emailType": "html"
+        },
+        "type": "n8n-nodes-base.gmail",
+        "typeVersion": 2.2,
+        "position": [
+          224,
+          96
+        ],
+        "id": "86477721-e7ab-4d7e-989e-8c226f0720ff",
+        "name": "Send a message",
+        "webhookId": "ae6f535a-f5ed-4ea0-bda2-bca6ee98cf6f",
+        "credentials": {
+          "gmailOAuth2": {
+            "id": "nqBuFTExJqt1m1zE",
+            "name": "Gmail account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://pjjncfoaunwugmgkaqlz.supabase.co/rest/v1/system_alerts",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "apikey",
+                "value": "sb_publishable_wVtgeu0jwRxQr3xUDjkz8g_00BL2jcb"
+              },
+              {
+                "name": "Authorization",
+                "value": "Bearer sb_publishable_wVtgeu0jwRxQr3xUDjkz8g_00BL2jcb"
+              },
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "Prefer",
+                "value": "return=minimal"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{\n{\n  \"title\": \"🚨 תקלה: \" + ($json.workflow?.name || 'האוטומציה'),\n  \"message\": ($json.workflow?.name || 'האוטומציה') + \" נכשלה בקובייה '\" + ($json.execution?.lastNodeExecuted || 'לא ידוע') + \"'. שגיאה: \" + ($json.execution?.error?.message || 'שגיאה לא מוגדרת') + \" (ריצה #\" + ($json.execution?.id || '0') + \"). קישור לריצה: \" + ($json.execution?.url || ''),\n  \"type\": \"error\",\n  \"n8n_workflow_id\": ($json.workflow?.id || 'lyCrWBmsGlRSMJmo')\n}\n}}",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.4,
+        "position": [
+          224,
+          304
+        ],
+        "id": "8b9b876b-a735-4db6-881e-de89d89141e7",
+        "name": "Log to Supabase"
+      }
+    ],
+    "connections": {
+      "Error Trigger": {
+        "main": [
+          [
+            {
+              "node": "Send a message",
+              "type": "main",
+              "index": 0
+            },
+            {
+              "node": "Log to Supabase",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "nodeGroups": [],
+    "authors": "Ron Eini",
+    "name": null,
+    "description": null,
+    "autosaved": false,
+    "workflowPublishHistory": [
+      {
+        "createdAt": "2026-06-22T08:00:34.003Z",
+        "id": 56,
+        "workflowId": "HiDfZnHekNay93TY",
+        "versionId": "7d98853d-eb72-439c-8ba8-6162506f86c9",
+        "event": "deactivated",
+        "userId": "22dab5e1-57b6-4126-8f94-3d6d42b1e397"
+      },
+      {
+        "createdAt": "2026-06-22T08:00:34.027Z",
+        "id": 57,
+        "workflowId": "HiDfZnHekNay93TY",
+        "versionId": "7d98853d-eb72-439c-8ba8-6162506f86c9",
+        "event": "activated",
+        "userId": "22dab5e1-57b6-4126-8f94-3d6d42b1e397"
+      },
+      {
+        "createdAt": "2026-06-22T08:00:34.355Z",
+        "id": 58,
+        "workflowId": "HiDfZnHekNay93TY",
+        "versionId": "7d98853d-eb72-439c-8ba8-6162506f86c9",
+        "event": "deactivated",
+        "userId": "22dab5e1-57b6-4126-8f94-3d6d42b1e397"
+      },
+      {
+        "createdAt": "2026-06-22T08:00:34.375Z",
+        "id": 59,
+        "workflowId": "HiDfZnHekNay93TY",
+        "versionId": "7d98853d-eb72-439c-8ba8-6162506f86c9",
+        "event": "activated",
+        "userId": "22dab5e1-57b6-4126-8f94-3d6d42b1e397"
+      }
+    ]
+  }
 }
