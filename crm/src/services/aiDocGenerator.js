@@ -609,9 +609,6 @@ export function buildNdaHtml(data) {
  * Converts a styled HTML string to a PDF Blob using jsPDF and html2canvas
  */
 export async function htmlToPdfBlob(htmlContent) {
-    // Expose html2canvas globally for jsPDF fallback compatibility
-    window.html2canvas = html2canvas;
-
     // Create temporary container placed at top-left but hidden behind body using negative z-index
     const container = document.createElement('div');
     container.style.position = 'absolute';
@@ -627,32 +624,36 @@ export async function htmlToPdfBlob(htmlContent) {
     document.body.appendChild(container);
 
     try {
-        const doc = new jsPDF({
-            orientation: 'p',
-            unit: 'pt',
-            format: 'a4',
-            compress: true
+        // Render container to canvas directly
+        const canvas = await html2canvas(container, {
+            scale: 2, // High resolution
+            useCORS: true,
+            logging: false,
+            scrollX: 0,
+            scrollY: 0,
+            backgroundColor: '#ffffff'
         });
 
-        // Use jsPDF html method and pass html2canvas options with scroll resets
-        await new Promise((resolve) => {
-            doc.html(container, {
-                html2canvas: {
-                    scrollX: 0,
-                    scrollY: 0,
-                    useCORS: true,
-                    logging: false
-                },
-                callback: function (pdf) {
-                    resolve(pdf);
-                },
-                x: 0,
-                y: 0,
-                width: 595.28, // A4 width in pt
-                windowWidth: 794,
-                autoPaging: 'slice' // Use slice to render as clean page images, preserving Hebrew characters!
-            });
-        });
+        const imgData = canvas.toDataURL('image/jpeg', 0.95);
+        const imgWidth = 595.28; // A4 width in pt
+        const pageHeight = 841.89; // A4 height in pt
+        const imgHeight = (canvas.height * imgWidth) / canvas.width;
+        let heightLeft = imgHeight;
+
+        const doc = new jsPDF('p', 'pt', 'a4', true);
+        let position = 0;
+
+        // Page 1
+        doc.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight, undefined, 'FAST');
+        heightLeft -= pageHeight;
+
+        // Multi-page slicing loop
+        while (heightLeft > 2) {
+            position = heightLeft - imgHeight;
+            doc.addPage();
+            doc.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight, undefined, 'FAST');
+            heightLeft -= pageHeight;
+        }
 
         return doc.output('blob');
     } finally {
