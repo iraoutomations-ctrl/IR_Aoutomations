@@ -291,7 +291,33 @@ export default function LeadDetailsModal({ leadId, onClose, onLeadUpdated }) {
     const [showAiDocGeneratorForm, setShowAiDocGeneratorForm] = useState(false);
     const [aiDocSpecText, setAiDocSpecText] = useState('');
     const [aiDocSetupPrice, setAiDocSetupPrice] = useState('');
+    const [aiDocPilotDays, setAiDocPilotDays] = useState(14);
+    const [aiDocHasAdvance, setAiDocHasAdvance] = useState(true);
+    const [aiDocAdvancePrice, setAiDocAdvancePrice] = useState('');
     const [aiDocStatus, setAiDocStatus] = useState('');
+
+    // Pre-fill fields from lead notes/quote_data when form is opened
+    useEffect(() => {
+        if (showAiDocGeneratorForm && lead) {
+            if (lead.quote_data?.setup_cost) {
+                setAiDocSetupPrice(lead.quote_data.setup_cost.toString());
+                setAiDocAdvancePrice(Math.round(lead.quote_data.setup_cost * 0.1).toString());
+            }
+            if (lead.notes) {
+                setAiDocSpecText(lead.notes);
+            }
+        }
+    }, [showAiDocGeneratorForm, lead]);
+
+    // Keep advance price updated when setup price changes
+    useEffect(() => {
+        if (aiDocSetupPrice && aiDocHasAdvance) {
+            const setup = parseFloat(aiDocSetupPrice) || 0;
+            setAiDocAdvancePrice(Math.round(setup * 0.1).toString());
+        } else if (!aiDocHasAdvance) {
+            setAiDocAdvancePrice('');
+        }
+    }, [aiDocSetupPrice, aiDocHasAdvance]);
 
     const handleGenerateAiDocuments = async (e) => {
         if (e && e.preventDefault) e.preventDefault();
@@ -305,6 +331,17 @@ export default function LeadDetailsModal({ leadId, onClose, onLeadUpdated }) {
             return;
         }
 
+        const advanceVal = aiDocHasAdvance ? (parseFloat(aiDocAdvancePrice) || 0) : 0;
+        const finalVal = priceVal - advanceVal;
+        const pilotDaysVal = parseInt(aiDocPilotDays) || 14;
+
+        const customSettings = {
+            pilotDays: pilotDaysVal,
+            hasAdvance: aiDocHasAdvance,
+            advancePayment: advanceVal,
+            finalPayment: finalVal
+        };
+
         setDocUploading(true);
         setAiDocStatus('מתחיל תהליך גנרוט...');
 
@@ -313,6 +350,7 @@ export default function LeadDetailsModal({ leadId, onClose, onLeadUpdated }) {
                 aiDocSpecText, 
                 priceVal, 
                 lead, 
+                customSettings,
                 (status) => setAiDocStatus(status)
             );
 
@@ -1582,6 +1620,71 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
                                                     }}
                                                 />
                                             </div>
+
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '4px 0' }}>
+                                                <input
+                                                    type="checkbox"
+                                                    id="aiDocHasAdvance"
+                                                    checked={aiDocHasAdvance}
+                                                    onChange={(e) => setAiDocHasAdvance(e.target.checked)}
+                                                    style={{ width: '15px', height: '15px', cursor: 'pointer' }}
+                                                />
+                                                <label htmlFor="aiDocHasAdvance" style={{ fontSize: '11.5px', color: 'var(--text-secondary)', cursor: 'pointer' }}>
+                                                    האם יש תשלום מקדמה?
+                                                 </label>
+                                            </div>
+
+                                            {aiDocHasAdvance && (
+                                                <div>
+                                                    <label style={{ display: 'block', fontSize: '10.5px', color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                                                        סכום המקדמה (₪ ללא מע"מ):
+                                                    </label>
+                                                    <input
+                                                        type="number"
+                                                        required
+                                                        min="0"
+                                                        value={aiDocAdvancePrice}
+                                                        onChange={(e) => setAiDocAdvancePrice(e.target.value)}
+                                                        placeholder="למשל: 1500 (ברירת מחדל: 10%)"
+                                                        style={{
+                                                            width: '100%',
+                                                            background: 'rgba(0,0,0,0.2)',
+                                                            border: '1px solid rgba(255,255,255,0.1)',
+                                                            borderRadius: '6px',
+                                                            color: 'var(--text-light)',
+                                                            padding: '6px 8px',
+                                                            fontSize: '11px'
+                                                        }}
+                                                    />
+                                                    <div style={{ fontSize: '10px', color: '#10b981', marginTop: '4px' }}>
+                                                        יתרת תשלום סוגרת: ₪{(parseFloat(aiDocSetupPrice || 0) - parseFloat(aiDocAdvancePrice || 0)).toLocaleString('he-IL')}
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            <div>
+                                                <label style={{ display: 'block', fontSize: '10.5px', color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                                                    משך ימי הפיילוט לפני תשלום יתרה:
+                                                </label>
+                                                <input
+                                                    type="number"
+                                                    required
+                                                    min="1"
+                                                    value={aiDocPilotDays}
+                                                    onChange={(e) => setAiDocPilotDays(e.target.value)}
+                                                    placeholder="למשל: 14"
+                                                    style={{
+                                                        width: '100%',
+                                                        background: 'rgba(0,0,0,0.2)',
+                                                        border: '1px solid rgba(255,255,255,0.1)',
+                                                        borderRadius: '6px',
+                                                        color: 'var(--text-light)',
+                                                        padding: '6px 8px',
+                                                        fontSize: '11px'
+                                                     }}
+                                                 />
+                                            </div>
+
 
                                             {docUploading && (
                                                 <div style={{
