@@ -163,6 +163,7 @@ const documentStyle = `
         font-family: 'Segoe UI', Arial, sans-serif;
         line-height: 1.4;
         color: #0f172a;
+        font-size: 11px;
     }
     
     /* Header Banner styling */
@@ -326,74 +327,109 @@ const documentStyle = `
  * Builds the HTML content for the Proposal
  */
 export function buildProposalHtml(data) {
-    const isWebsite = data.pricing?.project_type === 'website';
+    const includeAutomation = data.pricing?.include_automation !== false;
+    const includeWebsite = !!data.pricing?.include_website;
+    const isWebsiteOnly = includeWebsite && !includeAutomation;
+    const isAutomationOnly = includeAutomation && !includeWebsite;
+    const isBoth = includeAutomation && includeWebsite;
+
     const pilotDays = data.pricing?.pilot_days || 14;
     const hasAdvance = data.pricing?.has_advance !== false;
     const setupCost = data.pricing?.setup_cost || 0;
 
-    // 1. Build components list based on project type
+    let docTitle = 'הצעת מחיר לפרויקט אוטומציות ואתר אינטרנט';
+    if (isWebsiteOnly) docTitle = 'הצעת מחיר לבניית אתר לעסק';
+    else if (isAutomationOnly) docTitle = 'הצעת מחיר לפרויקט אוטומציה ו-AI';
+
+    // 1. Build components sections
     let componentsHtml = '';
-    if (isWebsite) {
-        const websiteTypeName = WEBSITE_TYPES[data.pricing.website_type]?.name || 'אתר אינטרנט';
+
+    if (includeAutomation && data.components && data.components.length > 0) {
         componentsHtml += `
-            <div class="comp-card">
-                <h3>רכיב 1: בניית אתר אינטרנט - ${websiteTypeName}</h3>
-                <p>עיצוב ופיתוח אתר מקצועי, מותאם אישית ומותאם למובייל, המשקף את מיתוג העסק ומיועד להמרת גולשים ללקוחות.</p>
+            <div class="pdf-section">
+                <h2>3. פירוט רכיבי האוטומציה והבינה המלאכותית (AI)</h2>
+                <p>להלן פירוט המערכות החכמות וזרימות העבודה המתוכננות עבור העסק שלכם:</p>
             </div>
         `;
-        let compIndex = 2;
-        if (data.pricing.addons?.chatbot) {
+        data.components.forEach((c, index) => {
             componentsHtml += `
-                <div class="comp-card">
-                    <h3>רכיב ${compIndex++}: צ'אטבוט AI מוטמע (Gemini)</h3>
-                    <p>צ'אטבוט חכם מבוסס בינה מלאכותית של Google המוטמע באתר ומעניק מענה ללקוחות 24/7, אוסף לידים ומסנכרן אותם.</p>
-                </div>
-            `;
-        }
-        if (data.pricing.addons?.calculator) {
-            componentsHtml += `
-                <div class="comp-card">
-                    <h3>רכיב ${compIndex++}: מחשבון ROI דינמי</h3>
-                    <p>מחשבון אינטראקטיבי המאפשר למבקרים לחשב את החיסכון והרווח שלהם בעבודה איתכם, כלי חזק להגדלת אחוזי המרה.</p>
-                </div>
-            `;
-        }
-        if (data.pricing.addons?.survey) {
-            componentsHtml += `
-                <div class="comp-card">
-                    <h3>רכיב ${compIndex++}: שאלון אפיון מרובה שלבים</h3>
-                    <p>שאלון דינמי מרובה שלבים לאפיון צרכי הלקוח ואיסוף מידע מקיף ומדויק בצורה חווייתית.</p>
-                </div>
-            `;
-        }
-        if (data.pricing.addons?.crm) {
-            componentsHtml += `
-                <div class="comp-card">
-                    <h3>רכיב ${compIndex++}: חיבור למערכת CRM</h3>
-                    <p>אינטגרציה מלאה של טפסי האתר והצ'אטבוט ישירות למערכת ניהול הלקוחות של העסק לשליטה ומעקב.</p>
-                </div>
-            `;
-        }
-    } else {
-        componentsHtml = data.components.map((c, index) => `
-            <div class="comp-card">
-                <h3 style="margin-top: 0; display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
-                    <span>רכיב ${index + 1}: ${c.name}</span>
-                </h3>
-                <p style="margin-bottom: 4px;">${c.description}</p>
-                <p style="margin-bottom: 4px; font-size: 10px;"><strong>Trigger (טריגר):</strong> ${c.trigger}</p>
-                <p style="margin-bottom: 4px; font-size: 10px;"><strong>מערכות:</strong> ${c.systems.join(', ')}</p>
-                <p style="margin-bottom: 2px; font-size: 10px;"><strong>תהליך זרימה מתוכנן:</strong></p>
-                <div style="padding-right: 5px;">
-                    ${c.flow.map((step, sIdx) => `
-                        <div class="flex-list-item">
-                            <span class="flex-list-num">${sIdx + 1}.</span>
-                            <span style="font-size: 10px;">${step}</span>
+                <div class="pdf-section">
+                    <div class="comp-card">
+                        <h3 style="margin-top: 0; display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
+                            <span>רכיב אוטומציה ${index + 1}: ${c.name}</span>
+                        </h3>
+                        <p style="margin-bottom: 4px;">${c.description}</p>
+                        <p style="margin-bottom: 4px; font-size: 10px;"><strong>Trigger (טריגר):</strong> ${c.trigger}</p>
+                        <p style="margin-bottom: 4px; font-size: 10px;"><strong>מערכות:</strong> ${c.systems.join(', ')}</p>
+                        <p style="margin-bottom: 2px; font-size: 10px;"><strong>תהליך זרימה מתוכנן:</strong></p>
+                        <div style="padding-right: 5px;">
+                            ${c.flow.map((step, sIdx) => `
+                                <div class="flex-list-item">
+                                    <span class="flex-list-num">${sIdx + 1}.</span>
+                                    <span style="font-size: 10px;">${step}</span>
+                                </div>
+                            `).join('')}
                         </div>
-                    `).join('')}
+                    </div>
+                </div>
+            `;
+        });
+    }
+
+    if (includeWebsite) {
+        const websiteTypeName = WEBSITE_TYPES[data.pricing.website_type]?.name || 'אתר אינטרנט';
+        componentsHtml += `
+            <div class="pdf-section">
+                <h2>${includeAutomation ? '4.' : '3.'} פירוט פלטפורמת האתר ותתי-הרכיבים</h2>
+                <div class="comp-card" style="border-right-color: #3b82f6;">
+                    <h3>בניית אתר אינטרנט - ${websiteTypeName}</h3>
+                    <p>עיצוב ופיתוח אתר מקצועי, מותאם אישית ומותאם למובייל, המשקף את מיתוג העסק ומיועד להמרת גולשים ללקוחות.</p>
                 </div>
             </div>
-        `).join('');
+        `;
+        
+        let addonIndex = 1;
+        const addons = data.pricing.website_addons || data.pricing.addons || {};
+        if (addons.chatbot) {
+            componentsHtml += `
+                <div class="pdf-section">
+                    <div class="comp-card" style="border-right-color: #3b82f6;">
+                        <h3>תוספת אתר ${addonIndex++}: צ'אטבוט AI מוטמע (Gemini)</h3>
+                        <p>צ'אטבוט חכם מבוסס בינה מלאכותית של Google המוטמע באתר ומעניק מענה ללקוחות 24/7, אוסף לידים ומסנכרן אותם.</p>
+                    </div>
+                </div>
+            `;
+        }
+        if (addons.calculator) {
+            componentsHtml += `
+                <div class="pdf-section">
+                    <div class="comp-card" style="border-right-color: #3b82f6;">
+                        <h3>תוספת אתר ${addonIndex++}: מחשבון ROI דינמי</h3>
+                        <p>מחשבון אינטראקטיבי המאפשר למבקרים לחשב את החיסכון והרווח שלהם בעבודה איתכם, כלי חזק להגדלת אחוזי המרה.</p>
+                    </div>
+                </div>
+            `;
+        }
+        if (addons.survey) {
+            componentsHtml += `
+                <div class="pdf-section">
+                    <div class="comp-card" style="border-right-color: #3b82f6;">
+                        <h3>תוספת אתר ${addonIndex++}: שאלון אפיון מרובה שלבים</h3>
+                        <p>שאלון דינמי מרובה שלבים לאפיון צרכי הלקוח ואיסוף מידע מקיף ומדויק בצורה חווייתית.</p>
+                    </div>
+                </div>
+            `;
+        }
+        if (addons.crm) {
+            componentsHtml += `
+                <div class="pdf-section">
+                    <div class="comp-card" style="border-right-color: #3b82f6;">
+                        <h3>תוספת אתר ${addonIndex++}: חיבור למערכת CRM של העסק</h3>
+                        <p>אינטגרציה מלאה של טפסי האתר והצ'אטבוט ישירות למערכת ניהול הלקוחות של העסק לשליטה ומעקב.</p>
+                    </div>
+                </div>
+            `;
+        }
     }
 
     // 2. Build pricing rows
@@ -401,23 +437,51 @@ export function buildProposalHtml(data) {
     let totalSetup = 0;
     let totalMonthly = 0;
 
-    if (isWebsite) {
-        const baseType = data.pricing.website_type || 'landing';
-        const baseInfo = WEBSITE_TYPES[baseType] || { name: 'בניית אתר אינטרנט', price: 2500 };
-        totalSetup += baseInfo.price;
+    if (includeAutomation) {
+        const autoSetup = data.pricing.automation_setup_price || 12500;
+        const autoSlaKey = data.pricing.automation_sla || 'standard';
+        const autoSlaInfo = SLA_PACKAGES[autoSlaKey] || { name: 'Standard', price: 400, limit: 1000 };
         
+        totalSetup += autoSetup;
+        totalMonthly += autoSlaInfo.price;
+
         pricingRowsHtml += `
             <tr>
-                <td><strong>בניית אתר אינטרנט (${baseInfo.name})</strong></td>
-                <td style="text-align: left;">${baseInfo.price.toLocaleString('he-IL')} ₪</td>
+                <td><strong>חבילת האוטומציות והבינה המלאכותית (AI)</strong><br><span style="font-size: 9.5px; color: #64748b;">פיתוח, אינטגרציה מלאה, בדיקות QA והדרכה.</span></td>
+                <td style="text-align: left;">${autoSetup.toLocaleString('he-IL')} ₪</td>
+                <td style="text-align: left;">₪ 0</td>
+            </tr>
+            <tr>
+                <td><strong>ריטיינר ותחזוקת אוטומציות (SLA - ${autoSlaInfo.name})</strong><br><span style="font-size: 9.5px; color: #64748b;">שרת n8n מאובטח, ניטור שגיאות 24/7, עדכוני API ותמיכה שוטפת (עד ${autoSlaInfo.limit.toLocaleString('he-IL')} הרצות בחודש).</span></td>
+                <td style="text-align: left;">כלול בהקמה</td>
+                <td style="text-align: left;">${autoSlaInfo.price.toLocaleString('he-IL')} ₪ / חודש</td>
+            </tr>
+        `;
+    }
+
+    if (includeWebsite) {
+        const baseType = data.pricing.website_type || 'landing';
+        const baseInfo = WEBSITE_TYPES[baseType] || { name: 'בניית אתר אינטרנט', price: 2500 };
+        const webSetup = data.pricing.website_setup_price || baseInfo.price;
+        const webSlaKey = data.pricing.website_sla || 'basic';
+        const webSlaInfo = WEBSITE_SLA[webSlaKey] || { name: 'אחסון ותחזוקה בסיסית', price: 150 };
+
+        totalSetup += webSetup;
+        totalMonthly += webSlaInfo.price;
+
+        pricingRowsHtml += `
+            <tr>
+                <td><strong>בניית פלטפורמת האתר (${baseInfo.name})</strong><br><span style="font-size: 9.5px; color: #64748b;">עיצוב ייחודי, מותאם מובייל וחיבור טפסים.</span></td>
+                <td style="text-align: left;">${webSetup.toLocaleString('he-IL')} ₪</td>
                 <td style="text-align: left;">₪ 0</td>
             </tr>
         `;
-        
-        if (data.pricing.addons?.chatbot) {
+
+        const addons = data.pricing.website_addons || data.pricing.addons || {};
+        if (addons.chatbot) {
             pricingRowsHtml += `
                 <tr>
-                    <td><strong>תוספת: צ'אטבוט AI מוטמע (Gemini)</strong></td>
+                    <td><strong>תוספת אתר: צ'אטבוט AI מוטמע (Gemini)</strong><br><span style="font-size: 9.5px; color: #64748b;">פיתוח בוט וחיבורו לאתר כולל שימוש במודל.</span></td>
                     <td style="text-align: left;">3,000 ₪</td>
                     <td style="text-align: left;">250 ₪ / חודש</td>
                 </tr>
@@ -425,94 +489,102 @@ export function buildProposalHtml(data) {
             totalSetup += 3000;
             totalMonthly += 250;
         }
-        if (data.pricing.addons?.calculator) {
+        if (addons.calculator) {
             pricingRowsHtml += `
                 <tr>
-                    <td><strong>תוספת: מחשבון ROI דינמי</strong></td>
+                    <td><strong>תוספת אתר: מחשבון ROI דינמי</strong><br><span style="font-size: 9.5px; color: #64748b;">מנגנון מחשבון רווח מעוצב מבוסס קליינט.</span></td>
                     <td style="text-align: left;">1,500 ₪</td>
                     <td style="text-align: left;">₪ 0</td>
                 </tr>
             `;
             totalSetup += 1500;
         }
-        if (data.pricing.addons?.survey) {
+        if (addons.survey) {
             pricingRowsHtml += `
                 <tr>
-                    <td><strong>תוספת: שאלון אפיון מרובה שלבים</strong></td>
+                    <td><strong>תוספת אתר: שאלון אפיון מרובה שלבים</strong><br><span style="font-size: 9.5px; color: #64748b;">טופס שאלון דינמי מרובה שלבים להזרמת לידים.</span></td>
                     <td style="text-align: left;">2,000 ₪</td>
                     <td style="text-align: left;">₪ 0</td>
                 </tr>
             `;
             totalSetup += 2000;
         }
-        if (data.pricing.addons?.crm) {
+        if (addons.crm) {
             pricingRowsHtml += `
                 <tr>
-                    <td><strong>תוספת: חיבור למערכת CRM</strong></td>
+                    <td><strong>תוספת אתר: חיבור למערכת CRM</strong><br><span style="font-size: 9.5px; color: #64748b;">אינטגרציה וסנכרון לידים מהאתר ישירות ל-CRM.</span></td>
                     <td style="text-align: left;">1,000 ₪</td>
                     <td style="text-align: left;">₪ 0</td>
                 </tr>
             `;
             totalSetup += 1000;
         }
-        
-        // SLA row
-        const slaPrice = data.pricing.sla_price || 150;
-        let slaName = 'אחסון ותחזוקת אתר';
-        if (slaPrice === 150) slaName += ' (בסיסי)';
-        else if (slaPrice === 300) slaName += ' (extended)';
-        else if (slaPrice === 600) slaName += ' (premium)';
-        
+
         pricingRowsHtml += `
             <tr>
-                <td><strong>${slaName}:</strong><br><span style="font-size: 9.5px; color: #64748b;">שרת אחסון מהיר, תעודת SSL, גיבויים שוטפים ותמיכה.</span></td>
+                <td><strong>אחסון ותחזוקת אתר (SLA - ${webSlaInfo.name})</strong><br><span style="font-size: 9.5px; color: #64748b;">שרת אחסון מהיר, תעודת אבטחה SSL, גיבויים שוטפים ותמיכה.</span></td>
                 <td style="text-align: left;">כלול בהקמה</td>
-                <td style="text-align: left;">${slaPrice.toLocaleString('he-IL')} ₪ / חודש</td>
+                <td style="text-align: left;">${webSlaInfo.price.toLocaleString('he-IL')} ₪ / חודש</td>
             </tr>
         `;
-        totalMonthly += slaPrice;
-    } else {
-        const setupCostVal = data.pricing.setup_cost;
-        const retainerPrice = data.pricing.sla_price || 1000;
-        
-        pricingRowsHtml += `
-            <tr>
-                <td>
-                    <strong>חבילת האוטומציות המלאה לעסק:</strong><br>
-                    <span style="font-size: 9.5px; color: #64748b;">כולל פיתוח וחיבור כלל הרכיבים, בדיקות איכות QA והדרכה.</span>
-                </td>
-                <td style="text-align: left;">${(setupCostVal - 2500).toLocaleString('he-IL')} ₪</td>
-                <td style="text-align: left;">₪ 0</td>
-            </tr>
-            <tr>
-                <td>
-                    <strong>דף נחיתה יוקרתי, תיק עבודות מעוצב ואינטגרציות AI:</strong><br>
-                    <span style="font-size: 9.5px; color: #64748b;">כולל עיצוב ב-Midjourney, בנייה דינמית מותאמת מובייל וחיבור טפסים.</span>
-                </td>
-                <td style="text-align: left;">2,500 ₪</td>
-                <td style="text-align: left;">₪ 0</td>
-            </tr>
-            <tr>
-                <td>
-                    <strong>אירוח שרת n8n מאובטח ותמיכה שוטפת:</strong><br>
-                    <span style="font-size: 9.5px; color: #64748b;">שרת ענן ייעודי ומאובטח, ניטור שגיאות 24/7, עדכוני API ותמיכה טכנית.</span>
-                </td>
-                <td style="text-align: left;">כלול בהקמה</td>
-                <td style="text-align: left;">${retainerPrice.toLocaleString('he-IL')} ₪ / חודש</td>
-            </tr>
-        `;
-        totalSetup = setupCostVal;
-        totalMonthly = retainerPrice;
     }
 
-    // 3. Build third-party costs rows
-    const thirdPartyHtml = data.third_party_costs.map(c => `
-        <tr>
-            <td><strong>${c.name}</strong></td>
-            <td>${c.estimated_cost}</td>
-            <td>${c.explanation}</td>
-        </tr>
-    `).join('');
+    // 3. Build third-party costs html
+    let thirdPartyHtml = '';
+    const autoThird = includeAutomation ? parseFloat(data.pricing.automation_third_party || 0) : 0;
+    const webThird = includeWebsite ? parseFloat(data.pricing.website_third_party || 0) : 0;
+    const totalThird = autoThird + webThird;
+
+    if (totalThird > 0 || (data.third_party_costs && data.third_party_costs.length > 0)) {
+        let rows = '';
+        if (data.third_party_costs && data.third_party_costs.length > 0) {
+            data.third_party_costs.forEach(c => {
+                rows += `
+                    <tr>
+                        <td><strong>${c.name}</strong></td>
+                        <td>${c.estimated_cost}</td>
+                        <td>${c.explanation}</td>
+                    </tr>
+                `;
+            });
+        } else {
+            if (autoThird > 0) {
+                rows += `
+                    <tr>
+                        <td><strong>עלויות צד ג' (אוטומציות)</strong><br><span style="font-size: 9px; color: #64748b;">OpenAI/Gemini tokens, רשיונות Make/n8n.</span></td>
+                        <td>₪ ${autoThird} / חודש</td>
+                        <td>בהתאם לצריכה בפועל בפרויקט.</td>
+                    </tr>
+                `;
+            }
+            if (webThird > 0) {
+                rows += `
+                    <tr>
+                        <td><strong>עלויות צד ג' (אתר)</strong><br><span style="font-size: 9px; color: #64748b;">דומיין, Gemini API, שרתים מיוחדים.</span></td>
+                        <td>₪ ${webThird} / חודש</td>
+                        <td>בהתאם לצריכה בפועל באתר.</td>
+                    </tr>
+                `;
+            }
+        }
+        thirdPartyHtml = `
+            <div class="pdf-section">
+                <h2>6. הערכת עלויות צד ג' חודשיות (משולמות ישירות לספקים)</h2>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>שם שירות צד ג'</th>
+                            <th width="35%">עלות משוערת חודשית</th>
+                            <th>הסבר ואופן חיוב</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rows}
+                    </tbody>
+                </table>
+            </div>
+        `;
+    }
 
     // 4. Payment terms
     let paymentTermsHtml = '';
@@ -538,17 +610,44 @@ export function buildProposalHtml(data) {
 
     const totalExecutions = data.executions_summary?.total_monthly_executions.toLocaleString('he-IL') || '2,200';
 
+    let executionsSectionHtml = '';
+    if (includeAutomation) {
+        executionsSectionHtml = `
+            <div class="pdf-section">
+                <h2>5. ניתוח והערכת נפח הרצות (Executions) חודשי לעסק</h2>
+                <div style="margin-bottom: 10px;">
+                    <div class="flex-list-item">
+                        <span class="flex-list-bullet">•</span>
+                        <span><strong>סה"כ צפי חודשי לעסק:</strong> כ-${totalExecutions} הרצות בחודש.</span>
+                    </div>
+                    <div class="flex-list-item" style="margin-top: 4px;">
+                        <span class="flex-list-bullet">•</span>
+                        <span><strong>פירוט מתמטי של החישוב:</strong> ${data.executions_summary?.explanation || 'חישוב מפורט מבוסס רכיבים.'}</span>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
     return `
         <div class="proposal-container">
             ${documentStyle}
             
-            <!-- PAGE 1 -->
-            <div class="pdf-page">
+            <div class="pdf-header-template" style="display:none;">
                 <div class="header-banner">
                     <span class="header-logo">autoRI-studio</span>
-                    <span class="header-title">${isWebsite ? 'הצעת מחיר לבניית אתר לעסק' : 'הצעת מחיר לפרויקט אוטומציה ו-AI'}</span>
+                    <span class="header-title">${docTitle}</span>
                 </div>
-                
+            </div>
+            
+            <div class="pdf-footer-template" style="display:none;">
+                <div class="footer-note">
+                    <span>עמוד <span class="pdf-page-num"></span> מתוך <span class="pdf-total-pages"></span> | autoRI-studio הצעת מחיר עבור ${data.business_name}</span>
+                </div>
+            </div>
+            
+            <!-- SECTION 1: Client details -->
+            <div class="pdf-section">
                 <h2>1. פרטי ההצעה והלקוח</h2>
                 <table class="data-table">
                     <tr>
@@ -568,38 +667,21 @@ export function buildProposalHtml(data) {
                         <td>רון ועילי</td>
                     </tr>
                 </table>
-                
+            </div>
+            
+            <!-- SECTION 2: Exec Summary -->
+            <div class="pdf-section">
                 <h2>2. תקציר מנהלים ומטרות העל</h2>
                 <p>מטרת-העל של פרויקט זה היא לייצר לעסק שלך סדר מוחלט בעיניים, לחסוך לך שעות יקרות של עבודה ידנית יומיומית, ולהעלות משמעותית את אחוז סגירת העסקאות בעסק - הכל בצורה אוטומטית שרצה מאחורי הקלעים בזמן שאתה ממוקד בליבת הפעילות השוטפת.</p>
                 <p>באמצעות שילוב של מערכות ניהול מתקדמות, כלי בינה מלאכותית (AI) וחיבור לערוצי התקשורת והרשתות החברתיות, נבנה עבורך מערך דיגיטלי חכם שיעבוד בשבילך 24/7.</p>
-                
-                <div class="footer-note">
-                    <span>עמוד 1 מתוך 4 | autoRI-studio הצעת מחיר עבור ${data.business_name}</span>
-                </div>
             </div>
             
-            <!-- PAGE 2 -->
-            <div class="pdf-page">
-                <div class="header-banner">
-                    <span class="header-logo">autoRI-studio</span>
-                    <span class="header-title">ארכיטקטורה ופירוט הרכיבים</span>
-                </div>
-                <h2>3. פירוט הרכיבים הכלולים בפרויקט</h2>
-                <div style="flex: 1; overflow: hidden;">
-                    ${componentsHtml}
-                </div>
-                <div class="footer-note">
-                    <span>עמוד 2 מתוך 4 | autoRI-studio הצעת מחיר עבור ${data.business_name}</span>
-                </div>
-            </div>
+            <!-- SECTION 3: Components Details -->
+            ${componentsHtml}
             
-            <!-- PAGE 3 -->
-            <div class="pdf-page">
-                <div class="header-banner">
-                    <span class="header-logo">autoRI-studio</span>
-                    <span class="header-title">תמחור, שרתים והוצאות נלוות</span>
-                </div>
-                <h2>4. תמחור ועלויות פיתוח והקמה</h2>
+            <!-- SECTION 4: Pricing Table -->
+            <div class="pdf-section">
+                <h2>${includeAutomation && includeWebsite ? '5.' : includeAutomation ? '4.' : '4.'} תמחור ועלויות פיתוח והקמה</h2>
                 <table class="data-table">
                     <thead>
                         <tr>
@@ -613,64 +695,39 @@ export function buildProposalHtml(data) {
                         <tr class="total-row">
                             <td>סה"כ פרויקט והקמה (ללא מע"מ):</td>
                             <td style="text-align: left;">${totalSetup.toLocaleString('he-IL')} ₪</td>
-                            <td style="text-align: left;">${totalMonthly.toLocaleString('he-IL')} ₪ / חודש</td>
+                            <td style="text-align: left;">${(totalMonthly + totalThird).toLocaleString('he-IL')} ₪ / חודש</td>
                         </tr>
                     </tbody>
                 </table>
                 
                 <div class="alert-box">
                     <div class="alert-box-title">⚙️ שקט תעשייתי ומערכות יציבות 24/7</div>
-                    <p style="margin: 0; font-size: 10px; line-height: 1.3;">האוטומציות והאתר שלך הם המנוע השקט שמייצר לך כסף. הריטיינר כולל: אירוח בשרתים ייעודיים מהירים (Dedicated Cloud Hosting), ניטור שגיאות אקטיבי 24/7, ותחזוקת קוד שוטפת מול שינויי API של מטא, גוגל ולינקדאין.</p>
-                </div>
-                
-                <h2>5. ניתוח והערכת נפח הרצות (Executions) חודשי לעסק</h2>
-                <div style="margin-bottom: 10px;">
-                    <div class="flex-list-item">
-                        <span class="flex-list-bullet">•</span>
-                        <span><strong>סה"כ צפי חודשי:</strong> כ-${totalExecutions} הרצות בחודש.</span>
-                    </div>
-                    <div class="flex-list-item">
-                        <span class="flex-list-bullet">•</span>
-                        <span><strong>חישוב צפי:</strong> ${data.executions_summary?.explanation || ''}</span>
-                    </div>
-                </div>
-                
-                <h2>6. הערכת עלויות צד ג' חודשיות (משולם ישירות לספקים)</h2>
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>שם שירות צד ג'</th>
-                            <th width="35%">עלות משוערת חודשית</th>
-                            <th>הסבר ואופן חיוב</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${thirdPartyHtml}
-                    </tbody>
-                </table>
-                <div class="footer-note">
-                    <span>עמוד 3 מתוך 4 | autoRI-studio הצעת מחיר עבור ${data.business_name}</span>
+                    <p style="margin: 0; font-size: 10px; line-height: 1.35;">המערכות הדיגיטליות והאתר שלכם הם המנוע השקט שמייצר לכם כסף. הריטיינר החודשי מבטיח יציבות מלאה וכולל: אירוח בשרתים פרטיים ייעודיים (Dedicated Cloud Hosting), ניטור שגיאות אקטיבי 24/7, ותחזוקת קוד שוטפת מול שינויי API של מטא, גוגל וספקי צד ג' כדי שהמערכת לעולם לא תישבר.</p>
                 </div>
             </div>
             
-            <!-- PAGE 4 -->
-            <div class="pdf-page">
-                <div class="header-banner">
-                    <span class="header-logo">autoRI-studio</span>
-                    <span class="header-title">תנאי תשלום וחתימות</span>
-                </div>
-                
-                <h2>7. תנאי תשלום ומדיניות שביעות רצון (Satisfaction Guarantee)</h2>
-                <div style="margin-bottom: 15px;">
+            <!-- SECTION 5: Executions -->
+            ${executionsSectionHtml}
+            
+            <!-- SECTION 6: Third Party Costs -->
+            ${thirdPartyHtml}
+            
+            <!-- SECTION 7: Payment Terms -->
+            <div class="pdf-section">
+                <h2>${includeAutomation && includeWebsite ? '7.' : includeAutomation ? '7.' : '5.'} תנאי תשלום ומדיניות שביעות רצון (Satisfaction Guarantee)</h2>
+                <div style="margin-bottom: 10px;">
                     ${paymentTermsHtml}
-                    <div class="flex-list-item">
+                    <div class="flex-list-item" style="margin-top: 4px;">
                         <span class="flex-list-bullet">•</span>
-                        <span><strong>עבודות מחוץ להיקף:</strong> כל שינוי או תוספת יתומחרו בנפרד לפי תעריף פיתוח שעתי של ${data.pricing.hourly_rate} ₪ + מע"מ לשעה.</span>
+                        <span><strong>עבודות מחוץ להיקף:</strong> כל שינוי או תוספת יתומחרו בנפרד לפי תעריף פיתוח שעתי של ${data.pricing.hourly_rate || 230} ₪ + מע"מ לשעה.</span>
                     </div>
                 </div>
-                
-                <h2>8. לוחות זמנים משוערים להקמה</h2>
-                <div style="margin-bottom: 15px;">
+            </div>
+            
+            <!-- SECTION 8: Timeline -->
+            <div class="pdf-section">
+                <h2>${includeAutomation && includeWebsite ? '8.' : includeAutomation ? '8.' : '6.'} לוחות זמנים משוערים להקמה</h2>
+                <div style="margin-bottom: 10px;">
                     ${data.timeline.map((t, index) => `
                         <div class="flex-list-item">
                             <span class="flex-list-num">${index + 1}.</span>
@@ -678,9 +735,12 @@ export function buildProposalHtml(data) {
                         </div>
                     `).join('')}
                 </div>
-                <p><em>* סה"כ זמן משוער לעלייה מלאה לאוויר: כ-27 ימי עסקים ממועד קבלת המקדמה והגישות (נשאף לקצר ככל הניתן).</em></p>
-                
-                <div class="signature-section" style="margin-top: auto; margin-bottom: 25px;">
+                <p style="font-size: 10px; font-style: italic;">* סה"כ זמן משוער לעלייה מלאה לאוויר: כ-27 ימי עסקים ממועד קבלת המקדמה והגישות (נשאף לקצר ככל הניתן).</p>
+            </div>
+            
+            <!-- SECTION 9: Signatures -->
+            <div class="pdf-section">
+                <div class="signature-section" style="margin-top: 15px;">
                     <div class="signature-box">
                         <div class="signature-title">מטעם autoRI-studio (הספק)</div>
                         <p style="font-size: 10px; margin-bottom: 8px;">נציגים: רון ועילי</p>
@@ -694,92 +754,113 @@ export function buildProposalHtml(data) {
                         <p style="font-size: 9px; margin: 0; color: #64748b;">חתימה וחותמת</p>
                     </div>
                 </div>
-                
-                <div class="footer-note">
-                    <span>עמוד 4 מתוך 4 | autoRI-studio הצעת מחיר עבור ${data.business_name}</span>
-                </div>
             </div>
         </div>
     `;
 }
 
-/**
- * Builds the HTML content for the Contract
- */
+
 export function buildContractHtml(data) {
-    const isWebsite = data.pricing?.project_type === 'website';
+    const includeAutomation = data.pricing?.include_automation !== false;
+    const includeWebsite = !!data.pricing?.include_website;
+    const isWebsiteOnly = includeWebsite && !includeAutomation;
+    const isAutomationOnly = includeAutomation && !includeWebsite;
+    const isBoth = includeAutomation && includeWebsite;
+
     const pilotDays = data.pricing?.pilot_days || 14;
     const hasAdvance = data.pricing?.has_advance !== false;
     const setupCost = data.pricing?.setup_cost || 0;
 
+    let docTitle = 'הסכם פיתוח, הקמה ותחזוקת מערכות';
+    if (isWebsiteOnly) docTitle = 'הסכם פיתוח ותחזוקת אתר';
+    else if (isAutomationOnly) docTitle = 'הסכם פיתוח והקמת מערכות אוטומציה';
+
     let componentsListHtml = '';
-    if (isWebsite) {
+    let compIdx = 1;
+
+    if (includeAutomation && data.components && data.components.length > 0) {
+        data.components.forEach((c) => {
+            componentsListHtml += `
+                <div class="flex-list-item">
+                    <span class="flex-list-num">${compIdx++}.</span>
+                    <span><strong>${c.name} (אוטומציה):</strong> ${c.description} (מערכות: ${c.systems.join(', ')}).</span>
+                </div>
+            `;
+        });
+    }
+
+    if (includeWebsite) {
         const websiteTypeName = WEBSITE_TYPES[data.pricing.website_type]?.name || 'אתר אינטרנט';
         componentsListHtml += `
             <div class="flex-list-item">
-                <span class="flex-list-num">1.</span>
-                <span><strong>בניית אתר אינטרנט (${websiteTypeName})</strong> - הקמה ועיצוב דינמי.</span>
+                <span class="flex-list-num">${compIdx++}.</span>
+                <span><strong>בניית אתר אינטרנט (${websiteTypeName}):</strong> פיתוח פלטפורמה, עיצוב מותאם מובייל.</span>
             </div>
         `;
-        let compIndex = 2;
-        if (data.pricing.addons?.chatbot) {
+        const addons = data.pricing.website_addons || data.pricing.addons || {};
+        if (addons.chatbot) {
             componentsListHtml += `
                 <div class="flex-list-item">
-                    <span class="flex-list-num">${compIndex++}.</span>
-                    <span><strong>צ'אטבוט AI מוטמע (Gemini)</strong> - אינטגרציה מענה ללקוחות.</span>
+                    <span class="flex-list-num">${compIdx++}.</span>
+                    <span><strong>צ'אטבוט AI מוטמע (Gemini):</strong> חיבור מענה ללקוחות.</span>
                 </div>
             `;
         }
-        if (data.pricing.addons?.calculator) {
+        if (addons.calculator) {
             componentsListHtml += `
                 <div class="flex-list-item">
-                    <span class="flex-list-num">${compIndex++}.</span>
-                    <span><strong>מחשבון ROI דינמי</strong> - מחשבון הערכת רווח ועלויות.</span>
+                    <span class="flex-list-num">${compIdx++}.</span>
+                    <span><strong>מחשבון ROI דינמי:</strong> מחשבון הערכת רווח ועלויות.</span>
                 </div>
             `;
         }
-        if (data.pricing.addons?.survey) {
+        if (addons.survey) {
             componentsListHtml += `
                 <div class="flex-list-item">
-                    <span class="flex-list-num">${compIndex++}.</span>
-                    <span><strong>שאלון אפיון מרובה שלבים</strong> - שאלון דינמי מרובה שלבים לאיסוף מידע.</span>
+                    <span class="flex-list-num">${compIdx++}.</span>
+                    <span><strong>שאלון אפיון מרובה שלבים:</strong> שאלון דינמי מרובה שלבים לאיסוף מידע.</span>
                 </div>
             `;
         }
-        if (data.pricing.addons?.crm) {
+        if (addons.crm) {
             componentsListHtml += `
                 <div class="flex-list-item">
-                    <span class="flex-list-num">${compIndex++}.</span>
-                    <span><strong>חיבור למערכת CRM</strong> - סנכרון וניהול לקוחות.</span>
+                    <span class="flex-list-num">${compIdx++}.</span>
+                    <span><strong>חיבור למערכת CRM:</strong> סנכרון וניהול לקוחות.</span>
                 </div>
             `;
         }
-    } else {
-        componentsListHtml = data.components.map((c, index) => `
-            <div class="flex-list-item">
-                <span class="flex-list-num">${index + 1}.</span>
-                <span><strong>${c.name}</strong> - ${c.description} (מערכות: ${c.systems.join(', ')}).</span>
-            </div>
-        `).join('');
     }
 
-    // Retainer explanation
+    // Retainer explanations
     let retainerHtml = '';
-    const slaPrice = data.pricing?.sla_price || 1000;
-    if (isWebsite) {
-        retainerHtml = `
-            <p>עבור אירוח האתר בשרת מהיר ומאובטח, רישיון SSL, גיבויים, ניטור שוטף ותמיכה טכנית, ישלם הלקוח סך חודשי קבוע של <strong>${slaPrice.toLocaleString('he-IL')} ₪ + מע"מ</strong> כחוק (משולם בכל 1 לחודש עבור החודש השוטף).</p>
-        `;
-    } else {
-        retainerHtml = `
-            <p>עבור אירוח המערכות בשרת n8n פרטי ומאובטח, ניטור אקטיבי של שגיאות 24/7 ותמיכה טכנית, ישלם הלקוח ריטיינר חודשי קבוע. הלקוח יבחר את מסלול השרת הרלוונטי עבורו במעמד החתימה:</p>
-            <div class="flex-list-item">
-                <span class="flex-list-bullet">•</span>
-                <span><strong>[ ] מסלול Premium:</strong> ${SLA_PACKAGES.premium.price.toLocaleString('he-IL')} ₪ + מע"מ לחודש. כולל עד 5,000 הרצות (Executions) בחודש, כיסוי מלא ותמיכה מועדפת.</span>
+    
+    if (includeAutomation) {
+        const autoSlaKey = data.pricing.automation_sla || 'standard';
+        const autoSlaInfo = SLA_PACKAGES[autoSlaKey] || { name: 'Standard', price: 400, limit: 1000 };
+        const autoThird = parseFloat(data.pricing.automation_third_party || 0);
+
+        retainerHtml += `
+            <div style="margin-bottom: 8px;">
+                <strong>א. תחזוקת אוטומציות ושרת (SLA - ${autoSlaInfo.name}):</strong>
+                <p style="margin: 3px 0 0 0; font-size: 10.5px;">עבור אירוח המערכות בשרת n8n פרטי ומאובטח, ניטור אקטיבי של שגיאות 24/7, עדכוני API ותמיכה שוטפת, ישלם הלקוח סך של <strong>${autoSlaInfo.price.toLocaleString('he-IL')} ₪ + מע"מ לחודש</strong> (כולל עד ${autoSlaInfo.limit.toLocaleString('he-IL')} הרצות בחודש). ${autoSlaKey === 'standard' ? 'חריגה תחוייב בעלות של 0.20 ₪ לכל ריצה נוספת.' : ''}</p>
+                ${autoThird > 0 ? `<p style="margin: 2px 0 0 0; font-size: 10px; color: #64748b;">* עלויות צד ג' צפויות (OpenAI, מנויים וכדומה): כ-₪${autoThird} בחודש (משולם ישירות לספקים/בפירוט הריטיינר).</p>` : ''}
             </div>
-            <div class="flex-list-item">
-                <span class="flex-list-bullet">•</span>
-                <span><strong>[ ] מסלול Standard:</strong> ${SLA_PACKAGES.standard.price.toLocaleString('he-IL')} ₪ + מע"מ לחודש. כולל עד 1,000 הרצות בחודש (חריגה בחיוב של 0.20 ₪ לכל ריצה נוספת).</span>
+        `;
+    }
+
+    if (includeWebsite) {
+        const webSlaKey = data.pricing.website_sla || 'basic';
+        const webSlaInfo = WEBSITE_SLA[webSlaKey] || { name: 'אחסון ותחזוקה בסיסית', price: 150 };
+        const webThird = parseFloat(data.pricing.website_third_party || 0);
+        const addons = data.pricing.website_addons || data.pricing.addons || {};
+        const hasChatbot = !!addons.chatbot;
+
+        retainerHtml += `
+            <div style="margin-bottom: 8px;">
+                <strong>ב. אחסון ותחזוקת אתר (SLA - ${webSlaInfo.name}):</strong>
+                <p style="margin: 3px 0 0 0; font-size: 10.5px;">עבור אירוח האתר בשרת מהיר ומאובטח, רישיון SSL, גיבויים, ניטור שוטף ותמיכה טכנית, ישלם הלקוח סך של <strong>${webSlaInfo.price.toLocaleString('he-IL')} ₪ + מע"מ לחודש</strong>.${hasChatbot ? ' הריטיינר כולל תוספת שוטפת עבור תחזוקת צ\'אטבוט ה-AI בסך 250 ₪ לחודש (סה"כ שוטף אתר: ' + (webSlaInfo.price + 250).toLocaleString('he-IL') + ' ₪).' : ''}</p>
+                ${webThird > 0 ? `<p style="margin: 2px 0 0 0; font-size: 10px; color: #64748b;">* עלויות שוטפות נוספות (שרתים, Gemini API): כ-₪${webThird} בחודש.</p>` : ''}
             </div>
         `;
     }
@@ -810,13 +891,21 @@ export function buildContractHtml(data) {
         <div class="contract-container">
             ${documentStyle}
             
-            <!-- PAGE 1 -->
-            <div class="pdf-page">
+            <div class="pdf-header-template" style="display:none;">
                 <div class="header-banner">
                     <span class="header-logo">autoRI-studio</span>
-                    <span class="header-title">${isWebsite ? 'הסכם פיתוח ותחזוקת אתר' : 'הסכם פיתוח והקמת מערכות אוטומציה'}</span>
+                    <span class="header-title">${docTitle}</span>
                 </div>
-                
+            </div>
+            
+            <div class="pdf-footer-template" style="display:none;">
+                <div class="footer-note">
+                    <span>עמוד <span class="pdf-page-num"></span> מתוך <span class="pdf-total-pages"></span> | autoRI-studio הסכם התקשרות עבור ${data.business_name}</span>
+                </div>
+            </div>
+            
+            <!-- SECTION 1: Header/Dates -->
+            <div class="pdf-section">
                 <p style="text-align: center; font-weight: 600; margin-bottom: 12px; font-size: 11.5px;">שנערך ונחתם ביום ${new Date().getDate()} בחודש ${new Date().toLocaleString('he-IL', { month: 'long' })} שנת ${new Date().getFullYear()}</p>
                 
                 <h2>בין הצדדים:</h2>
@@ -830,73 +919,74 @@ export function buildContractHtml(data) {
                         <td><strong>${data.business_name}</strong> (${data.contact_name})<br>ע.מ. / ח.פ.: ________________________</td>
                     </tr>
                 </table>
-                
+            </div>
+
+            <!-- SECTION 2: Whereas -->
+            <div class="pdf-section">
                 <p><strong>הואיל</strong> והספק עוסק בפיתוח, עיצוב, אינטגרציה ותחזוקה של אוטומציות עסקיות, כלי בינה מלאכותית, אתרי אינטרנט ובוטים עסקיים;</p>
-                <p><strong>והואיל</strong> והלקוח מנהל עסק עצמאי ומעוניין להסתייע בשירותי הספק לצורך בניית תשתית דיגיטלית חכמה, אוטומציות תקשורת ומכירות, דף נחיתה מעוצב ואיסוף נתונים (להלן: "הפרויקט"), כמפורט בהסכם זה;</p>
+                <p><strong>והואיל</strong> והלקוח מעוניין להסתייע בשירותי הספק לצורך בניית תשתית דיגיטלית חכמה, אוטומציות תקשורת ומכירות, דף נחיתה מעוצב ואיסוף נתונים (להלן: "הפרויקט"), כמפורט בהסכם זה;</p>
                 <p><strong>לפיכך הוצהר, הותנה והוסכם בין הצדדים כדלקמן:</strong></p>
-                
+            </div>
+            
+            <!-- SECTION 3: Scope -->
+            <div class="pdf-section">
                 <h2>1. היקף השירותים והאפיון המוסכם</h2>
                 <p>הספק יפתח, יעצב ויטמיע עבור הלקוח את הרכיבים הבאים, המהווים את גרעין הפרויקט והאפיון הטכנולוגי שלו:</p>
                 <div style="margin-bottom: 10px;">
                     ${componentsListHtml}
                 </div>
-                <p>כל שינוי, תוספת או סטייה מהרכיבים המוגדרים מעלה יתומחרו בנפרד לפי תעריף פיתוח שעתי של ${data.pricing.hourly_rate} ₪ + מע"מ לשעה (או לפי הצעת מחיר גלובלית וכתובה שתסוכם מראש).</p>
-                
-                <div class="footer-note">
-                    <span>עמוד 1 מתוך 3 | autoRI-studio הסכם התקשרות עבור ${data.business_name}</span>
-                </div>
+                <p>כל שינוי, תוספת או סטייה מהרכיבים המוגדרים מעלה יתומחרו בנפרד לפי תעריף פיתוח שעתי של ${data.pricing.hourly_rate || 230} ₪ + מע"מ לשעה (או לפי הצעת מחיר גלובלית וכתובה שתסוכם מראש).</p>
             </div>
             
-            <!-- PAGE 2 -->
-            <div class="pdf-page">
-                <div class="header-banner">
-                    <span class="header-logo">autoRI-studio</span>
-                    <span class="header-title">תנאים כספיים וקניין רוחני</span>
-                </div>
-                
+            <!-- SECTION 4: Payments -->
+            <div class="pdf-section">
                 <h2>2. תמורה, אבני דרך ותנאי תשלום</h2>
                 <h3>א. עלות הקמה ופיתוח חד-פעמית (חלוקה מבוססת שביעות רצון):</h3>
                 <p>עבור אפיון, פיתוח, עיצוב והקמה של הרכיבים המפורטים לעיל, ישלם הלקוח לספק סך חד-פעמי של <strong>${setupCost.toLocaleString('he-IL')} ₪ + מע"מ כחוק</strong>. פריסת התשלומים תתבצע כדלקמן:</p>
                 <div style="margin-bottom: 10px;">
                     ${paymentMilestonesHtml}
                 </div>
-                
+            </div>
+
+            <!-- SECTION 5: Retainer Details -->
+            <div class="pdf-section">
                 <h3>ב. ריטיינר חודשי לתחזוקה, שרת ותמיכה טכנית:</h3>
-                ${retainerHtml}
-                
+                <div style="margin-bottom: 10px;">
+                    ${retainerHtml}
+                </div>
                 <h3>ג. עדכוני תוכן ידניים באתר ובתיק העבודות:</h3>
                 <p>הריטיינר החודשי עוסק בתחזוקה טכנולוגית ותשתיתית בלבד. עדכוני תוכן ידניים יבוצעו בעלות קבועה של 300 ₪ + מע"מ עבור כל סבב עדכונים מבוקש (מכסה עד שעת עבודה אחת בפועל).</p>
                 
                 <h3>ד. ריבית פיגורים:</h3>
                 <p>איחור בתשלום העולה על 14 ימים ממועד הפירעון המוסכם ישא ריבית פיגורים שבועית בשיעור של 1.5% מהסכום שבפיגור.</p>
-                
+            </div>
+            
+            <!-- SECTION 6: Intellectual Property -->
+            <div class="pdf-section">
                 <h2>3. קניין רוחני (Intellectual Property)</h2>
                 <p>כל זכויות הקניין רוחני באוטומציות, במנגנונים ובאתר שהוקמו במיוחד עבור הלקוח, יעברו לבעלותו המלאה והבלעדית של הלקוח אך ורק לאחר פירעון מלא וסופי של כל התשלומים המגיעים לספק עבור שלב ההקמה.</p>
                 <p>הספק שומר לעצמו את הזכות לעשות שימוש חוזר ברכיבי קוד גנריים, שיטות פיתוח ואינטגרציה, פונקציות עזר וארכיטקטורות זרימה שאינם מכילים מידע עסקי ספציפי או סודי של הלקוח.</p>
-                
-                <div class="footer-note">
-                    <span>עמוד 2 מתוך 3 | autoRI-studio הסכם התקשרות עבור ${data.business_name}</span>
-                </div>
             </div>
             
-            <!-- PAGE 3 -->
-            <div class="pdf-page">
-                <div class="header-banner">
-                    <span class="header-logo">autoRI-studio</span>
-                    <span class="header-title">הגבלת אחריות וחתימות</span>
-                </div>
-                
+            <!-- SECTION 7: Liability -->
+            <div class="pdf-section">
                 <h2>4. הגבלת אחריות (Limitation of Liability)</h2>
                 <p>בשום מקרה ובשום נסיבות לא תעלה החבות הכוללת של הספק בגין כל נזק, הפסד, פגיעה או תביעה במסגרת הסכם זה, על הסכום הכולל ששולם בפועל על ידי הלקוח לספק עבור רכיב ההקמה הספציפי שגרם לנזק המדובר.</p>
                 <p>הספק אינו אחראי בשום אופן לנזקים עקיפים, תוצאתיים, מיוחדים או נלווים, לרבות אובדן רווחים, אובדן עסקאות, הפרעות לפעילות העסקית, נפילות של שירותי צד ג' (כגון עדכוני מטא, תקלות ב-API WhatsApp, שינויים במדיניות LinkedIn או תקלות בשרתי OpenAI) או אובדן נתונים.</p>
-                
+            </div>
+            
+            <!-- SECTION 8: Validity -->
+            <div class="pdf-section">
                 <h2>5. תוקף, סיום ההסכם ומדיניות ביטולים</h2>
-                <p>הסכם התחזוקה והריטיינר החודשי הינו לתקופה של 12 חודשים ממועד ההפעלה, ויחודש אוטומטית לתקופות נוספות של שנה בכל פעם. כל צד רשאי לסיים את הסכם התחזוקה בכל עת מכל סיבה על ידי מתן הודעה בכתב לפחות 30 יום מראש.</p>
+                <p>ההסכם יכנס לתוקפו עם חתימת שני הצדדים. הסכם התחזוקה והריטיינר החודשי הינו לתקופה של 12 חודשים ממועד ההפעלה, ויחודש אוטומטית לתקופות נוספות של שנה בכל פעם. כל צד רשאי לסיים את הסכם התחזוקה בכל עת מכל סיבה על ידי מתן הודעה בכתב לפחות 30 יום מראש.</p>
                 
                 <h2>6. שמירת סודיות (NDA)</h2>
                 <p>הסכם שמירת סודיות (NDA) ייעודי שנחתם במקביל להסכם זה מהווה חלק בלתי נפרד ממנו.</p>
-                
-                <div class="signature-section" style="margin-top: auto; margin-bottom: 25px;">
+            </div>
+            
+            <!-- SECTION 9: Signatures -->
+            <div class="pdf-section">
+                <div class="signature-section" style="margin-top: 15px;">
                     <div class="signature-box">
                         <div class="signature-title">הספק: autoRI-studio</div>
                         <p style="font-size: 10px; margin-bottom: 8px;">שמות הנציגים: רון ועילי<br>תאריך: ${new Date().toLocaleDateString('he-IL')}</p>
@@ -905,35 +995,37 @@ export function buildContractHtml(data) {
                     </div>
                     <div class="signature-box">
                         <div class="signature-title">הלקוח (המזמין): ${data.business_name}</div>
-                        <p style="font-size: 10px; margin-bottom: 8px;">שם הנציג המורשה: _________________<br>בחירת מסלול ריטיינר: [ ] Premium / [ ] Standard</p>
+                        <p style="font-size: 10px; margin-bottom: 8px;">שם הנציג המורשה: _________________<br>תאריך: ${new Date().toLocaleDateString('he-IL')}</p>
                         <div class="signature-line"></div>
                         <p style="font-size: 9px; margin: 0; color: #64748b;">חתימה וחותמת המזמין</p>
                     </div>
-                </div>
-                
-                <div class="footer-note">
-                    <span>עמוד 3 מתוך 3 | autoRI-studio הסכם התקשרות עבור ${data.business_name}</span>
                 </div>
             </div>
         </div>
     `;
 }
 
-/**
- * Builds the HTML content for the NDA
- */
+
 export function buildNdaHtml(data) {
     return `
         <div class="nda-container">
             ${documentStyle}
             
-            <!-- PAGE 1 -->
-            <div class="pdf-page">
+            <div class="pdf-header-template" style="display:none;">
                 <div class="header-banner">
                     <span class="header-logo">autoRI-studio</span>
                     <span class="header-title">הסכם שמירת סודיות NDA</span>
                 </div>
-                
+            </div>
+            
+            <div class="pdf-footer-template" style="display:none;">
+                <div class="footer-note">
+                    <span>עמוד <span class="pdf-page-num"></span> מתוך <span class="pdf-total-pages"></span> | autoRI-studio הסכם שמירת סודיות עבור ${data.business_name}</span>
+                </div>
+            </div>
+            
+            <!-- SECTION 1: Date/Parties -->
+            <div class="pdf-section">
                 <p style="text-align: center; font-weight: 600; margin-bottom: 12px; font-size: 11.5px;">שנערך ונחתם ביום ${new Date().getDate()} בחודש ${new Date().toLocaleString('he-IL', { month: 'long' })} שנת ${new Date().getFullYear()}</p>
                 
                 <h2>בין הצדדים:</h2>
@@ -947,40 +1039,46 @@ export function buildNdaHtml(data) {
                         <td><strong>autoRI-studio (רון ועילי)</strong><br>שותפות פיתוח פתרונות אינטגרציה</td>
                     </tr>
                 </table>
-                
+            </div>
+            
+            <!-- SECTION 2: Whereas -->
+            <div class="pdf-section">
                 <p><strong>הואיל</strong> והצד המוסר מעוניין להסתייע בשירותי הצד המקבל לצורך אפיון, בנייה, פיתוח, עיצוב ותחזוקה של אתר אינטרנט, תיק עבודות דינמי, מערכות אוטומציה, כלי AI ובוטים עסקיים (להלן: "הפרויקט");</p>
                 <p><strong>והואיל</strong> ולשם ביצוע הפרויקט ואפיונו, עשוי הצד המוסר לחשוף בפני הצד המקבל מידע מסחרי, מקצועי ואישי רגיש ובעל ערך, והצדדים מעוניינים להסדיר את שמירתו ואבטחתו של מידע זה;</p>
                 <p><strong>לפיכך הוצהר, הותנה והוסכם בין הצדדים כדלקמן:</strong></p>
-                
+            </div>
+            
+            <!-- SECTION 3: Definition of Confidential Info -->
+            <div class="pdf-section">
                 <h2>1. הגדרת "מידע סודי"</h2>
                 <p>"מידע סודי" פירושו כל מידע עסקי, פיננסי, שיווקי, טכני, טכנולוגי, פרטי לקוחות של העסק, סיסמאות גישה למערכות, מפתחות API, שיטות עבודה, תהליכים פנימיים, נתוני פיתוח או תרשימי זרימה שיועברו בין הצדדים.</p>
-                
+            </div>
+            
+            <!-- SECTION 4: Commitments -->
+            <div class="pdf-section">
                 <h2>2. התחייבות לאי-גילוי ושימוש מוגבל</h2>
                 <p>הצד המקבל (autoRI-studio) מתחייב לשמור על המידע הסודי בסודיות מוחלטת ולנקוט בכל האמצעים הסבירים והמקובלים בתעשייה על מנת למנוע חשיפתו לצד שלישי כלשהו, ולעשות שימוש במידע הסודי אך ורק לצורך מתן השירותים.</p>
-                
+            </div>
+            
+            <!-- SECTION 5: Deletion clause -->
+            <div class="pdf-section">
                 <h2>3. מחיקה והחזרת מידע בסיום פרויקט</h2>
                 <div class="alert-box" style="background-color: #f0fdf4; border-right: 4px solid #16a34a; color: #14532d;">
-                    <div class="alert-box-title" style="color: #166534;">🛡️ סעיף פינוי ננתונים ואבטחה מוגברת:</div>
+                    <div class="alert-box-title" style="color: #166534;">🛡️ סעיף פינוי נתונים ואבטחה מוגברת:</div>
                     <p style="margin: 0; font-size: 10px; line-height: 1.35;">עם סיום ההתקשרות בין הצדדים, או עם קבלת דרישה מפורשת בכתב מהצד המוסר (${data.business_name}), מתחייב הצד המקבל למחוק לצמיתות או להחזיר לצד המוסר את כל העותקים הפיזיים והדיגיטליים של המידע הסודי שברשותו (פרטי גישה, סיסמאות, מפתחות API, בסיסי נתונים, רשימות תפוצה וכדומה) ולספק אישור בכתב המעיד על ביצוע המחיקה והטיהור תוך 14 ימי עסקים.</p>
-                </div>
-                
-                <div class="footer-note">
-                    <span>עמוד 1 מתוך 2 | autoRI-studio הסכם שמירת סודיות עבור ${data.business_name}</span>
                 </div>
             </div>
             
-            <!-- PAGE 2 -->
-            <div class="pdf-page">
-                <div class="header-banner">
-                    <span class="header-logo">autoRI-studio</span>
-                    <span class="header-title">שמירת סודיות - חתימות</span>
-                </div>
-                
+            <!-- SECTION 6: Duration / Remedies -->
+            <div class="pdf-section">
                 <h2>4. תקופת ההסכם וסעדים</h2>
                 <p>התחייבות הסודיות לפי הסכם זה תעמוד בתוקפה במהלך אפיון ופיתוח הפרויקט, ותישאר בתוקף מלא למשך <strong>3 שנים</strong> ממועד סיום ההתקשרות בין הצדדים מכל סיבה שהיא.</p>
                 <p>הפרת הסכם זה תזכה את הצד המוסר בכל הסעדים המגיעים לו על פי כל דין, לרבות צווי מניעה ופיצויים בגין נזקים ישירים שנגרמו לו עקב ההפרה או השימוש הבלתי מורשה במידע.</p>
-                
-                <div class="signature-section" style="margin-top: auto; margin-bottom: 25px;">
+            </div>
+            
+            <!-- SECTION 7: Signatures -->
+            <div class="pdf-section">
+                <div class="signature-section" style="margin-top: 15px;">
                     <div class="signature-box">
                         <div class="signature-title">הצד המוסר (הלקוח): ${data.business_name}</div>
                         <p style="font-size: 10px; margin-bottom: 8px;">שם הנציג המורשה: _________________<br>תאריך החתימה: ${new Date().toLocaleDateString('he-IL')}</p>
@@ -994,18 +1092,12 @@ export function buildNdaHtml(data) {
                         <p style="font-size: 9px; margin: 0; color: #64748b;">חתימה וחותמת הספק</p>
                     </div>
                 </div>
-                
-                <div class="footer-note">
-                    <span>עמוד 2 מתוך 2 | autoRI-studio הסכם שמירת סודיות עבור ${data.business_name}</span>
-                </div>
             </div>
         </div>
     `;
 }
 
-/**
- * Converts a styled HTML string to a PDF Blob using jsPDF and html2canvas page-by-page
- */
+
 export async function htmlToPdfBlob(htmlContent) {
     const container = document.createElement('div');
     container.style.position = 'absolute';
@@ -1019,14 +1111,144 @@ export async function htmlToPdfBlob(htmlContent) {
     container.innerHTML = htmlContent;
     document.body.appendChild(container);
 
-    try {
-        const pages = container.querySelectorAll('.pdf-page');
-        const doc = new jsPDF('p', 'pt', 'a4', true);
+    // Create temporary pages container
+    const pagesContainer = document.createElement('div');
+    pagesContainer.style.position = 'absolute';
+    pagesContainer.style.left = '0';
+    pagesContainer.style.top = '0';
+    pagesContainer.style.width = '794px';
+    pagesContainer.style.zIndex = '-9999';
+    pagesContainer.style.pointerEvents = 'none';
+    document.body.appendChild(pagesContainer);
 
+    try {
+        const styleElement = container.querySelector('style');
+        const styleHtml = styleElement ? styleElement.outerHTML : '';
+        const headerElement = container.querySelector('.pdf-header-template');
+        const headerHtml = headerElement ? headerElement.innerHTML : '';
+        const footerElement = container.querySelector('.pdf-footer-template');
+        const footerHtml = footerElement ? footerElement.innerHTML : '';
+
+        const sections = container.querySelectorAll('.pdf-section');
+        const pages = [];
+
+        function createNewPage() {
+            const pageDiv = document.createElement('div');
+            pageDiv.className = 'pdf-page';
+            pageDiv.style.width = '794px';
+            pageDiv.style.height = '1122px'; // A4 height at 96 DPI
+            pageDiv.style.boxSizing = 'border-box';
+            pageDiv.style.padding = '50px 55px';
+            pageDiv.style.position = 'relative';
+            pageDiv.style.backgroundColor = '#ffffff';
+            pageDiv.style.overflow = 'hidden';
+            pageDiv.style.display = 'flex';
+            pageDiv.style.flexDirection = 'column';
+            pageDiv.style.justifyContent = 'flex-start';
+            pageDiv.style.direction = 'rtl';
+            pageDiv.style.textAlign = 'right';
+            pageDiv.style.fontFamily = "'Segoe UI', Arial, sans-serif";
+            pageDiv.style.lineHeight = '1.4';
+            pageDiv.style.color = '#0f172a';
+            pageDiv.style.fontSize = '11px';
+
+            // Insert styles
+            pageDiv.innerHTML = styleHtml;
+
+            // Insert header
+            if (headerHtml) {
+                const headerDiv = document.createElement('div');
+                headerDiv.innerHTML = headerHtml;
+                pageDiv.appendChild(headerDiv);
+            }
+
+            // Create content wrapper
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'pdf-content-wrapper';
+            contentDiv.style.flex = '1';
+            contentDiv.style.display = 'flex';
+            contentDiv.style.flexDirection = 'column';
+            contentDiv.style.gap = '8px'; // tight spacing
+            pageDiv.appendChild(contentDiv);
+
+            // Insert footer placeholder
+            if (footerHtml) {
+                const footerDiv = document.createElement('div');
+                footerDiv.className = 'pdf-footer-wrapper';
+                footerDiv.innerHTML = footerHtml;
+                pageDiv.appendChild(footerDiv);
+            }
+
+            pagesContainer.appendChild(pageDiv);
+            return {
+                element: pageDiv,
+                contentElement: contentDiv,
+                currentHeight: 0
+            };
+        }
+
+        if (sections.length > 0) {
+            let currentPage = createNewPage();
+            
+            // A4 page height is 1122px. Max content height is ~880px.
+            const maxContentHeight = 880;
+
+            for (const sec of sections) {
+                // Clone section and append to temporary container to measure its height
+                const testDiv = document.createElement('div');
+                testDiv.style.width = '684px'; // 794 - 2 * 55 padding
+                testDiv.style.direction = 'rtl';
+                testDiv.style.textAlign = 'right';
+                testDiv.style.fontFamily = "'Segoe UI', Arial, sans-serif";
+                testDiv.style.lineHeight = '1.4';
+                testDiv.style.fontSize = '11px';
+                testDiv.style.boxSizing = 'border-box';
+                testDiv.innerHTML = styleHtml + sec.innerHTML;
+                container.appendChild(testDiv);
+                const secHeight = testDiv.offsetHeight || testDiv.getBoundingClientRect().height;
+                container.removeChild(testDiv);
+
+                // If the section is empty or has zero height, skip it
+                if (secHeight <= 0) continue;
+
+                // Check if section fits in the current page
+                if (currentPage.currentHeight + secHeight > maxContentHeight && currentPage.currentHeight > 0) {
+                    pages.push(currentPage);
+                    currentPage = createNewPage();
+                }
+
+                // Append cloned section
+                const clonedSec = sec.cloneNode(true);
+                currentPage.contentElement.appendChild(clonedSec);
+                currentPage.currentHeight += secHeight + 8; // add gap
+            }
+            pages.push(currentPage);
+
+            // Update page numbers in the footers
+            pages.forEach((page, index) => {
+                const pageNumSpan = page.element.querySelector('.pdf-page-num');
+                const totalPagesSpan = page.element.querySelector('.pdf-total-pages');
+                if (pageNumSpan) pageNumSpan.textContent = (index + 1).toString();
+                if (totalPagesSpan) totalPagesSpan.textContent = pages.length.toString();
+            });
+        } else {
+            // Fallback if no sections: treat the container as a single page or use legacy .pdf-page if present
+            const legacyPages = container.querySelectorAll('.pdf-page');
+            if (legacyPages.length > 0) {
+                for (const lp of legacyPages) {
+                    pages.push({ element: lp });
+                }
+            } else {
+                pages.push({ element: container });
+            }
+        }
+
+        // Render pages to PDF using html2canvas
+        const doc = new jsPDF('p', 'pt', 'a4', true);
         for (let i = 0; i < pages.length; i++) {
             if (i > 0) doc.addPage();
             
-            const canvas = await html2canvas(pages[i], {
+            const canvas = await html2canvas(pages[i].element, {
                 scale: 2, // High resolution
                 useCORS: true,
                 logging: false,
@@ -1042,6 +1264,9 @@ export async function htmlToPdfBlob(htmlContent) {
         return doc.output('blob');
     } finally {
         document.body.removeChild(container);
+        if (pagesContainer.parentNode) {
+            document.body.removeChild(pagesContainer);
+        }
     }
 }
 

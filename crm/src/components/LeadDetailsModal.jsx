@@ -296,18 +296,146 @@ export default function LeadDetailsModal({ leadId, onClose, onLeadUpdated }) {
     const [aiDocAdvancePrice, setAiDocAdvancePrice] = useState('');
     const [aiDocStatus, setAiDocStatus] = useState('');
 
+    // Integrated Calculator States inside AI Document Generator
+    const [aiDocIncludeAutomation, setAiDocIncludeAutomation] = useState(true);
+    const [aiDocIncludeWebsite, setAiDocIncludeWebsite] = useState(false);
+    const [aiDocAutomationSetupPrice, setAiDocAutomationSetupPrice] = useState(12500);
+    const [aiDocAutomationSla, setAiDocAutomationSla] = useState('standard');
+    const [aiDocAutomationThirdParty, setAiDocAutomationThirdParty] = useState(0);
+    const [aiDocWebsiteType, setAiDocWebsiteType] = useState('landing');
+    const [aiDocWebsiteSetupPrice, setAiDocWebsiteSetupPrice] = useState(2500);
+    const [aiDocWebsiteAddons, setAiDocWebsiteAddons] = useState({
+        chatbot: false,
+        calculator: false,
+        survey: false,
+        crm: false
+    });
+    const [aiDocWebsiteSla, setAiDocWebsiteSla] = useState('basic');
+    const [aiDocWebsiteThirdParty, setAiDocWebsiteThirdParty] = useState(0);
+
     // Pre-fill fields from lead notes/quote_data when form is opened
     useEffect(() => {
         if (showAiDocGeneratorForm && lead) {
-            if (lead.quote_data?.setup_cost) {
-                setAiDocSetupPrice(lead.quote_data.setup_cost.toString());
-                setAiDocAdvancePrice(Math.round(lead.quote_data.setup_cost * 0.1).toString());
+            const q = lead.quote_data || {};
+            
+            // 1. Project toggles
+            let incAuto = true;
+            let incWeb = false;
+            if (q.project_type === 'website') {
+                incAuto = false;
+                incWeb = true;
+            } else if (q.project_type === 'both' || q.project_type === 'automation_and_website') {
+                incAuto = true;
+                incWeb = true;
+            } else if (q.project_type === 'automation') {
+                incAuto = true;
+                incWeb = false;
+            } else {
+                if (q.include_automation !== undefined) incAuto = q.include_automation;
+                if (q.include_website !== undefined) incWeb = q.include_website;
             }
+            setAiDocIncludeAutomation(incAuto);
+            setAiDocIncludeWebsite(incWeb);
+
+            // 2. Automation prefill
+            if (q.automation_setup_price !== undefined) {
+                setAiDocAutomationSetupPrice(q.automation_setup_price);
+            } else if (q.project_type === 'automation' && q.setup_cost) {
+                setAiDocAutomationSetupPrice(q.setup_cost);
+            } else {
+                setAiDocAutomationSetupPrice(12500);
+            }
+            setAiDocAutomationSla(q.automation_sla || q.sla_level || 'standard');
+            setAiDocAutomationThirdParty(q.automation_third_party || q.third_party_costs || 0);
+
+            // 3. Website prefill
+            setAiDocWebsiteType(q.website_type || 'landing');
+            if (q.website_setup_price !== undefined) {
+                setAiDocWebsiteSetupPrice(q.website_setup_price);
+            } else if (q.project_type === 'website' && q.setup_cost) {
+                setAiDocWebsiteSetupPrice(q.setup_cost);
+            } else {
+                setAiDocWebsiteSetupPrice(2500);
+            }
+            if (q.website_addons) {
+                setAiDocWebsiteAddons({
+                    chatbot: !!q.website_addons.chatbot,
+                    calculator: !!q.website_addons.calculator,
+                    survey: !!q.website_addons.survey,
+                    crm: !!q.website_addons.crm
+                });
+            } else if (q.addons) {
+                setAiDocWebsiteAddons({
+                    chatbot: !!q.addons.chatbot,
+                    calculator: !!q.addons.calculator,
+                    survey: !!q.addons.survey,
+                    crm: !!q.addons.crm
+                });
+            } else {
+                setAiDocWebsiteAddons({
+                    chatbot: false,
+                    calculator: false,
+                    survey: false,
+                    crm: false
+                });
+            }
+            setAiDocWebsiteSla(q.website_sla || 'basic');
+            setAiDocWebsiteThirdParty(q.website_third_party || 0);
+
+            // 4. General prefill
+            if (q.setup_cost) {
+                setAiDocSetupPrice(q.setup_cost.toString());
+                if (q.advance_payment !== undefined) {
+                    setAiDocAdvancePrice(q.advance_payment.toString());
+                    setAiDocHasAdvance(!!q.has_advance);
+                } else {
+                    setAiDocAdvancePrice(Math.round(q.setup_cost * 0.1).toString());
+                    setAiDocHasAdvance(true);
+                }
+            }
+            if (q.pilot_days !== undefined) {
+                setAiDocPilotDays(q.pilot_days);
+            } else {
+                setAiDocPilotDays(14);
+            }
+
             if (lead.notes) {
                 setAiDocSpecText(lead.notes);
             }
         }
     }, [showAiDocGeneratorForm, lead]);
+
+    // Keep website setup price prefilled when website type changes
+    useEffect(() => {
+        const TYPE_PRICES = { landing: 2500, image: 5000, ecommerce: 8000, custom: 12000 };
+        if (TYPE_PRICES[aiDocWebsiteType] !== undefined) {
+            setAiDocWebsiteSetupPrice(TYPE_PRICES[aiDocWebsiteType]);
+        }
+    }, [aiDocWebsiteType]);
+
+    // Calculate total setup cost dynamically
+    useEffect(() => {
+        let total = 0;
+        if (aiDocIncludeAutomation) {
+            total += parseFloat(aiDocAutomationSetupPrice) || 0;
+        }
+        if (aiDocIncludeWebsite) {
+            total += parseFloat(aiDocWebsiteSetupPrice) || 0;
+            const ADDON_PRICES = { chatbot: 3000, calculator: 1500, survey: 2000, crm: 1000 };
+            Object.keys(aiDocWebsiteAddons).forEach(addon => {
+                if (aiDocWebsiteAddons[addon]) {
+                    total += ADDON_PRICES[addon] || 0;
+                }
+            });
+        }
+        setAiDocSetupPrice(total.toString());
+    }, [
+        aiDocIncludeAutomation, 
+        aiDocAutomationSetupPrice, 
+        aiDocIncludeWebsite, 
+        aiDocWebsiteSetupPrice, 
+        aiDocWebsiteAddons
+    ]);
 
     // Keep advance price updated when setup price changes
     useEffect(() => {
@@ -321,6 +449,10 @@ export default function LeadDetailsModal({ leadId, onClose, onLeadUpdated }) {
 
     const handleGenerateAiDocuments = async (e) => {
         if (e && e.preventDefault) e.preventDefault();
+        if (!aiDocIncludeAutomation && !aiDocIncludeWebsite) {
+            alert('אנא בחר לפחות סוג פרויקט אחד (אוטומציה או אתר).');
+            return;
+        }
         if (!aiDocSpecText.trim()) {
             alert('אנא הזן אפיון גולמי.');
             return;
@@ -335,7 +467,30 @@ export default function LeadDetailsModal({ leadId, onClose, onLeadUpdated }) {
         const finalVal = priceVal - advanceVal;
         const pilotDaysVal = parseInt(aiDocPilotDays) || 14;
 
+        // Calculate combined monthly costs and retainers
+        const autoSlaPrices = { standard: 400, premium: 1000, enterprise: 3000 };
+        const webSlaPrices = { basic: 150, extended: 300, premium: 600 };
+        
+        let autoSlaPrice = aiDocIncludeAutomation ? (autoSlaPrices[aiDocAutomationSla] || 0) : 0;
+        let webSlaPrice = aiDocIncludeWebsite ? (webSlaPrices[aiDocWebsiteSla] || 0) : 0;
+        let monthlyCostVal = autoSlaPrice + webSlaPrice;
+        if (aiDocIncludeWebsite && aiDocWebsiteAddons.chatbot) {
+            monthlyCostVal += 250; // Chatbot monthly
+        }
+        const totalThirdParty = (aiDocIncludeAutomation ? parseFloat(aiDocAutomationThirdParty || 0) : 0) + 
+                                (aiDocIncludeWebsite ? parseFloat(aiDocWebsiteThirdParty || 0) : 0);
+
         const customSettings = {
+            includeAutomation: aiDocIncludeAutomation,
+            includeWebsite: aiDocIncludeWebsite,
+            automationSetupPrice: parseFloat(aiDocAutomationSetupPrice) || 0,
+            automationSla: aiDocAutomationSla,
+            automationThirdParty: parseFloat(aiDocAutomationThirdParty) || 0,
+            websiteType: aiDocWebsiteType,
+            websiteSetupPrice: parseFloat(aiDocWebsiteSetupPrice) || 0,
+            websiteAddons: aiDocWebsiteAddons,
+            websiteSla: aiDocWebsiteSla,
+            websiteThirdParty: parseFloat(aiDocWebsiteThirdParty) || 0,
             pilotDays: pilotDaysVal,
             hasAdvance: aiDocHasAdvance,
             advancePayment: advanceVal,
@@ -354,23 +509,54 @@ export default function LeadDetailsModal({ leadId, onClose, onLeadUpdated }) {
                 (status) => setAiDocStatus(status)
             );
 
+            // Sync generated details to Lead's quote_data in Database
+            const quoteData = {
+                project_type: (aiDocIncludeAutomation && aiDocIncludeWebsite) ? 'both' : aiDocIncludeAutomation ? 'automation' : 'website',
+                include_automation: aiDocIncludeAutomation,
+                include_website: aiDocIncludeWebsite,
+                automation_setup_price: parseFloat(aiDocAutomationSetupPrice) || 0,
+                automation_sla: aiDocAutomationSla,
+                automation_third_party: parseFloat(aiDocAutomationThirdParty) || 0,
+                website_type: aiDocWebsiteType,
+                website_setup_price: parseFloat(aiDocWebsiteSetupPrice) || 0,
+                website_addons: aiDocWebsiteAddons,
+                website_sla: aiDocWebsiteSla,
+                website_third_party: parseFloat(aiDocWebsiteThirdParty) || 0,
+                setup_cost: priceVal,
+                monthly_cost: monthlyCostVal + totalThirdParty,
+                sla_price: autoSlaPrice + webSlaPrice,
+                third_party_costs: totalThirdParty,
+                advance_payment: advanceVal,
+                final_payment: finalVal,
+                pilot_days: pilotDaysVal,
+                has_advance: aiDocHasAdvance,
+                hourly_rate: 230
+            };
+            await db.updateLead(leadId, { quote_data: quoteData });
+
             // Add note to CRM
+            let projDesc = '';
+            if (aiDocIncludeAutomation && aiDocIncludeWebsite) projDesc = 'פרויקט משולב (אוטומציות + אתר)';
+            else if (aiDocIncludeAutomation) projDesc = 'פרויקט אוטומציות';
+            else projDesc = 'פרויקט בניית אתר';
+
             await db.addNote({ 
                 lead_id: leadId, 
-                content: `גונרטו בהצלחה 3 מסמכי פרימיום ב-AI (הצעת מחיר, הסכם, NDA) בעלות הקמה של ${priceVal.toLocaleString('he-IL')} ₪` 
+                content: `גונרטו בהצלחה 3 מסמכי פרימיום ב-AI (הצעת מחיר, הסכם, NDA) עבור ${projDesc}.\n• עלות הקמה כוללת: ${priceVal.toLocaleString('he-IL')} ₪\n• מקדמה: ${advanceVal.toLocaleString('he-IL')} ₪\n• ריטיינר חודשי כולל: ${(monthlyCostVal + totalThirdParty).toLocaleString('he-IL')} ₪` 
             });
 
-            // Reload notes and docs
+            // Reload notes, docs and lead
             const docsData = await db.getDocuments(leadId);
             setDocuments(docsData || []);
             const notesData = await db.getNotes(leadId);
             setNotes(notesData);
+            const updatedLead = await db.getLead(leadId);
+            if (updatedLead) setLead(updatedLead);
+            onLeadUpdated();
 
             // Reset state
-            setAiDocSpecText('');
-            setAiDocSetupPrice('');
             setShowAiDocGeneratorForm(false);
-            alert('המסמכים גונרטו והועלו בהצלחה לתיק הלקוח!');
+            alert('המסמכים גונרטו, הועלו בהצלחה ונתוני הצעת המחיר עודכנו בתיק הלקוח!');
         } catch (err) {
             console.error('Error generating AI documents:', err);
             alert('שגיאה במהלך גנרוט המסמכים: ' + (err.message || err));
@@ -1567,7 +1753,7 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
                                             borderRadius: '8px',
                                             display: 'flex',
                                             flexDirection: 'column',
-                                            gap: '10px'
+                                            gap: '12px'
                                         }}>
                                             <div style={{ fontWeight: '700', fontSize: '13px', color: '#c084fc', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                                 <Brain size={16} />
@@ -1585,7 +1771,7 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
                                                     placeholder="הדבק כאן את האפיון גולמי (למשל: ישבנו אני ורון ועשינו תכנון...)"
                                                     style={{
                                                         width: '100%',
-                                                        height: '120px',
+                                                        height: '90px',
                                                         background: 'rgba(0,0,0,0.2)',
                                                         border: '1px solid rgba(255,255,255,0.1)',
                                                         borderRadius: '6px',
@@ -1598,54 +1784,251 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
                                                 />
                                             </div>
 
-                                            <div>
-                                                <label style={{ display: 'block', fontSize: '10.5px', color: 'var(--text-secondary)', marginBottom: '4px' }}>
-                                                    עלות הקמה כוללת (₪ ללא מע"מ):
+                                            {/* ── Project Type Selection Checkboxes ── */}
+                                            <div style={{ display: 'flex', gap: '16px', background: 'rgba(255,255,255,0.03)', padding: '8px 10px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: 'var(--text-light)', cursor: 'pointer', margin: 0 }}>
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={aiDocIncludeAutomation}
+                                                        onChange={(e) => setAiDocIncludeAutomation(e.target.checked)}
+                                                        style={{ width: '14px', height: '14px', cursor: 'pointer' }}
+                                                    />
+                                                    <span>⚙️ פרויקט אוטומציה</span>
                                                 </label>
-                                                <input
-                                                    type="number"
-                                                    required
-                                                    min="1"
-                                                    value={aiDocSetupPrice}
-                                                    onChange={(e) => setAiDocSetupPrice(e.target.value)}
-                                                    placeholder="למשל: 15000"
-                                                    style={{
-                                                        width: '100%',
-                                                        background: 'rgba(0,0,0,0.2)',
-                                                        border: '1px solid rgba(255,255,255,0.1)',
-                                                        borderRadius: '6px',
-                                                        color: 'var(--text-light)',
-                                                        padding: '6px 8px',
-                                                        fontSize: '11px'
-                                                    }}
-                                                />
+                                                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: 'var(--text-light)', cursor: 'pointer', margin: 0 }}>
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={aiDocIncludeWebsite}
+                                                        onChange={(e) => setAiDocIncludeWebsite(e.target.checked)}
+                                                        style={{ width: '14px', height: '14px', cursor: 'pointer' }}
+                                                    />
+                                                    <span>🌐 בניית אתר אינטרנט</span>
+                                                </label>
                                             </div>
 
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '4px 0' }}>
-                                                <input
-                                                    type="checkbox"
-                                                    id="aiDocHasAdvance"
-                                                    checked={aiDocHasAdvance}
-                                                    onChange={(e) => setAiDocHasAdvance(e.target.checked)}
-                                                    style={{ width: '15px', height: '15px', cursor: 'pointer' }}
-                                                />
-                                                <label htmlFor="aiDocHasAdvance" style={{ fontSize: '11.5px', color: 'var(--text-secondary)', cursor: 'pointer' }}>
-                                                    האם יש תשלום מקדמה?
-                                                 </label>
-                                            </div>
+                                            {/* ── AUTOMATION SETTINGS ── */}
+                                            {aiDocIncludeAutomation && (
+                                                <div style={{ padding: '10px', background: 'rgba(139, 92, 246, 0.04)', border: '1px solid rgba(139, 92, 246, 0.15)', borderRadius: '6px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                    <div style={{ fontSize: '11px', fontWeight: '700', color: '#c084fc', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                        <Cpu size={12} /> הגדרות פרויקט אוטומציה
+                                                    </div>
+                                                    <div>
+                                                        <label style={{ display: 'block', fontSize: '10px', color: 'var(--text-secondary)', marginBottom: '3px' }}>
+                                                            עלות הקמה אוטומציות (₪ ללא מע"מ):
+                                                        </label>
+                                                        <input
+                                                            type="number"
+                                                            required
+                                                            min="0"
+                                                            value={aiDocAutomationSetupPrice}
+                                                            onChange={(e) => setAiDocAutomationSetupPrice(parseFloat(e.target.value) || 0)}
+                                                            style={{ width: '100%', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', color: 'var(--text-light)', padding: '4px 6px', fontSize: '11px' }}
+                                                        />
+                                                    </div>
+                                                    
+                                                    {/* Automation SLA Radio Selection Card-style */}
+                                                    <div>
+                                                        <label style={{ display: 'block', fontSize: '10px', color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                                                            בחירת חבילת ריטיינר (SLA):
+                                                        </label>
+                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                                                            {[
+                                                                { key: 'standard', name: 'Standard', desc: 'עד 1,000 הרצות', price: 400 },
+                                                                { key: 'premium', name: 'Premium', desc: 'עד 5,000 הרצות', price: 1000 },
+                                                                { key: 'enterprise', name: 'Enterprise', desc: 'עד 20,000 הרצות', price: 3000 }
+                                                            ].map(pkg => {
+                                                                const isSelected = aiDocAutomationSla === pkg.key;
+                                                                return (
+                                                                    <div 
+                                                                        key={pkg.key}
+                                                                        onClick={() => setAiDocAutomationSla(pkg.key)}
+                                                                        style={{
+                                                                            display: 'flex',
+                                                                            alignItems: 'center',
+                                                                            justifyContent: 'space-between',
+                                                                            padding: '6px 10px',
+                                                                            background: isSelected ? 'rgba(139, 92, 246, 0.15)' : 'rgba(0,0,0,0.15)',
+                                                                            border: isSelected ? '1px solid #8b5cf6' : '1px solid rgba(255,255,255,0.06)',
+                                                                            borderRadius: '5px',
+                                                                            cursor: 'pointer',
+                                                                            transition: 'all 0.2s ease'
+                                                                        }}
+                                                                    >
+                                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                                            <input 
+                                                                                type="radio" 
+                                                                                checked={isSelected}
+                                                                                onChange={() => {}}
+                                                                                style={{ cursor: 'pointer' }}
+                                                                            />
+                                                                            <span style={{ fontSize: '11px', fontWeight: isSelected ? '700' : '400', color: 'var(--text-light)' }}>{pkg.name}</span>
+                                                                            <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>({pkg.desc})</span>
+                                                                        </div>
+                                                                        <span style={{ fontSize: '11px', color: '#c084fc', fontWeight: '700' }}>₪{pkg.price} / חודש</span>
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </div>
 
-                                            {aiDocHasAdvance && (
+                                                    <div>
+                                                        <label style={{ display: 'block', fontSize: '10px', color: 'var(--text-secondary)', marginBottom: '3px' }}>
+                                                            עלויות צד ג' צפויות (OpenAI, רשיונות וכו'):
+                                                        </label>
+                                                        <input
+                                                            type="number"
+                                                            min="0"
+                                                            value={aiDocAutomationThirdParty}
+                                                            onChange={(e) => setAiDocAutomationThirdParty(parseFloat(e.target.value) || 0)}
+                                                            style={{ width: '100%', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', color: 'var(--text-light)', padding: '4px 6px', fontSize: '11px' }}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* ── WEBSITE SETTINGS ── */}
+                                            {aiDocIncludeWebsite && (
+                                                <div style={{ padding: '10px', background: 'rgba(37, 99, 235, 0.04)', border: '1px solid rgba(37, 99, 235, 0.15)', borderRadius: '6px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                    <div style={{ fontSize: '11px', fontWeight: '700', color: '#60a5fa', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                        <Globe size={12} /> הגדרות בניית אתר אינטרנט
+                                                    </div>
+                                                    
+                                                    <div>
+                                                        <label style={{ display: 'block', fontSize: '10px', color: 'var(--text-secondary)', marginBottom: '3px' }}>
+                                                            בחירת סוג אתר:
+                                                        </label>
+                                                        <select
+                                                            value={aiDocWebsiteType}
+                                                            onChange={(e) => setAiDocWebsiteType(e.target.value)}
+                                                            style={{ width: '100%', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', color: 'var(--text-light)', padding: '4px 6px', fontSize: '11px' }}
+                                                        >
+                                                            <option value="landing">דף נחיתה / כרטיס ביקור (2,500 ₪)</option>
+                                                            <option value="image">אתר תדמיתי מרובה עמודים (5,000 ₪)</option>
+                                                            <option value="ecommerce">אתר חנות / איקומרס (8,000 ₪)</option>
+                                                            <option value="custom">פורטל / מערכת אישית (12,000 ₪)</option>
+                                                        </select>
+                                                    </div>
+
+                                                    <div>
+                                                        <label style={{ display: 'block', fontSize: '10px', color: 'var(--text-secondary)', marginBottom: '3px' }}>
+                                                            עלות הקמה בסיסית לאתר (₪ ללא מע"מ):
+                                                        </label>
+                                                        <input
+                                                            type="number"
+                                                            required
+                                                            min="0"
+                                                            value={aiDocWebsiteSetupPrice}
+                                                            onChange={(e) => setAiDocWebsiteSetupPrice(parseFloat(e.target.value) || 0)}
+                                                            style={{ width: '100%', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', color: 'var(--text-light)', padding: '4px 6px', fontSize: '11px' }}
+                                                        />
+                                                    </div>
+
+                                                    {/* Website Addons Checkboxes */}
+                                                    <div>
+                                                        <label style={{ display: 'block', fontSize: '10px', color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                                                            תוספות לאתר:
+                                                        </label>
+                                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', background: 'rgba(0,0,0,0.15)', padding: '6px', borderRadius: '5px' }}>
+                                                            {[
+                                                                { key: 'chatbot', name: "צ'אטבוט AI מוטמע (3k ₪)", desc: "+250 ₪/חודש" },
+                                                                { key: 'calculator', name: "מחשבון ROI דינמי (1.5k ₪)", desc: "" },
+                                                                { key: 'survey', name: "שאלון מרובה שלבים (2k ₪)", desc: "" },
+                                                                { key: 'crm', name: "חיבור ל-CRM של העסק (1k ₪)", desc: "" }
+                                                            ].map(addon => {
+                                                                const checked = !!aiDocWebsiteAddons[addon.key];
+                                                                return (
+                                                                    <label 
+                                                                        key={addon.key}
+                                                                        style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '9.5px', color: 'var(--text-light)', cursor: 'pointer', margin: 0 }}
+                                                                    >
+                                                                        <input 
+                                                                            type="checkbox"
+                                                                            checked={checked}
+                                                                            onChange={(e) => setAiDocWebsiteAddons(prev => ({
+                                                                                ...prev,
+                                                                                [addon.key]: e.target.checked
+                                                                            }))}
+                                                                            style={{ width: '12px', height: '12px', cursor: 'pointer' }}
+                                                                        />
+                                                                        <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={`${addon.name} ${addon.desc}`}>{addon.name}</span>
+                                                                    </label>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Website SLA Selection Card-style */}
+                                                    <div>
+                                                        <label style={{ display: 'block', fontSize: '10px', color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                                                            בחירת חבילת תחזוקה ואחסון:
+                                                        </label>
+                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                                                            {[
+                                                                { key: 'basic', name: 'אחסון ותחזוקה בסיסית', price: 150 },
+                                                                { key: 'extended', name: 'אחסון, תחזוקה ועדכוני תוכן', price: 300 },
+                                                                { key: 'premium', name: 'תמיכה מהירה ושינויים שוטפים', price: 600 }
+                                                            ].map(pkg => {
+                                                                const isSelected = aiDocWebsiteSla === pkg.key;
+                                                                return (
+                                                                    <div 
+                                                                        key={pkg.key}
+                                                                        onClick={() => setAiDocWebsiteSla(pkg.key)}
+                                                                        style={{
+                                                                            display: 'flex',
+                                                                            alignItems: 'center',
+                                                                            justifyContent: 'space-between',
+                                                                            padding: '6px 10px',
+                                                                            background: isSelected ? 'rgba(37, 99, 235, 0.15)' : 'rgba(0,0,0,0.15)',
+                                                                            border: isSelected ? '1px solid #2563eb' : '1px solid rgba(255,255,255,0.06)',
+                                                                            borderRadius: '5px',
+                                                                            cursor: 'pointer',
+                                                                            transition: 'all 0.2s ease'
+                                                                        }}
+                                                                    >
+                                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                                            <input 
+                                                                                type="radio" 
+                                                                                checked={isSelected}
+                                                                                onChange={() => {}}
+                                                                                style={{ cursor: 'pointer' }}
+                                                                            />
+                                                                            <span style={{ fontSize: '10px', fontWeight: isSelected ? '700' : '400', color: 'var(--text-light)', whiteSpace: 'nowrap' }}>{pkg.name}</span>
+                                                                        </div>
+                                                                        <span style={{ fontSize: '10px', color: '#60a5fa', fontWeight: '700' }}>₪{pkg.price} / חודש</span>
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </div>
+
+                                                    <div>
+                                                        <label style={{ display: 'block', fontSize: '10px', color: 'var(--text-secondary)', marginBottom: '3px' }}>
+                                                            עלויות שוטפות נוספות (שרתים, Gemini API):
+                                                        </label>
+                                                        <input
+                                                            type="number"
+                                                            min="0"
+                                                            value={aiDocWebsiteThirdParty}
+                                                            onChange={(e) => setAiDocWebsiteThirdParty(parseFloat(e.target.value) || 0)}
+                                                            style={{ width: '100%', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', color: 'var(--text-light)', padding: '4px 6px', fontSize: '11px' }}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* ── GENERAL PRICING & PAYMENT TERMS ── */}
+                                            <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                                 <div>
                                                     <label style={{ display: 'block', fontSize: '10.5px', color: 'var(--text-secondary)', marginBottom: '4px' }}>
-                                                        סכום המקדמה (₪ ללא מע"מ):
+                                                        עלות הקמה כוללת (₪ ללא מע"מ):
                                                     </label>
                                                     <input
                                                         type="number"
                                                         required
-                                                        min="0"
-                                                        value={aiDocAdvancePrice}
-                                                        onChange={(e) => setAiDocAdvancePrice(e.target.value)}
-                                                        placeholder="למשל: 1500 (ברירת מחדל: 10%)"
+                                                        min="1"
+                                                        value={aiDocSetupPrice}
+                                                        onChange={(e) => setAiDocSetupPrice(e.target.value)}
+                                                        placeholder="למשל: 15000"
                                                         style={{
                                                             width: '100%',
                                                             background: 'rgba(0,0,0,0.2)',
@@ -1656,35 +2039,72 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
                                                             fontSize: '11px'
                                                         }}
                                                     />
-                                                    <div style={{ fontSize: '10px', color: '#10b981', marginTop: '4px' }}>
-                                                        יתרת תשלום סוגרת: ₪{(parseFloat(aiDocSetupPrice || 0) - parseFloat(aiDocAdvancePrice || 0)).toLocaleString('he-IL')}
-                                                    </div>
                                                 </div>
-                                            )}
 
-                                            <div>
-                                                <label style={{ display: 'block', fontSize: '10.5px', color: 'var(--text-secondary)', marginBottom: '4px' }}>
-                                                    משך ימי הפיילוט לפני תשלום יתרה:
-                                                </label>
-                                                <input
-                                                    type="number"
-                                                    required
-                                                    min="1"
-                                                    value={aiDocPilotDays}
-                                                    onChange={(e) => setAiDocPilotDays(e.target.value)}
-                                                    placeholder="למשל: 14"
-                                                    style={{
-                                                        width: '100%',
-                                                        background: 'rgba(0,0,0,0.2)',
-                                                        border: '1px solid rgba(255,255,255,0.1)',
-                                                        borderRadius: '6px',
-                                                        color: 'var(--text-light)',
-                                                        padding: '6px 8px',
-                                                        fontSize: '11px'
-                                                     }}
-                                                 />
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '4px 0' }}>
+                                                    <input
+                                                        type="checkbox"
+                                                        id="aiDocHasAdvance"
+                                                        checked={aiDocHasAdvance}
+                                                        onChange={(e) => setAiDocHasAdvance(e.target.checked)}
+                                                        style={{ width: '15px', height: '15px', cursor: 'pointer' }}
+                                                    />
+                                                    <label htmlFor="aiDocHasAdvance" style={{ fontSize: '11.5px', color: 'var(--text-secondary)', cursor: 'pointer' }}>
+                                                        האם יש תשלום מקדמה?
+                                                     </label>
+                                                </div>
+
+                                                {aiDocHasAdvance && (
+                                                    <div>
+                                                        <label style={{ display: 'block', fontSize: '10.5px', color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                                                            סכום המקדמה (₪ ללא מע"מ):
+                                                        </label>
+                                                        <input
+                                                            type="number"
+                                                            required
+                                                            min="0"
+                                                            value={aiDocAdvancePrice}
+                                                            onChange={(e) => setAiDocAdvancePrice(e.target.value)}
+                                                            placeholder="למשל: 1500 (ברירת מחדל: 10%)"
+                                                            style={{
+                                                                width: '100%',
+                                                                background: 'rgba(0,0,0,0.2)',
+                                                                border: '1px solid rgba(255,255,255,0.1)',
+                                                                borderRadius: '6px',
+                                                                color: 'var(--text-light)',
+                                                                padding: '6px 8px',
+                                                                fontSize: '11px'
+                                                            }}
+                                                        />
+                                                        <div style={{ fontSize: '10px', color: '#10b981', marginTop: '4px' }}>
+                                                            יתרת תשלום סוגרת: ₪{(parseFloat(aiDocSetupPrice || 0) - parseFloat(aiDocAdvancePrice || 0)).toLocaleString('he-IL')}
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                <div>
+                                                    <label style={{ display: 'block', fontSize: '10.5px', color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                                                        משך ימי הפיילוט לפני תשלום יתרה:
+                                                    </label>
+                                                    <input
+                                                        type="number"
+                                                        required
+                                                        min="1"
+                                                        value={aiDocPilotDays}
+                                                        onChange={(e) => setAiDocPilotDays(e.target.value)}
+                                                        placeholder="למשל: 14"
+                                                        style={{
+                                                            width: '100%',
+                                                            background: 'rgba(0,0,0,0.2)',
+                                                            border: '1px solid rgba(255,255,255,0.1)',
+                                                            borderRadius: '6px',
+                                                            color: 'var(--text-light)',
+                                                            padding: '6px 8px',
+                                                            fontSize: '11px'
+                                                        }}
+                                                    />
+                                                </div>
                                             </div>
-
 
                                             {docUploading && (
                                                 <div style={{
@@ -1727,7 +2147,6 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
                                                     onClick={() => {
                                                         setShowAiDocGeneratorForm(false);
                                                         setAiDocSpecText('');
-                                                        setAiDocSetupPrice('');
                                                     }}
                                                     className="btn btn-secondary"
                                                     style={{
@@ -1743,6 +2162,8 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
                                                 </button>
                                             </div>
                                         </form>
+
+
                                     )}
                                 </div>
 
