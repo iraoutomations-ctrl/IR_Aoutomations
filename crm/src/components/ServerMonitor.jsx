@@ -187,7 +187,18 @@ const ResourceHistoryChart = ({ data, hoveredData, setHoveredData, timeframe, se
 
                     {/* X Axis Labels */}
                     {data.map((d, i) => {
-                        if (i % labelStep === 0 || i === pointsCount - 1) {
+                        const isLastPoint = i === pointsCount - 1;
+                        const isStepPoint = i % labelStep === 0;
+                        
+                        if (isStepPoint || isLastPoint) {
+                            // מניעת כפל תוויות וחפיפה בקצה הימני של הגרף
+                            if (!isLastPoint && pointsCount > 1) {
+                                const distanceToLast = getX(pointsCount - 1) - getX(i);
+                                if (distanceToLast < 55) { // סף פיקסלים מינימלי למניעת התנגשות
+                                    return null;
+                                }
+                            }
+
                             const timeStr = timeframe === '24h'
                                 ? new Date(d.created_at).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })
                                 : new Date(d.created_at).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit' });
