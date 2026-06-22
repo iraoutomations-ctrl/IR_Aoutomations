@@ -614,13 +614,12 @@ export async function htmlToPdfBlob(htmlContent) {
 
     // Create temporary container offscreen but in viewport flow for html2canvas
     const container = document.createElement('div');
-    container.style.position = 'fixed';
+    container.style.position = 'absolute';
     container.style.left = '0';
-    container.style.top = '0';
+    container.style.top = '250%'; // Render far below the visible viewport to hide it
     container.style.width = '794px'; // ~A4 width at 96 DPI
     container.style.background = '#ffffff';
-    container.style.opacity = '0';
-    container.style.pointerEvents = 'none';
+    container.style.opacity = '1'; // Must be 1 so html2canvas renders it visible!
     container.style.zIndex = '-9999';
     container.innerHTML = htmlContent;
     document.body.appendChild(container);
