@@ -27,6 +27,7 @@ import {
     Info,
     Brain,
     Cpu,
+    Globe,
     FileText,
     Sparkles,
     TrendingUp,
