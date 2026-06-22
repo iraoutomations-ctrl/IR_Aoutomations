@@ -53,6 +53,7 @@ export default function Sidebar({
         { id: 'docs', label: 'מדריך ודוקומנטציה', icon: BookOpen },
         { id: 'roadmap', label: 'מפת דרכים לאוטומציה', icon: Map },
         { id: 'server_monitor', label: 'ניטור שרתים', icon: Activity },
+        { id: 'database_monitor', label: 'ניטור בסיס נתונים', icon: Database },
         { id: 'settings', label: 'הגדרות חיבור', icon: SettingsIcon }
     ];
 

@@ -11,6 +11,7 @@ import AddLeadModal from './components/AddLeadModal';
 import Documentation from './components/Documentation';
 import Roadmap from './components/Roadmap';
 import ServerMonitor from './components/ServerMonitor';
+import DatabaseMonitor from './components/DatabaseMonitor';
 import Auth from './components/Auth';
 import { db } from './services/db';
 
@@ -164,6 +165,8 @@ export default function App() {
                 return <Roadmap />;
             case 'server_monitor':
                 return <ServerMonitor />;
+            case 'database_monitor':
+                return <DatabaseMonitor />;
             case 'settings':
                 return <Settings />;
             default:

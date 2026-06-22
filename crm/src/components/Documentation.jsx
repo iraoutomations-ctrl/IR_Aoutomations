@@ -540,6 +540,81 @@ CREATE POLICY "Allow all delete" ON public.documents FOR DELETE USING (true);
 CREATE POLICY "Allow all select" ON public.automation_daily_stats FOR SELECT USING (true);
 CREATE POLICY "Allow all insert" ON public.automation_daily_stats FOR INSERT WITH CHECK (true);
 CREATE POLICY "Allow all update" ON public.automation_daily_stats FOR UPDATE USING (true);
+
+-- 16. פונקציות ניטור בסיס נתונים (Database Monitor RPCs)
+CREATE OR REPLACE FUNCTION get_supabase_db_metrics()
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+    v_db_size BIGINT;
+    v_tables JSONB;
+BEGIN
+    SELECT pg_database_size(current_database()) INTO v_db_size;
+    SELECT json_agg(json_build_object(
+        'table_name', t.table_name,
+        'row_count', (
+            SELECT COALESCE(n_live_tup, 0)
+            FROM pg_stat_user_tables
+            WHERE relname = t.table_name
+            LIMIT 1
+        ),
+        'size_bytes', pg_total_relation_size(quote_ident(t.table_name))
+    ))::JSONB INTO v_tables
+    FROM information_schema.tables t
+    WHERE t.table_schema = 'public' 
+      AND t.table_type = 'BASE TABLE';
+    RETURN jsonb_build_object(
+        'db_size_bytes', v_db_size,
+        'tables', COALESCE(v_tables, '[]'::jsonb)
+    );
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION get_supabase_cron_jobs_status()
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+    v_cron_jobs JSONB;
+BEGIN
+    BEGIN
+        SELECT json_agg(json_build_object(
+            'jobid', j.jobid,
+            'jobname', j.jobname,
+            'schedule', j.schedule,
+            'active', j.active,
+            'last_run_status', (
+                SELECT status 
+                FROM cron.job_run_details 
+                WHERE jobid = j.jobid 
+                ORDER BY start_time DESC 
+                LIMIT 1
+            ),
+            'last_run_time', (
+                SELECT start_time 
+                FROM cron.job_run_details 
+                WHERE jobid = j.jobid 
+                ORDER BY start_time DESC 
+                LIMIT 1
+            ),
+            'last_run_message', (
+                SELECT return_message 
+                FROM cron.job_run_details 
+                WHERE jobid = j.jobid 
+                ORDER BY start_time DESC 
+                LIMIT 1
+            )
+        ))::JSONB INTO v_cron_jobs
+        FROM cron.job j;
+    EXCEPTION WHEN OTHERS THEN
+        v_cron_jobs := '[]'::jsonb;
+    END;
+    RETURN COALESCE(v_cron_jobs, '[]'::jsonb);
+END;
+$$;
 `;
 
     const n8nTemplateCode = `{
@@ -955,6 +1030,7 @@ CREATE POLICY "Allow all update" ON public.automation_daily_stats FOR UPDATE USI
                                     <li><strong>עדכון תאריך שינוי (Trigger):</strong> מופעל אוטומטית לפני כל עדכון (UPDATE) על טבלאות <code>leads</code>, <code>tasks</code>, <code>automations</code> ומעדכן את עמודת <code>updated_at</code> לשעה הנוכחית.</li>
                                     <li><strong>בדיקת מכסת הרצות (check_automation_quota RPC):</strong> מקבלת מזהה אוטומציה, מחשבת את סך הרצותיה מתחילת החודש הנוכחי, משווה מול מכסת הבסיס והבונוס ומחזירה תשובת JSONB המאשרת או חוסמת את הריצה הבאה.</li>
                                     <li><strong>אגרגציה לילית וניקוי לוגים (daily stats rollup & purge):</strong> פונקציה המופעלת באופן מחזורי (או דרך <code>pg_cron</code> בענן או באמצעות סימולציית LocalStorage בדפדפן). היא מסכמת את לוגי האתמול לטבלת ה-daily stats, ולאחר מכן מוחקת הרצות מוצלחות בנות יותר מ-7 ימים ושגיאות בנות יותר מ-30 ימים.</li>
+                                    <li><strong>ניטור בסיס נתונים (Database Monitoring RPCs):</strong> שתי פונקציות המאפשרות לקרוא מהפרונטאנד את גודל מסד הנתונים הפיזי הכולל, גודל וכמות השורות של כל טבלה בנפרד (<code>get_supabase_db_metrics</code>) ואת סטטוס המשימות המתוזמנות של <code>pg_cron</code> ב-Supabase (<code>get_supabase_cron_jobs_status</code>).</li>
                                 </ul>
                             </div>
 

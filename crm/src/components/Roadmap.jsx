@@ -17,7 +17,8 @@ import {
     FileText,
     CreditCard,
     Clock,
-    Cpu
+    Cpu,
+    Database
 } from 'lucide-react';
 
 export default function Roadmap() {
@@ -182,8 +183,21 @@ export default function Roadmap() {
             n8n: 'וורקפלו ניטור מתוזמן (Cron) ➔ הרצת סקריפט בחיבור SSH ➔ עדכון מרוכז של מדדים וקונטיינרים ב-Supabase RPC.'
         },
         {
+            id: 'supabase_monitor',
+            title: '13. ממשק ניטור בסיס נתונים (Supabase Database Monitor)',
+            category: 'ops',
+            status: 'completed',
+            icon: Database,
+            percentage: 100,
+            description: 'דף ייעודי ב-CRM המציג את ניצול נפח האחסון של מסד הנתונים מול מגבלת ה-Free Tier (500MB), סטטיסטיקות כמות שורות ונפח פיזי לכל טבלה, ומעקב אחר תקינות משימות ה-pg_cron וארכוב הנתונים.',
+            integration: 'חיבור ישיר ל-Supabase RPC המבוסס על פונקציות Security Definer מיוחדות המאפשרות לקבל גדלים ומדדי מערכת בצורה מאובטחת.',
+            value: 'מניעת נעילת בסיס הנתונים ל-Read-Only עקב הגעת לנפח מקסימלי, וזיהוי מיידי של כשלים במשימות התחזוקה הליליות.',
+            supabase: 'get_supabase_db_metrics RPC, get_supabase_cron_jobs_status RPC, system_alerts.',
+            n8n: 'אין צורך, מיושם באמצעות חיבור ישיר מהפרונטאנד ל-Supabase RPC.'
+        },
+        {
             id: 'agent_planner',
-            title: '13. סוכן 1: אפיון ותכנון אוטומציות (Planner Agent)',
+            title: '14. סוכן 1: אפיון ותכנון אוטומציות (Planner Agent)',
             category: 'core',
             status: 'in_progress',
             icon: Cpu,
@@ -196,7 +210,7 @@ export default function Roadmap() {
         },
         {
             id: 'agent_builder_qa',
-            title: '14. סוכנים 2 ו-3: בנייה אוטומטית ובקרת איכות (Builder & QA Agents)',
+            title: '15. סוכנים 2 ו-3: בנייה אוטומטית ובקרת איכות (Builder & QA Agents)',
             category: 'core',
             status: 'in_progress',
             icon: Zap,
@@ -209,7 +223,7 @@ export default function Roadmap() {
         },
         {
             id: 'agent_healer_monitor',
-            title: '15. סוכן 4: ניטור, תיקון עצמי והפעלה מחדש (Self-Healing & Monitor Agent)',
+            title: '16. סוכן 4: ניטור, תיקון עצמי והפעלה מחדש (Self-Healing & Monitor Agent)',
             category: 'ops',
             status: 'in_progress',
             icon: Activity,

@@ -2302,5 +2302,36 @@ export const db = {
             }
         }
         return { success: true };
+    },
+
+    async getDatabaseMetrics() {
+        if (isSupabaseConfigured) {
+            const { data, error } = await supabase.rpc('get_supabase_db_metrics');
+            if (error) throw error;
+            return data;
+        } else {
+            throw new Error("Supabase connection required");
+        }
+    },
+
+    async getCronJobsStatus() {
+        if (isSupabaseConfigured) {
+            const { data, error } = await supabase.rpc('get_supabase_cron_jobs_status');
+            if (error) throw error;
+            return data || [];
+        } else {
+            throw new Error("Supabase connection required");
+        }
+    },
+
+    async triggerManualRollup() {
+        if (isSupabaseConfigured) {
+            const { error } = await supabase.rpc('run_daily_automation_rollup');
+            if (error) throw error;
+            return { success: true };
+        } else {
+            throw new Error("Supabase connection required");
+        }
     }
 };
+
