@@ -609,13 +609,19 @@ export function buildNdaHtml(data) {
  * Converts a styled HTML string to a PDF Blob using jsPDF and html2canvas
  */
 export async function htmlToPdfBlob(htmlContent) {
-    // Create temporary container offscreen
+    // Expose html2canvas globally for jsPDF fallback compatibility
+    window.html2canvas = html2canvas;
+
+    // Create temporary container offscreen but in viewport flow for html2canvas
     const container = document.createElement('div');
-    container.style.position = 'absolute';
-    container.style.left = '-9999px';
-    container.style.top = '-9999px';
+    container.style.position = 'fixed';
+    container.style.left = '0';
+    container.style.top = '0';
     container.style.width = '794px'; // ~A4 width at 96 DPI
     container.style.background = '#ffffff';
+    container.style.opacity = '0';
+    container.style.pointerEvents = 'none';
+    container.style.zIndex = '-9999';
     container.innerHTML = htmlContent;
     document.body.appendChild(container);
 
@@ -627,9 +633,10 @@ export async function htmlToPdfBlob(htmlContent) {
             compress: true
         });
 
-        // Use jsPDF html method
-        await new Promise((resolve, reject) => {
+        // Use jsPDF html method and pass html2canvas option
+        await new Promise((resolve) => {
             doc.html(container, {
+                html2canvas: html2canvas,
                 callback: function (pdf) {
                     resolve(pdf);
                 },
