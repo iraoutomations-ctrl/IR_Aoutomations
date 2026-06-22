@@ -612,15 +612,16 @@ export async function htmlToPdfBlob(htmlContent) {
     // Expose html2canvas globally for jsPDF fallback compatibility
     window.html2canvas = html2canvas;
 
-    // Create temporary container completely outside viewport using fixed positioning
+    // Create temporary container placed at top-left but hidden behind body using negative z-index
     const container = document.createElement('div');
-    container.style.position = 'fixed';
-    container.style.left = '-2000px'; // Positioned offscreen to the left (completely invisible)
-    container.style.top = '0'; // Aligned to the top to avoid blank pages
+    container.style.position = 'absolute';
+    container.style.left = '0';
+    container.style.top = '0';
     container.style.width = '794px'; // ~A4 width at 96 DPI
     container.style.background = '#ffffff';
     container.style.opacity = '1'; // Must be 1 so html2canvas renders it visible!
-    container.style.zIndex = '-9999';
+    container.style.zIndex = '-9999'; // Rendered behind body (completely invisible)
+    container.style.pointerEvents = 'none';
     container.style.overflow = 'hidden';
     container.innerHTML = htmlContent;
     document.body.appendChild(container);
