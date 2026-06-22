@@ -40,6 +40,7 @@ import {
 } from 'lucide-react';
 import { db } from '../services/db';
 import { downloadTemplate } from '../services/templates';
+import { generateAndUploadDocuments } from '../services/aiDocGenerator';
 
 const parseWorkflows = (workflowsData) => {
     if (!workflowsData) return [];
@@ -285,6 +286,61 @@ export default function LeadDetailsModal({ leadId, onClose, onLeadUpdated }) {
     const _calcTotal = _calcSlaPrice + calcThirdParty;
     const _calcNet = _calcGross - _calcTotal;
     const _calcBreakeven = _calcTotal > 0 ? Math.ceil(_calcSetup / Math.max(1, _calcNet)) : 0;
+
+    // AI Document Generator states
+    const [showAiDocGeneratorForm, setShowAiDocGeneratorForm] = useState(false);
+    const [aiDocSpecText, setAiDocSpecText] = useState('');
+    const [aiDocSetupPrice, setAiDocSetupPrice] = useState('');
+    const [aiDocStatus, setAiDocStatus] = useState('');
+
+    const handleGenerateAiDocuments = async (e) => {
+        if (e && e.preventDefault) e.preventDefault();
+        if (!aiDocSpecText.trim()) {
+            alert('אנא הזן אפיון גולמי.');
+            return;
+        }
+        const priceVal = parseFloat(aiDocSetupPrice) || 0;
+        if (priceVal <= 0) {
+            alert('אנא הזן עלות הקמה תקינה הגדולה מ-0.');
+            return;
+        }
+
+        setDocUploading(true);
+        setAiDocStatus('מתחיל תהליך גנרוט...');
+
+        try {
+            const addedDocs = await generateAndUploadDocuments(
+                aiDocSpecText, 
+                priceVal, 
+                lead, 
+                (status) => setAiDocStatus(status)
+            );
+
+            // Add note to CRM
+            await db.addNote({ 
+                lead_id: leadId, 
+                content: `גונרטו בהצלחה 3 מסמכי פרימיום ב-AI (הצעת מחיר, הסכם, NDA) בעלות הקמה של ${priceVal.toLocaleString('he-IL')} ₪` 
+            });
+
+            // Reload notes and docs
+            const docsData = await db.getDocuments(leadId);
+            setDocuments(docsData || []);
+            const notesData = await db.getNotes(leadId);
+            setNotes(notesData);
+
+            // Reset state
+            setAiDocSpecText('');
+            setAiDocSetupPrice('');
+            setShowAiDocGeneratorForm(false);
+            alert('המסמכים גונרטו והועלו בהצלחה לתיק הלקוח!');
+        } catch (err) {
+            console.error('Error generating AI documents:', err);
+            alert('שגיאה במהלך גנרוט המסמכים: ' + (err.message || err));
+        } finally {
+            setDocUploading(false);
+            setAiDocStatus('');
+        }
+    };
 
     const handleSaveQuoteFromPanel = async () => {
         if (!leadId) return;
@@ -1424,6 +1480,169 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
                             {/* Panel Body */}
                             <div style={{ padding: '16px 0', display: 'flex', flexDirection: 'column', gap: '16px', flex: 1, overflowY: 'auto' }}>
                                 
+                                {/* ── AI Document Generator Card ── */}
+                                <div style={{ padding: '0 20px' }}>
+                                    {!showAiDocGeneratorForm ? (
+                                        <div style={{
+                                            padding: '14px',
+                                            background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.15) 0%, rgba(37, 99, 235, 0.1) 100%)',
+                                            border: '1px solid rgba(139, 92, 246, 0.3)',
+                                            borderRadius: '8px',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            gap: '8px'
+                                        }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '700', fontSize: '13px', color: '#c084fc' }}>
+                                                <Brain size={16} />
+                                                מחולל מסמכי פרימיום ב-AI
+                                            </div>
+                                            <p style={{ margin: 0, fontSize: '11px', color: 'var(--text-secondary)', lineHeight: '1.4' }}>
+                                                גנרט הצעת מחיר, הסכם פיתוח ו-NDA ישירות מאפיון גולמי (למשל משיחת וואטסאפ או סיכום פגישה) ומחיר הקמה.
+                                            </p>
+                                            <button
+                                                type="button"
+                                                className="btn btn-primary"
+                                                onClick={() => setShowAiDocGeneratorForm(true)}
+                                                style={{
+                                                    background: '#8b5cf6',
+                                                    border: 'none',
+                                                    fontSize: '11px',
+                                                    padding: '6px 12px',
+                                                    borderRadius: '6px',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    gap: '6px',
+                                                    cursor: 'pointer',
+                                                    marginTop: '4px'
+                                                }}
+                                            >
+                                                <Sparkles size={12} />
+                                                גנרט מסמכים ב-AI
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <form onSubmit={handleGenerateAiDocuments} style={{
+                                            padding: '14px',
+                                            background: 'rgba(255,255,255,0.02)',
+                                            border: '1px solid rgba(255,255,255,0.06)',
+                                            borderRadius: '8px',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            gap: '10px'
+                                        }}>
+                                            <div style={{ fontWeight: '700', fontSize: '13px', color: '#c084fc', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                <Brain size={16} />
+                                                הגדרות מחולל מסמכים AI
+                                            </div>
+                                            
+                                            <div>
+                                                <label style={{ display: 'block', fontSize: '10.5px', color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                                                    אפיון גולמי או סיכום שיחה:
+                                                </label>
+                                                <textarea
+                                                    required
+                                                    value={aiDocSpecText}
+                                                    onChange={(e) => setAiDocSpecText(e.target.value)}
+                                                    placeholder="הדבק כאן את האפיון גולמי (למשל: ישבנו אני ורון ועשינו תכנון...)"
+                                                    style={{
+                                                        width: '100%',
+                                                        height: '120px',
+                                                        background: 'rgba(0,0,0,0.2)',
+                                                        border: '1px solid rgba(255,255,255,0.1)',
+                                                        borderRadius: '6px',
+                                                        color: 'var(--text-light)',
+                                                        padding: '8px',
+                                                        fontSize: '11px',
+                                                        fontFamily: 'inherit',
+                                                        resize: 'vertical'
+                                                    }}
+                                                />
+                                            </div>
+
+                                            <div>
+                                                <label style={{ display: 'block', fontSize: '10.5px', color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                                                    עלות הקמה כוללת (₪ ללא מע"מ):
+                                                </label>
+                                                <input
+                                                    type="number"
+                                                    required
+                                                    min="1"
+                                                    value={aiDocSetupPrice}
+                                                    onChange={(e) => setAiDocSetupPrice(e.target.value)}
+                                                    placeholder="למשל: 15000"
+                                                    style={{
+                                                        width: '100%',
+                                                        background: 'rgba(0,0,0,0.2)',
+                                                        border: '1px solid rgba(255,255,255,0.1)',
+                                                        borderRadius: '6px',
+                                                        color: 'var(--text-light)',
+                                                        padding: '6px 8px',
+                                                        fontSize: '11px'
+                                                    }}
+                                                />
+                                            </div>
+
+                                            {docUploading && (
+                                                <div style={{
+                                                    fontSize: '11px',
+                                                    color: '#a78bfa',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '6px',
+                                                    background: 'rgba(139, 92, 246, 0.05)',
+                                                    padding: '6px 10px',
+                                                    borderRadius: '4px',
+                                                    border: '1px solid rgba(139, 92, 246, 0.1)'
+                                                }}>
+                                                    <RefreshCw size={12} className="spin" />
+                                                    <span>{aiDocStatus}</span>
+                                                </div>
+                                            )}
+
+                                            <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+                                                <button
+                                                    type="submit"
+                                                    disabled={docUploading}
+                                                    className="btn btn-primary"
+                                                    style={{
+                                                        flex: 1,
+                                                        background: '#8b5cf6',
+                                                        border: 'none',
+                                                        fontSize: '11px',
+                                                        padding: '6px',
+                                                        borderRadius: '6px',
+                                                        cursor: docUploading ? 'not-allowed' : 'pointer',
+                                                        fontWeight: '600'
+                                                    }}
+                                                >
+                                                    {docUploading ? 'מגנרט...' : 'גנרט מסמכים ✨'}
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    disabled={docUploading}
+                                                    onClick={() => {
+                                                        setShowAiDocGeneratorForm(false);
+                                                        setAiDocSpecText('');
+                                                        setAiDocSetupPrice('');
+                                                    }}
+                                                    className="btn btn-secondary"
+                                                    style={{
+                                                        background: 'rgba(255,255,255,0.05)',
+                                                        border: '1px solid rgba(255,255,255,0.1)',
+                                                        fontSize: '11px',
+                                                        padding: '6px 12px',
+                                                        borderRadius: '6px',
+                                                        cursor: docUploading ? 'not-allowed' : 'pointer'
+                                                    }}
+                                                >
+                                                    ביטול
+                                                </button>
+                                            </div>
+                                        </form>
+                                    )}
+                                </div>
+
                                 {/* ── Gating Documents Cards Section ── */}
                                 <div style={{ padding: '0 20px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                                     <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', letterSpacing: '0.06em', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
