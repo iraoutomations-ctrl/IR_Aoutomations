@@ -615,8 +615,8 @@ export async function htmlToPdfBlob(htmlContent) {
     // Create temporary container completely outside viewport using fixed positioning
     const container = document.createElement('div');
     container.style.position = 'fixed';
-    container.style.left = '0';
-    container.style.top = '100vh'; // Anchor exactly at bottom of viewport to avoid flashing
+    container.style.left = '-2000px'; // Positioned offscreen to the left (completely invisible)
+    container.style.top = '0'; // Aligned to the top to avoid blank pages
     container.style.width = '794px'; // ~A4 width at 96 DPI
     container.style.background = '#ffffff';
     container.style.opacity = '1'; // Must be 1 so html2canvas renders it visible!
@@ -649,7 +649,7 @@ export async function htmlToPdfBlob(htmlContent) {
                 y: 0,
                 width: 595.28, // A4 width in pt
                 windowWidth: 794,
-                autoPaging: 'text'
+                autoPaging: 'slice' // Use slice to render as clean page images, preserving Hebrew characters!
             });
         });
 
