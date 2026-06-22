@@ -612,15 +612,16 @@ export async function htmlToPdfBlob(htmlContent) {
     // Expose html2canvas globally for jsPDF fallback compatibility
     window.html2canvas = html2canvas;
 
-    // Create temporary container offscreen but in viewport flow for html2canvas
+    // Create temporary container completely outside viewport using fixed positioning
     const container = document.createElement('div');
-    container.style.position = 'absolute';
+    container.style.position = 'fixed';
     container.style.left = '0';
-    container.style.top = '250%'; // Render far below the visible viewport to hide it
+    container.style.top = '100vh'; // Anchor exactly at bottom of viewport to avoid flashing
     container.style.width = '794px'; // ~A4 width at 96 DPI
     container.style.background = '#ffffff';
     container.style.opacity = '1'; // Must be 1 so html2canvas renders it visible!
     container.style.zIndex = '-9999';
+    container.style.overflow = 'hidden';
     container.innerHTML = htmlContent;
     document.body.appendChild(container);
 
@@ -632,10 +633,15 @@ export async function htmlToPdfBlob(htmlContent) {
             compress: true
         });
 
-        // Use jsPDF html method and pass html2canvas option
+        // Use jsPDF html method and pass html2canvas options with scroll resets
         await new Promise((resolve) => {
             doc.html(container, {
-                html2canvas: html2canvas,
+                html2canvas: {
+                    scrollX: 0,
+                    scrollY: 0,
+                    useCORS: true,
+                    logging: false
+                },
                 callback: function (pdf) {
                     resolve(pdf);
                 },
