@@ -296,6 +296,8 @@ export default function LeadDetailsModal({ leadId, onClose, onLeadUpdated }) {
     const [aiDocHasAdvance, setAiDocHasAdvance] = useState(true);
     const [aiDocAdvancePrice, setAiDocAdvancePrice] = useState('');
     const [aiDocStatus, setAiDocStatus] = useState('');
+    const [aiDocEstimatedClients, setAiDocEstimatedClients] = useState(100);
+    const [aiDocBonusRuns, setAiDocBonusRuns] = useState(0);
 
     // Integrated Calculator States inside AI Document Generator
     const [aiDocIncludeAutomation, setAiDocIncludeAutomation] = useState(true);
@@ -399,6 +401,10 @@ export default function LeadDetailsModal({ leadId, onClose, onLeadUpdated }) {
             } else {
                 setAiDocPilotDays(14);
             }
+            
+            // 5. Estimated clients & Bonus runs prefill
+            setAiDocEstimatedClients(q.estimated_clients !== undefined ? q.estimated_clients : 100);
+            setAiDocBonusRuns(q.bonus_runs !== undefined ? q.bonus_runs : 0);
 
             if (lead.notes) {
                 setAiDocSpecText(lead.notes);
@@ -495,7 +501,9 @@ export default function LeadDetailsModal({ leadId, onClose, onLeadUpdated }) {
             pilotDays: pilotDaysVal,
             hasAdvance: aiDocHasAdvance,
             advancePayment: advanceVal,
-            finalPayment: finalVal
+            finalPayment: finalVal,
+            estimatedClients: parseInt(aiDocEstimatedClients) || 100,
+            bonusRuns: parseInt(aiDocBonusRuns) || 0
         };
 
         setDocUploading(true);
@@ -531,7 +539,9 @@ export default function LeadDetailsModal({ leadId, onClose, onLeadUpdated }) {
                 final_payment: finalVal,
                 pilot_days: pilotDaysVal,
                 has_advance: aiDocHasAdvance,
-                hourly_rate: 230
+                hourly_rate: 230,
+                estimated_clients: parseInt(aiDocEstimatedClients) || 100,
+                bonus_runs: parseInt(aiDocBonusRuns) || 0
             };
             await db.updateLead(leadId, { quote_data: quoteData });
 
@@ -551,7 +561,7 @@ export default function LeadDetailsModal({ leadId, onClose, onLeadUpdated }) {
             setDocuments(docsData || []);
             const notesData = await db.getNotes(leadId);
             setNotes(notesData);
-            const updatedLead = await db.getLead(leadId);
+            const updatedLead = await db.getLeadById(leadId);
             if (updatedLead) setLead(updatedLead);
             onLeadUpdated();
 
@@ -587,7 +597,7 @@ export default function LeadDetailsModal({ leadId, onClose, onLeadUpdated }) {
                 content: `הצעת מחיר הוזנה ידנית מהמחשבון:\n• עלות הקמה: ₪${_calcSetup.toLocaleString('he-IL')}\n• ריטיינר חודשי: ₪${_calcSlaPrice.toLocaleString('he-IL')}\n• רווח חודשי נקי: ₪${_calcNet.toLocaleString('he-IL')}\n• החזר השקעה: תוך ${_calcBreakeven} חודשים`
             });
             // Refresh lead
-            const updatedLead = await db.getLead(leadId);
+            const updatedLead = await db.getLeadById(leadId);
             if (updatedLead) setLead(updatedLead);
             const notesData = await db.getNotes(leadId);
             setNotes(notesData);
@@ -1783,6 +1793,52 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
                                                         resize: 'vertical'
                                                     }}
                                                 />
+                                            </div>
+
+                                            {/* ── Estimated Clients & Bonus Runs Inputs ── */}
+                                            <div style={{ display: 'flex', gap: '12px' }}>
+                                                <div style={{ flex: 1 }}>
+                                                    <label style={{ display: 'block', fontSize: '10px', color: 'var(--text-secondary)', marginBottom: '3px' }}>
+                                                        מספר לקוחות משוער בחודש:
+                                                    </label>
+                                                    <input
+                                                        type="number"
+                                                        required
+                                                        min="1"
+                                                        value={aiDocEstimatedClients}
+                                                        onChange={(e) => setAiDocEstimatedClients(parseInt(e.target.value) || 0)}
+                                                        style={{
+                                                            width: '100%',
+                                                            background: 'rgba(0,0,0,0.2)',
+                                                            border: '1px solid rgba(255,255,255,0.1)',
+                                                            borderRadius: '4px',
+                                                            color: 'var(--text-light)',
+                                                            padding: '4px 6px',
+                                                            fontSize: '11px'
+                                                        }}
+                                                    />
+                                                </div>
+                                                <div style={{ flex: 1 }}>
+                                                    <label style={{ display: 'block', fontSize: '10px', color: 'var(--text-secondary)', marginBottom: '3px' }}>
+                                                        ריצות בונוס חודשיות בחוזה:
+                                                    </label>
+                                                    <input
+                                                        type="number"
+                                                        required
+                                                        min="0"
+                                                        value={aiDocBonusRuns}
+                                                        onChange={(e) => setAiDocBonusRuns(parseInt(e.target.value) || 0)}
+                                                        style={{
+                                                            width: '100%',
+                                                            background: 'rgba(0,0,0,0.2)',
+                                                            border: '1px solid rgba(255,255,255,0.1)',
+                                                            borderRadius: '4px',
+                                                            color: 'var(--text-light)',
+                                                            padding: '4px 6px',
+                                                            fontSize: '11px'
+                                                        }}
+                                                    />
+                                                </div>
                                             </div>
 
                                             {/* ── Project Type Selection Checkboxes ── */}

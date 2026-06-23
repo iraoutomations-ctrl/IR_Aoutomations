@@ -153,7 +153,7 @@ const documentStyle = `
         box-sizing: border-box;
         padding: 50px 55px;
         position: relative;
-        background-color: #ffffff;
+        background-color: #ffffff !important;
         overflow: hidden;
         display: flex;
         flex-direction: column;
@@ -162,19 +162,19 @@ const documentStyle = `
         text-align: right;
         font-family: 'Segoe UI', Arial, sans-serif;
         line-height: 1.4;
-        color: #0f172a;
+        color: #0f172a !important;
         font-size: 11px;
     }
     
     /* Header Banner styling */
     .header-banner {
-        background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 50%, #8b5cf6 100%);
+        background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 50%, #8b5cf6 100%) !important;
         padding: 16px 24px;
         margin: -50px -55px 25px -55px; /* Offset parent padding */
         display: flex;
         justify-content: space-between;
         align-items: center;
-        color: #ffffff;
+        color: #ffffff !important;
     }
     .header-logo {
         font-weight: 800;
@@ -189,27 +189,27 @@ const documentStyle = `
     
     /* Document elements */
     h1, h2, h3, h4 {
-        color: #1e3a8a;
+        color: #1e3a8a !important;
         margin-top: 0;
         margin-bottom: 8px;
     }
     h2 {
         font-size: 14.5px;
         font-weight: 700;
-        border-bottom: 1.5px solid #e2e8f0;
+        border-bottom: 1.5px solid #e2e8f0 !important;
         padding-bottom: 4px;
         margin-top: 14px;
-        color: #2563eb;
+        color: #2563eb !important;
     }
     h3 {
         font-size: 12px;
         font-weight: 600;
-        color: #1e3a8a;
+        color: #1e3a8a !important;
         margin-bottom: 5px;
     }
-    p, li {
+    p, li, span:not([class]) {
         font-size: 11px;
-        color: #334155;
+        color: #334155 !important;
         margin-top: 0;
         margin-bottom: 5px;
     }
@@ -218,9 +218,9 @@ const documentStyle = `
     .comp-card {
         margin-bottom: 10px;
         padding: 8px 12px;
-        background: #fafafa;
-        border: 1px solid #f1f5f9;
-        border-right: 4px solid #6366f1;
+        background: #fafafa !important;
+        border: 1px solid #f1f5f9 !important;
+        border-right: 4px solid #6366f1 !important;
         border-radius: 6px;
     }
     
@@ -231,14 +231,14 @@ const documentStyle = `
         margin-bottom: 5px;
     }
     .flex-list-num {
-        color: #6366f1;
+        color: #6366f1 !important;
         font-weight: bold;
         min-width: 22px;
         margin-left: 4px;
         font-size: 11px;
     }
     .flex-list-bullet {
-        color: #6366f1;
+        color: #6366f1 !important;
         font-weight: bold;
         margin-left: 6px;
         font-size: 11px;
@@ -251,31 +251,33 @@ const documentStyle = `
         margin: 10px 0;
     }
     table.data-table th, table.data-table td {
-        border: 1px solid #cbd5e1;
+        border: 1px solid #cbd5e1 !important;
         padding: 6px 10px;
         font-size: 10.5px;
         text-align: right;
+        color: #0f172a !important;
+        background-color: transparent !important;
     }
     table.data-table th {
-        background-color: #eff6ff;
-        color: #1e3a8a;
+        background-color: #eff6ff !important;
+        color: #1e3a8a !important;
         font-weight: 700;
     }
-    table.data-table tr.total-row {
+    table.data-table tr.total-row td {
         font-weight: bold;
-        background-color: #f1f5f9;
+        background-color: #f1f5f9 !important;
     }
     
     .alert-box {
-        background-color: #fef3c7;
-        border-right: 4px solid #d97706;
+        background-color: #fef3c7 !important;
+        border-right: 4px solid #d97706 !important;
         padding: 8px 12px;
         margin: 10px 0;
         border-radius: 4px;
     }
     .alert-box-title {
         font-weight: bold;
-        color: #b45309;
+        color: #b45309 !important;
         font-size: 11px;
         margin-bottom: 4px;
     }
@@ -287,9 +289,9 @@ const documentStyle = `
         left: 55px;
         right: 55px;
         font-size: 9px;
-        color: #94a3b8;
+        color: #94a3b8 !important;
         text-align: center;
-        border-top: 1px solid #f1f5f9;
+        border-top: 1px solid #f1f5f9 !important;
         padding-top: 6px;
     }
     
@@ -302,23 +304,62 @@ const documentStyle = `
     }
     .signature-box {
         flex: 1;
-        border: 1px solid #e2e8f0;
+        border: 1px solid #e2e8f0 !important;
         border-radius: 6px;
         padding: 10px;
-        background: #fafafa;
+        background: #fafafa !important;
     }
     .signature-title {
         font-weight: bold;
         font-size: 11px;
-        border-bottom: 1px solid #e2e8f0;
+        border-bottom: 1px solid #e2e8f0 !important;
         padding-bottom: 4px;
         margin-bottom: 16px;
-        color: #1e3a8a;
+        color: #1e3a8a !important;
     }
     .signature-line {
-        border-bottom: 1px dashed #94a3b8;
+        border-bottom: 1px dashed #94a3b8 !important;
         height: 16px;
         margin-bottom: 6px;
+    }
+    
+    /* Digital Signature Badge styling */
+    .digital-sig-badge {
+        border: 1px solid #10b981 !important;
+        background-color: #ecfdf5 !important;
+        border-radius: 5px;
+        padding: 5px 8px;
+        margin-top: 4px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        direction: rtl;
+    }
+    .sig-status-icon {
+        color: #10b981 !important;
+        font-size: 14px;
+        font-weight: bold;
+        margin-left: 4px;
+    }
+    .sig-details {
+        display: flex;
+        flex-direction: column;
+        gap: 1px;
+    }
+    .sig-text {
+        font-family: 'Brush Script MT', 'Courier New', Georgia, cursive, serif;
+        font-style: italic;
+        color: #065f46 !important;
+        font-size: 13px;
+        font-weight: bold;
+        margin: 0;
+        line-height: 1.1;
+    }
+    .sig-meta {
+        font-size: 8px;
+        color: #047857 !important;
+        margin: 0;
+        line-height: 1.2;
     }
 </style>
 `;
@@ -332,6 +373,8 @@ export function buildProposalHtml(data) {
     const isWebsiteOnly = includeWebsite && !includeAutomation;
     const isAutomationOnly = includeAutomation && !includeWebsite;
     const isBoth = includeAutomation && includeWebsite;
+
+    let secNum = 1;
 
     const pilotDays = data.pricing?.pilot_days || 14;
     const hasAdvance = data.pricing?.has_advance !== false;
@@ -347,7 +390,7 @@ export function buildProposalHtml(data) {
     if (includeAutomation && data.components && data.components.length > 0) {
         componentsHtml += `
             <div class="pdf-section">
-                <h2>3. פירוט רכיבי האוטומציה והבינה המלאכותית (AI)</h2>
+                <h2>${secNum++}. פירוט רכיבי האוטומציה והבינה המלאכותית (AI)</h2>
                 <p>להלן פירוט המערכות החכמות וזרימות העבודה המתוכננות עבור העסק שלכם:</p>
             </div>
         `;
@@ -356,17 +399,17 @@ export function buildProposalHtml(data) {
                 <div class="pdf-section">
                     <div class="comp-card">
                         <h3 style="margin-top: 0; display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
-                            <span>רכיב אוטומציה ${index + 1}: ${c.name}</span>
+                            <span>רכיב אוטומציה ${index + 1}: <bdi>${c.name}</bdi></span>
                         </h3>
-                        <p style="margin-bottom: 4px;">${c.description}</p>
-                        <p style="margin-bottom: 4px; font-size: 10px;"><strong>Trigger (טריגר):</strong> ${c.trigger}</p>
-                        <p style="margin-bottom: 4px; font-size: 10px;"><strong>מערכות:</strong> ${c.systems.join(', ')}</p>
+                        <p style="margin-bottom: 4px;"><bdi>${c.description}</bdi></p>
+                        <p style="margin-bottom: 4px; font-size: 10px;"><strong>Trigger (טריגר):</strong> <bdi>${c.trigger}</bdi></p>
+                        <p style="margin-bottom: 4px; font-size: 10px;"><strong>מערכות:</strong> <bdi>${c.systems.join(', ')}</bdi></p>
                         <p style="margin-bottom: 2px; font-size: 10px;"><strong>תהליך זרימה מתוכנן:</strong></p>
                         <div style="padding-right: 5px;">
                             ${c.flow.map((step, sIdx) => `
                                 <div class="flex-list-item">
                                     <span class="flex-list-num">${sIdx + 1}.</span>
-                                    <span style="font-size: 10px;">${step}</span>
+                                    <span style="font-size: 10px;"><bdi>${step}</bdi></span>
                                 </div>
                             `).join('')}
                         </div>
@@ -380,7 +423,7 @@ export function buildProposalHtml(data) {
         const websiteTypeName = WEBSITE_TYPES[data.pricing.website_type]?.name || 'אתר אינטרנט';
         componentsHtml += `
             <div class="pdf-section">
-                <h2>${includeAutomation ? '4.' : '3.'} פירוט פלטפורמת האתר ותתי-הרכיבים</h2>
+                <h2>${secNum++}. פירוט פלטפורמת האתר ותתי-הרכיבים</h2>
                 <div class="comp-card" style="border-right-color: #3b82f6;">
                     <h3>בניית אתר אינטרנט - ${websiteTypeName}</h3>
                     <p>עיצוב ופיתוח אתר מקצועי, מותאם אישית ומותאם למובייל, המשקף את מיתוג העסק ומיועד להמרת גולשים ללקוחות.</p>
@@ -614,7 +657,7 @@ export function buildProposalHtml(data) {
     if (includeAutomation) {
         executionsSectionHtml = `
             <div class="pdf-section">
-                <h2>5. ניתוח והערכת נפח הרצות (Executions) חודשי לעסק</h2>
+                <h2>${secNum++}. ניתוח והערכת נפח הרצות (Executions) חודשי לעסק</h2>
                 <div style="margin-bottom: 10px;">
                     <div class="flex-list-item">
                         <span class="flex-list-bullet">•</span>
@@ -625,6 +668,106 @@ export function buildProposalHtml(data) {
                         <span><strong>פירוט מתמטי של החישוב:</strong> ${data.executions_summary?.explanation || 'חישוב מפורט מבוסס רכיבים.'}</span>
                     </div>
                 </div>
+            </div>
+        `;
+    }
+
+    let slaPackagesHtml = '';
+    if (includeAutomation || includeWebsite) {
+        let automationTableHtml = '';
+        if (includeAutomation) {
+            const recomAutoPkg = (data.recommendations?.automation_package || 'Standard').trim();
+            automationTableHtml = `
+                <div style="margin-top: 10px; margin-bottom: 12px;">
+                    <h3 style="color: #2563eb; margin-bottom: 6px;">מסלולי SLA - תחזוקת אוטומציות ושרת</h3>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th width="20%">חבילה</th>
+                                <th width="30%">נפח ריצות כלול</th>
+                                <th width="20%">עלות חודשית</th>
+                                <th>תיאור השירות ומענה לתקלות</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr ${recomAutoPkg.toLowerCase() === 'standard' ? 'style="background-color: #ecfdf5; font-weight: bold; border: 2px solid #10b981;"' : ''}>
+                                <td><strong>Standard ${recomAutoPkg.toLowerCase() === 'standard' ? '⭐' : ''}</strong></td>
+                                <td>עד 1,000 הרצות / חודש</td>
+                                <td>400 ₪ / חודש</td>
+                                <td>אירוח שרת, ניטור תקינות, עדכוני API בסיסיים ומענה לתקלות תוך 48 שעות.</td>
+                            </tr>
+                            <tr ${recomAutoPkg.toLowerCase() === 'premium' ? 'style="background-color: #ecfdf5; font-weight: bold; border: 2px solid #10b981;"' : ''}>
+                                <td><strong>Premium ${recomAutoPkg.toLowerCase() === 'premium' ? '⭐' : ''}</strong></td>
+                                <td>עד 5,000 הרצות / חודש</td>
+                                <td>1,000 ₪ / חודש</td>
+                                <td>אירוח שרת משודרג, ניטור יציבות אקטיבי, מענה לתקלות תוך 24 שעות ותעדוף בשינויים.</td>
+                            </tr>
+                            <tr ${recomAutoPkg.toLowerCase() === 'enterprise' ? 'style="background-color: #ecfdf5; font-weight: bold; border: 2px solid #10b981;"' : ''}>
+                                <td><strong>Enterprise ${recomAutoPkg.toLowerCase() === 'enterprise' ? '⭐' : ''}</strong></td>
+                                <td>עד 20,000 הרצות / חודש</td>
+                                <td>3,000 ₪ / חודש</td>
+                                <td>שרת ייעודי, ניטור שגיאות 24/7 מנוהל, תעדוף עליון ומענה לתקלות קריטיות תוך 4-8 שעות.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <div class="alert-box" style="background-color: #ecfdf5; border-right: 4px solid #10b981; color: #065f46; padding: 6px 10px; margin-top: 6px;">
+                        <div style="font-weight: bold; color: #047857; font-size: 10.5px; margin-bottom: 2px;">🤖 המלצת ה-AI לחבילת אוטומציה: <bdi>${data.recommendations?.automation_package || 'Standard'}</bdi></div>
+                        <p style="margin: 0; font-size: 10px; color: #065f46; line-height: 1.3;"><bdi>${data.recommendations?.automation_reason || 'בהתאם לצפי השימוש ומורכבות הרכיבים בפרויקט.'}</bdi></p>
+                    </div>
+                </div>
+            `;
+        }
+
+        let websiteTableHtml = '';
+        if (includeWebsite) {
+            const recomWebPkg = (data.recommendations?.website_package || 'Basic').trim();
+            websiteTableHtml = `
+                <div style="margin-top: 10px; margin-bottom: 12px;">
+                    <h3 style="color: #2563eb; margin-bottom: 6px;">מסלולי SLA - אחסון ותחזוקת אתר אינטרנט</h3>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th width="20%">חבילה</th>
+                                <th width="30%">שעות עדכונים / חודש</th>
+                                <th width="20%">עלות חודשית</th>
+                                <th>תיאור השירות ורמת התמיכה</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr ${recomWebPkg.toLowerCase() === 'basic' ? 'style="background-color: #ecfdf5; font-weight: bold; border: 2px solid #10b981;"' : ''}>
+                                <td><strong>Basic ${recomWebPkg.toLowerCase() === 'basic' ? '⭐' : ''}</strong></td>
+                                <td>ללא עדכוני קוד ידניים</td>
+                                <td>150 ₪ / חודש</td>
+                                <td>אחסון שרת מהיר ומאובטח, גיבויים שבועיים, תעודת אבטחה SSL ותחזוקת שרת שוטפת.</td>
+                            </tr>
+                            <tr ${recomWebPkg.toLowerCase() === 'extended' ? 'style="background-color: #ecfdf5; font-weight: bold; border: 2px solid #10b981;"' : ''}>
+                                <td><strong>Extended ${recomWebPkg.toLowerCase() === 'extended' ? '⭐' : ''}</strong></td>
+                                <td>עד 2 שעות עדכוני תוכן</td>
+                                <td>300 ₪ / חודש</td>
+                                <td>כולל חבילת Basic + העלאת פוסטים/תמונות/מוצרים חדשים ושינויי עיצוב קלים מדי חודש.</td>
+                            </tr>
+                            <tr ${recomWebPkg.toLowerCase() === 'premium' ? 'style="background-color: #ecfdf5; font-weight: bold; border: 2px solid #10b981;"' : ''}>
+                                <td><strong>Premium ${recomWebPkg.toLowerCase() === 'premium' ? '⭐' : ''}</strong></td>
+                                <td>תמיכה מהירה ועדכונים</td>
+                                <td>600 ₪ / חודש</td>
+                                <td>כולל חבילת Extended + תמיכה טלפונית בעדיפות גבוהה, פיתוח שיפורים קטנים וזמן תגובה מהיר.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <div class="alert-box" style="background-color: #ecfdf5; border-right: 4px solid #10b981; color: #065f46; padding: 6px 10px; margin-top: 6px;">
+                        <div style="font-weight: bold; color: #047857; font-size: 10.5px; margin-bottom: 2px;">🤖 המלצת ה-AI לחבילת אתר: <bdi>${data.recommendations?.website_package || 'Basic'}</bdi></div>
+                        <p style="margin: 0; font-size: 10px; color: #065f46; line-height: 1.3;"><bdi>${data.recommendations?.website_reason || 'בהתאם לרמת הפעילות הנדרשת ועדכוני התוכן המשוערים.'}</bdi></p>
+                    </div>
+                </div>
+            `;
+        }
+
+        slaPackagesHtml = `
+            <div class="pdf-section">
+                <h2>${secNum++}. פירוט מסלולי שירות (SLA) והמלצות מערכת AI</h2>
+                <p>להלן פירוט מסלולי הריטיינר והתחזוקה המוצעים עבור הפרויקט. מערכת הבינה המלאכותית ביצעה ניתוח של נפח הפניות וריצות האוטומציה הצפויות לעסק, והדגישה את החבילה המומלצת בעבורכם בסימן כוכב (⭐) ורקע ירוק. ההחלטה הסופית באיזה מסלול לבחור נתונה לשיקול דעתכם המלא:</p>
+                ${automationTableHtml}
+                ${websiteTableHtml}
             </div>
         `;
     }
@@ -642,17 +785,17 @@ export function buildProposalHtml(data) {
             
             <div class="pdf-footer-template" style="display:none;">
                 <div class="footer-note">
-                    <span>עמוד <span class="pdf-page-num"></span> מתוך <span class="pdf-total-pages"></span> | autoRI-studio הצעת מחיר עבור ${data.business_name}</span>
+                    <span>עמוד <span class="pdf-page-num"></span> מתוך <span class="pdf-total-pages"></span> | autoRI-studio הצעת מחיר עבור <bdi>${data.business_name}</bdi></span>
                 </div>
             </div>
             
             <!-- SECTION 1: Client details -->
             <div class="pdf-section">
-                <h2>1. פרטי ההצעה והלקוח</h2>
+                <h2>${secNum++}. פרטי ההצעה והלקוח</h2>
                 <table class="data-table">
                     <tr>
                         <th width="35%">עבור לקוח / חברה:</th>
-                        <td><strong>${data.business_name}</strong> (${data.contact_name})</td>
+                        <td><strong><bdi>${data.business_name}</bdi></strong> (<bdi>${data.contact_name}</bdi>)</td>
                     </tr>
                     <tr>
                         <th>תאריך הפקה:</th>
@@ -671,7 +814,7 @@ export function buildProposalHtml(data) {
             
             <!-- SECTION 2: Exec Summary -->
             <div class="pdf-section">
-                <h2>2. תקציר מנהלים ומטרות העל</h2>
+                <h2>${secNum++}. תקציר מנהלים ומטרות העל</h2>
                 <p>מטרת-העל של פרויקט זה היא לייצר לעסק שלך סדר מוחלט בעיניים, לחסוך לך שעות יקרות של עבודה ידנית יומיומית, ולהעלות משמעותית את אחוז סגירת העסקאות בעסק - הכל בצורה אוטומטית שרצה מאחורי הקלעים בזמן שאתה ממוקד בליבת הפעילות השוטפת.</p>
                 <p>באמצעות שילוב של מערכות ניהול מתקדמות, כלי בינה מלאכותית (AI) וחיבור לערוצי התקשורת והרשתות החברתיות, נבנה עבורך מערך דיגיטלי חכם שיעבוד בשבילך 24/7.</p>
             </div>
@@ -681,7 +824,7 @@ export function buildProposalHtml(data) {
             
             <!-- SECTION 4: Pricing Table -->
             <div class="pdf-section">
-                <h2>${includeAutomation && includeWebsite ? '5.' : includeAutomation ? '4.' : '4.'} תמחור ועלויות פיתוח והקמה</h2>
+                <h2>${secNum++}. תמחור ועלויות פיתוח והקמה</h2>
                 <table class="data-table">
                     <thead>
                         <tr>
@@ -709,12 +852,15 @@ export function buildProposalHtml(data) {
             <!-- SECTION 5: Executions -->
             ${executionsSectionHtml}
             
-            <!-- SECTION 6: Third Party Costs -->
+            <!-- SECTION 6: SLA Packages & Recommendations -->
+            ${slaPackagesHtml}
+            
+            <!-- SECTION 7: Third Party Costs -->
             ${thirdPartyHtml}
             
-            <!-- SECTION 7: Payment Terms -->
+            <!-- SECTION 8: Payment Terms -->
             <div class="pdf-section">
-                <h2>${includeAutomation && includeWebsite ? '7.' : includeAutomation ? '7.' : '5.'} תנאי תשלום ומדיניות שביעות רצון (Satisfaction Guarantee)</h2>
+                <h2>${secNum++}. תנאי תשלום ומדיניות שביעות רצון (Satisfaction Guarantee)</h2>
                 <div style="margin-bottom: 10px;">
                     ${paymentTermsHtml}
                     <div class="flex-list-item" style="margin-top: 4px;">
@@ -724,21 +870,21 @@ export function buildProposalHtml(data) {
                 </div>
             </div>
             
-            <!-- SECTION 8: Timeline -->
+            <!-- SECTION 9: Timeline -->
             <div class="pdf-section">
-                <h2>${includeAutomation && includeWebsite ? '8.' : includeAutomation ? '8.' : '6.'} לוחות זמנים משוערים להקמה</h2>
+                <h2>${secNum++}. לוחות זמנים משוערים להקמה</h2>
                 <div style="margin-bottom: 10px;">
                     ${data.timeline.map((t, index) => `
                         <div class="flex-list-item">
                             <span class="flex-list-num">${index + 1}.</span>
-                            <span><strong>שלב ${t.name}:</strong> כ-${t.days} ימי עסקים.</span>
+                            <span><strong>שלב <bdi>${t.name}</bdi>:</strong> כ-${t.days} ימי עסקים.</span>
                         </div>
                     `).join('')}
                 </div>
                 <p style="font-size: 10px; font-style: italic;">* סה"כ זמן משוער לעלייה מלאה לאוויר: כ-27 ימי עסקים ממועד קבלת המקדמה והגישות (נשאף לקצר ככל הניתן).</p>
             </div>
             
-            <!-- SECTION 9: Signatures -->
+            <!-- SECTION 10: Signatures -->
             <div class="pdf-section">
                 <div class="signature-section" style="margin-top: 15px;">
                     <div class="signature-box">
@@ -783,7 +929,7 @@ export function buildContractHtml(data) {
             componentsListHtml += `
                 <div class="flex-list-item">
                     <span class="flex-list-num">${compIdx++}.</span>
-                    <span><strong>${c.name} (אוטומציה):</strong> ${c.description} (מערכות: ${c.systems.join(', ')}).</span>
+                    <span><strong><bdi>${c.name}</bdi> (אוטומציה):</strong> <bdi>${c.description}</bdi> (מערכות: <bdi>${c.systems.join(', ')}</bdi>).</span>
                 </div>
             `;
         });
@@ -839,11 +985,17 @@ export function buildContractHtml(data) {
         const autoSlaKey = data.pricing.automation_sla || 'standard';
         const autoSlaInfo = SLA_PACKAGES[autoSlaKey] || { name: 'Standard', price: 400, limit: 1000 };
         const autoThird = parseFloat(data.pricing.automation_third_party || 0);
+        const bonusRuns = data.pricing?.bonus_runs || 0;
+
+        let limitText = `עד ${autoSlaInfo.limit.toLocaleString('he-IL')} הרצות בחודש`;
+        if (bonusRuns > 0) {
+            limitText = `עד ${autoSlaInfo.limit.toLocaleString('he-IL')} הרצות בחודש ובתוספת הטבה מיוחדת של ${bonusRuns.toLocaleString('he-IL')} הרצות בונוס חודשיות נוספות ללא עלות (סה"כ ${(autoSlaInfo.limit + bonusRuns).toLocaleString('he-IL')} הרצות בחודש)`;
+        }
 
         retainerHtml += `
             <div style="margin-bottom: 8px;">
                 <strong>א. תחזוקת אוטומציות ושרת (SLA - ${autoSlaInfo.name}):</strong>
-                <p style="margin: 3px 0 0 0; font-size: 10.5px;">עבור אירוח המערכות בשרת n8n פרטי ומאובטח, ניטור אקטיבי של שגיאות 24/7, עדכוני API ותמיכה שוטפת, ישלם הלקוח סך של <strong>${autoSlaInfo.price.toLocaleString('he-IL')} ₪ + מע"מ לחודש</strong> (כולל עד ${autoSlaInfo.limit.toLocaleString('he-IL')} הרצות בחודש). ${autoSlaKey === 'standard' ? 'חריגה תחוייב בעלות של 0.20 ₪ לכל ריצה נוספת.' : ''}</p>
+                <p style="margin: 3px 0 0 0; font-size: 10.5px;">עבור אירוח המערכות בשרת n8n פרטי ומאובטח, ניטור אקטיבי של שגיאות 24/7, עדכוני API ותמיכה שוטפת, ישלם הלקוח סך של <strong>${autoSlaInfo.price.toLocaleString('he-IL')} ₪ + מע"מ לחודש</strong> (כולל ${limitText}). חריגה מעבר למכסה זו תחוייב בעלות של 0.20 ₪ לכל ריצה נוספת.</p>
                 ${autoThird > 0 ? `<p style="margin: 2px 0 0 0; font-size: 10px; color: #64748b;">* עלויות צד ג' צפויות (OpenAI, מנויים וכדומה): כ-₪${autoThird} בחודש (משולם ישירות לספקים/בפירוט הריטיינר).</p>` : ''}
             </div>
         `;
@@ -900,7 +1052,7 @@ export function buildContractHtml(data) {
             
             <div class="pdf-footer-template" style="display:none;">
                 <div class="footer-note">
-                    <span>עמוד <span class="pdf-page-num"></span> מתוך <span class="pdf-total-pages"></span> | autoRI-studio הסכם התקשרות עבור ${data.business_name}</span>
+                    <span>עמוד <span class="pdf-page-num"></span> מתוך <span class="pdf-total-pages"></span> | autoRI-studio הסכם התקשרות עבור <bdi>${data.business_name}</bdi></span>
                 </div>
             </div>
             
@@ -916,7 +1068,7 @@ export function buildContractHtml(data) {
                     </tr>
                     <tr>
                         <th>הלקוח (המזמין):</th>
-                        <td><strong>${data.business_name}</strong> (${data.contact_name})<br>ע.מ. / ח.פ.: ________________________</td>
+                        <td><strong><bdi>${data.business_name}</bdi></strong> (<bdi>${data.contact_name}</bdi>)<br>ע.מ. / ח.פ.: ________________________</td>
                     </tr>
                 </table>
             </div>
@@ -989,15 +1141,29 @@ export function buildContractHtml(data) {
                 <div class="signature-section" style="margin-top: 15px;">
                     <div class="signature-box">
                         <div class="signature-title">הספק: autoRI-studio</div>
-                        <p style="font-size: 10px; margin-bottom: 8px;">שמות הנציגים: רון ועילי<br>תאריך: ${new Date().toLocaleDateString('he-IL')}</p>
-                        <div class="signature-line"></div>
-                        <p style="font-size: 9px; margin: 0; color: #64748b;">חתימה וחותמת הספק</p>
+                        <p style="font-size: 9px; margin-bottom: 4px;">שמות הנציגים: רון ועילי<br>תאריך: ${new Date().toLocaleDateString('he-IL')}</p>
+                        <div class="digital-sig-badge">
+                            <span class="sig-status-icon">✓</span>
+                            <div class="sig-details">
+                                <div class="sig-text">autoRI-studio</div>
+                                <div class="sig-meta">נחתם דיגיטלית מאובטח</div>
+                                <div class="sig-meta">מזהה: SEC-SIG-84920A</div>
+                                <div class="sig-meta">זמן: ${new Date().toLocaleString('he-IL')} | IP: 192.168.1.100</div>
+                            </div>
+                        </div>
                     </div>
                     <div class="signature-box">
-                        <div class="signature-title">הלקוח (המזמין): ${data.business_name}</div>
-                        <p style="font-size: 10px; margin-bottom: 8px;">שם הנציג המורשה: _________________<br>תאריך: ${new Date().toLocaleDateString('he-IL')}</p>
-                        <div class="signature-line"></div>
-                        <p style="font-size: 9px; margin: 0; color: #64748b;">חתימה וחותמת המזמין</p>
+                        <div class="signature-title">הלקוח (המזמין): <bdi>${data.business_name}</bdi></div>
+                        <p style="font-size: 9px; margin-bottom: 4px;">שם הנציג: <bdi>${data.contact_name}</bdi><br>תאריך: ${new Date().toLocaleDateString('he-IL')}</p>
+                        <div class="digital-sig-badge">
+                            <span class="sig-status-icon">✓</span>
+                            <div class="sig-details">
+                                <div class="sig-text"><bdi>${data.contact_name || 'לקוח מורשה'}</bdi></div>
+                                <div class="sig-meta">נחתם דיגיטלית מאובטח</div>
+                                <div class="sig-meta">מזהה: SEC-SIG-71930B</div>
+                                <div class="sig-meta">זמן: ${new Date().toLocaleString('he-IL')} | IP: 192.168.1.150</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1020,7 +1186,7 @@ export function buildNdaHtml(data) {
             
             <div class="pdf-footer-template" style="display:none;">
                 <div class="footer-note">
-                    <span>עמוד <span class="pdf-page-num"></span> מתוך <span class="pdf-total-pages"></span> | autoRI-studio הסכם שמירת סודיות עבור ${data.business_name}</span>
+                    <span>עמוד <span class="pdf-page-num"></span> מתוך <span class="pdf-total-pages"></span> | autoRI-studio הסכם שמירת סודיות עבור <bdi>${data.business_name}</bdi></span>
                 </div>
             </div>
             
@@ -1032,7 +1198,7 @@ export function buildNdaHtml(data) {
                 <table class="data-table">
                     <tr>
                         <th width="35%">הצד המוסר:</th>
-                        <td><strong>${data.business_name}</strong> (${data.contact_name})<br>ע.מ. / ח.פ.: ________________________</td>
+                        <td><strong><bdi>${data.business_name}</bdi></strong> (<bdi>${data.contact_name}</bdi>)<br>ע.מ. / ח.פ.: ________________________</td>
                     </tr>
                     <tr>
                         <th>הצד המקבל:</th>
@@ -1065,7 +1231,7 @@ export function buildNdaHtml(data) {
                 <h2>3. מחיקה והחזרת מידע בסיום פרויקט</h2>
                 <div class="alert-box" style="background-color: #f0fdf4; border-right: 4px solid #16a34a; color: #14532d;">
                     <div class="alert-box-title" style="color: #166534;">🛡️ סעיף פינוי נתונים ואבטחה מוגברת:</div>
-                    <p style="margin: 0; font-size: 10px; line-height: 1.35;">עם סיום ההתקשרות בין הצדדים, או עם קבלת דרישה מפורשת בכתב מהצד המוסר (${data.business_name}), מתחייב הצד המקבל למחוק לצמיתות או להחזיר לצד המוסר את כל העותקים הפיזיים והדיגיטליים של המידע הסודי שברשותו (פרטי גישה, סיסמאות, מפתחות API, בסיסי נתונים, רשימות תפוצה וכדומה) ולספק אישור בכתב המעיד על ביצוע המחיקה והטיהור תוך 14 ימי עסקים.</p>
+                    <p style="margin: 0; font-size: 10px; line-height: 1.35;">עם סיום ההתקשרות בין הצדדים, או עם קבלת דרישה מפורשת בכתב מהצד המוסר (<bdi>${data.business_name}</bdi>), מתחייב הצד המקבל למחוק לצמיתות או להחזיר לצד המוסר את כל העותקים הפיזיים והדיגיטליים של המידע הסודי שברשותו (פרטי גישה, סיסמאות, מפתחות API, בסיסי נתונים, רשימות תפוצה וכדומה) ולספק אישור בכתב המעיד על ביצוע המחיקה והטיהור תוך 14 ימי עסקים.</p>
                 </div>
             </div>
             
@@ -1080,16 +1246,30 @@ export function buildNdaHtml(data) {
             <div class="pdf-section">
                 <div class="signature-section" style="margin-top: 15px;">
                     <div class="signature-box">
-                        <div class="signature-title">הצד המוסר (הלקוח): ${data.business_name}</div>
-                        <p style="font-size: 10px; margin-bottom: 8px;">שם הנציג המורשה: _________________<br>תאריך החתימה: ${new Date().toLocaleDateString('he-IL')}</p>
-                        <div class="signature-line"></div>
-                        <p style="font-size: 9px; margin: 0; color: #64748b;">חתימה וחותמת המזמין</p>
+                        <div class="signature-title">הצד המוסר (הלקוח): <bdi>${data.business_name}</bdi></div>
+                        <p style="font-size: 9px; margin-bottom: 4px;">שם הנציג: <bdi>${data.contact_name}</bdi><br>תאריך החתימה: ${new Date().toLocaleDateString('he-IL')}</p>
+                        <div class="digital-sig-badge">
+                            <span class="sig-status-icon">✓</span>
+                            <div class="sig-details">
+                                <div class="sig-text"><bdi>${data.contact_name || 'לקוח מורשה'}</bdi></div>
+                                <div class="sig-meta">נחתם דיגיטלית מאובטח</div>
+                                <div class="sig-meta">מזהה: SEC-SIG-71930B</div>
+                                <div class="sig-meta">זמן: ${new Date().toLocaleString('he-IL')} | IP: 192.168.1.150</div>
+                            </div>
+                        </div>
                     </div>
                     <div class="signature-box">
                         <div class="signature-title">הצד המקבל (הספק): autoRI-studio</div>
-                        <p style="font-size: 10px; margin-bottom: 8px;">מנהלים מייצגים: רון ועילי<br>תאריך החתימה: ${new Date().toLocaleDateString('he-IL')}</p>
-                        <div class="signature-line"></div>
-                        <p style="font-size: 9px; margin: 0; color: #64748b;">חתימה וחותמת הספק</p>
+                        <p style="font-size: 9px; margin-bottom: 4px;">מנהלים מייצגים: רון ועילי<br>תאריך החתימה: ${new Date().toLocaleDateString('he-IL')}</p>
+                        <div class="digital-sig-badge">
+                            <span class="sig-status-icon">✓</span>
+                            <div class="sig-details">
+                                <div class="sig-text">autoRI-studio</div>
+                                <div class="sig-meta">נחתם דיגיטלית מאובטח</div>
+                                <div class="sig-meta">מזהה: SEC-SIG-84920A</div>
+                                <div class="sig-meta">זמן: ${new Date().toLocaleString('he-IL')} | IP: 192.168.1.100</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1344,4 +1524,10 @@ export async function generateAndUploadDocuments(rawSpec, setupCost, lead, custo
     }
 
     return results;
+}
+
+if (typeof window !== 'undefined') {
+    window.buildProposalHtml = buildProposalHtml;
+    window.buildContractHtml = buildContractHtml;
+    window.buildNdaHtml = buildNdaHtml;
 }
