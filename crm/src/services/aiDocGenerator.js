@@ -1154,16 +1154,9 @@ export function buildContractHtml(data) {
                     </div>
                     <div class="signature-box">
                         <div class="signature-title">הלקוח (המזמין): <bdi>${data.business_name}</bdi></div>
-                        <p style="font-size: 9px; margin-bottom: 4px;">שם הנציג: <bdi>${data.contact_name}</bdi><br>תאריך: ${new Date().toLocaleDateString('he-IL')}</p>
-                        <div class="digital-sig-badge">
-                            <span class="sig-status-icon">✓</span>
-                            <div class="sig-details">
-                                <div class="sig-text"><bdi>${data.contact_name || 'לקוח מורשה'}</bdi></div>
-                                <div class="sig-meta">נחתם דיגיטלית מאובטח</div>
-                                <div class="sig-meta">מזהה: SEC-SIG-71930B</div>
-                                <div class="sig-meta">זמן: ${new Date().toLocaleString('he-IL')} | IP: 192.168.1.150</div>
-                            </div>
-                        </div>
+                        <p style="font-size: 9px; margin-bottom: 8px;">שם הנציג: <bdi>${data.contact_name || '_________________'}</bdi><br>תאריך: _________________</p>
+                        <div class="signature-line"></div>
+                        <p style="font-size: 9px; margin: 0; color: #64748b;">חתימה וחותמת</p>
                     </div>
                 </div>
             </div>
@@ -1247,16 +1240,9 @@ export function buildNdaHtml(data) {
                 <div class="signature-section" style="margin-top: 15px;">
                     <div class="signature-box">
                         <div class="signature-title">הצד המוסר (הלקוח): <bdi>${data.business_name}</bdi></div>
-                        <p style="font-size: 9px; margin-bottom: 4px;">שם הנציג: <bdi>${data.contact_name}</bdi><br>תאריך החתימה: ${new Date().toLocaleDateString('he-IL')}</p>
-                        <div class="digital-sig-badge">
-                            <span class="sig-status-icon">✓</span>
-                            <div class="sig-details">
-                                <div class="sig-text"><bdi>${data.contact_name || 'לקוח מורשה'}</bdi></div>
-                                <div class="sig-meta">נחתם דיגיטלית מאובטח</div>
-                                <div class="sig-meta">מזהה: SEC-SIG-71930B</div>
-                                <div class="sig-meta">זמן: ${new Date().toLocaleString('he-IL')} | IP: 192.168.1.150</div>
-                            </div>
-                        </div>
+                        <p style="font-size: 9px; margin-bottom: 8px;">שם הנציג: <bdi>${data.contact_name || '_________________'}</bdi><br>תאריך החתימה: _________________</p>
+                        <div class="signature-line"></div>
+                        <p style="font-size: 9px; margin: 0; color: #64748b;">חתימה וחותמת</p>
                     </div>
                     <div class="signature-box">
                         <div class="signature-title">הצד המקבל (הספק): autoRI-studio</div>
