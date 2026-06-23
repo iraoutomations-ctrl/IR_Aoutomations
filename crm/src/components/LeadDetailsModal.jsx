@@ -402,7 +402,13 @@ export default function LeadDetailsModal({ leadId, onClose, onLeadUpdated }) {
 
                 if (sendViaEmail) {
                     const mailtoUrl = `mailto:${lead.email || ''}?subject=${encodeURIComponent('מסמכים לפרויקט - ' + (lead.company || lead.name || ''))}&body=${encodeURIComponent(customMessageText)}`;
-                    window.location.href = mailtoUrl;
+                    if (sendViaWhatsApp) {
+                        setTimeout(() => {
+                            window.open(mailtoUrl, '_blank');
+                        }, 400);
+                    } else {
+                        window.open(mailtoUrl, '_blank');
+                    }
                 }
 
                 await db.addNote({
@@ -2578,18 +2584,33 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                                     <span style={{ fontSize: '11px', fontWeight: '600', color: 'var(--text-secondary)' }}>נוסח ההודעה לשליחה:</span>
-                                                    {isMessageModified && (
+                                                    <div style={{ display: 'flex', gap: '8px' }}>
                                                         <button 
                                                             type="button" 
-                                                            onClick={handleResetMessageText} 
+                                                            onClick={() => {
+                                                                navigator.clipboard.writeText(customMessageText);
+                                                                alert('ההודעה הועתקה ללוח הזיכרון!');
+                                                            }}
                                                             style={{ 
-                                                                background: 'none', border: 'none', color: '#c084fc', 
+                                                                background: 'none', border: 'none', color: '#10b981', 
                                                                 fontSize: '10px', textDecoration: 'underline', cursor: 'pointer', padding: 0 
                                                             }}
                                                         >
-                                                            אפס לנוסח ברירת מחדל
+                                                            העתק הודעה
                                                         </button>
-                                                    )}
+                                                        {isMessageModified && (
+                                                            <button 
+                                                                type="button" 
+                                                                onClick={handleResetMessageText} 
+                                                                style={{ 
+                                                                    background: 'none', border: 'none', color: '#c084fc', 
+                                                                    fontSize: '10px', textDecoration: 'underline', cursor: 'pointer', padding: 0 
+                                                                }}
+                                                            >
+                                                                אפס לנוסח ברירת מחדל
+                                                            </button>
+                                                        )}
+                                                    </div>
                                                 </div>
                                                 <textarea
                                                     value={customMessageText}
