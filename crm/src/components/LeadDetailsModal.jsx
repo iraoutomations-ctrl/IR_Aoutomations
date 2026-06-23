@@ -37,7 +37,9 @@ import {
     Paperclip,
     Calculator,
     ChevronRight,
-    Save
+    Save,
+    Send,
+    MessageCircle
 } from 'lucide-react';
 import { db } from '../services/db';
 import { downloadTemplate } from '../services/templates';
@@ -220,6 +222,211 @@ export default function LeadDetailsModal({ leadId, onClose, onLeadUpdated }) {
     const [docUploadType, setDocUploadType] = useState('proposal');
     const [docUploadName, setDocUploadName] = useState('');
     const [docUploading, setDocUploading] = useState(false);
+
+    // States for "Documents to Send" feature
+    const [selectedDocsToSend, setSelectedDocsToSend] = useState([]);
+    const [sendViaWhatsApp, setSendViaWhatsApp] = useState(true);
+    const [sendViaEmail, setSendViaEmail] = useState(false);
+    const [customMessageText, setCustomMessageText] = useState('');
+    const [isMessageModified, setIsMessageModified] = useState(false);
+    const [isSendingDoc, setIsSendingDoc] = useState(false);
+
+    // Synchronize default message text when documents or selection changes
+    const getGeneratedMessageText = (selectedIds, currentLead, currentDocs) => {
+        if (!currentLead) return '';
+        
+        const selectedDocs = [];
+        
+        const proposalDoc = currentDocs.find(d => d.type === 'proposal' && !d.automation_id);
+        if (proposalDoc && selectedIds.includes('proposal')) {
+            selectedDocs.push({ name: 'הצעת מחיר', url: proposalDoc.file_url, type: 'proposal' });
+        }
+        const ndaDoc = currentDocs.find(d => d.type === 'nda' && !d.automation_id);
+        if (ndaDoc && selectedIds.includes('nda')) {
+            selectedDocs.push({ name: 'הסכם סודיות NDA', url: ndaDoc.file_url, type: 'nda' });
+        }
+        const contractDoc = currentDocs.find(d => d.type === 'contract' && !d.automation_id);
+        if (contractDoc && selectedIds.includes('contract')) {
+            selectedDocs.push({ name: 'חוזה עבודה חתום', url: contractDoc.file_url, type: 'contract' });
+        }
+        
+        const additionalDocs = currentDocs.filter(d => !d.automation_id && d.type !== 'proposal' && d.type !== 'nda' && d.type !== 'contract');
+        additionalDocs.forEach(d => {
+            if (selectedIds.includes(d.id)) {
+                selectedDocs.push({ name: d.name || d.file_name, url: d.file_url, type: 'other' });
+            }
+        });
+
+        if (selectedDocs.length === 0) {
+            return `שלום ${currentLead.name || 'לקוח'},`;
+        }
+
+        const clientName = currentLead.name || 'לקוח';
+        const companyName = currentLead.company || 'העסק';
+
+        if (selectedDocs.length === 1) {
+            const doc = selectedDocs[0];
+            if (doc.type === 'proposal') {
+                return `שלום ${clientName},\nמצורפת הצעת המחיר המקצועית עבור פרויקט האוטומציות והאתר של ${companyName}.\n\nלצפייה והורדה:\n${doc.url}\n\nנשמח לקבלת פידבק ולכל שאלה!`;
+            } else if (doc.type === 'nda') {
+                return `שלום ${clientName},\nמצורף הסכם שמירת הסודיות (NDA) להמשך התקדמות בפרויקט המשותף שלנו.\n\nלצפייה והורדה:\n${doc.url}\n\nנשמח אם תעבור עליו ותאשר.`;
+            } else if (doc.type === 'contract') {
+                return `שלום ${clientName},\nמצורף הסכם העבודה המפורט לפרויקט של ${companyName}.\n\nלצפייה והורדה:\n${doc.url}\n\nנשמח לחתימתך כדי שנוכל לצאת לדרך!`;
+            } else {
+                return `שלום ${clientName},\nמצורף המסמך "${doc.name}" עבור הפרויקט שלך.\n\nלצפייה והורדה:\n${doc.url}`;
+            }
+        } else {
+            let msg = `שלום ${clientName},\nמצורפים המסמכים הבאים לפרויקט של ${companyName}:\n\n`;
+            selectedDocs.forEach(doc => {
+                msg += `• ${doc.name}: ${doc.url}\n`;
+            });
+            msg += `\nנשמח לעבור עליהם יחד ולהתקדם בשלבים הבאים.`;
+            return msg;
+        }
+    };
+
+    useEffect(() => {
+        if (!isMessageModified) {
+            const text = getGeneratedMessageText(selectedDocsToSend, lead, documents);
+            setCustomMessageText(text);
+        }
+    }, [selectedDocsToSend, documents, lead, isMessageModified]);
+
+    const handleResetMessageText = () => {
+        setIsMessageModified(false);
+        const text = getGeneratedMessageText(selectedDocsToSend, lead, documents);
+        setCustomMessageText(text);
+    };
+
+    // Helper to check if any document is checked and actually exists
+    const hasAnyDocsSelected = () => {
+        return selectedDocsToSend.some(idOrType => {
+            return documents.some(d => {
+                if (d.type === 'proposal' || d.type === 'nda' || d.type === 'contract') {
+                    return d.type === idOrType && !d.automation_id;
+                }
+                return d.id === idOrType && !d.automation_id;
+            });
+        });
+    };
+
+    // Send documents orchestrator (n8n + fallback)
+    const handleSendDocuments = async () => {
+        if (selectedDocsToSend.length === 0) {
+            alert('אנא בחר לפחות מסמך אחד לשליחה.');
+            return;
+        }
+        if (!sendViaWhatsApp && !sendViaEmail) {
+            alert('אנא בחר לפחות ערוץ שליחה אחד (וואטסאפ או מייל).');
+            return;
+        }
+
+        setIsSendingDoc(true);
+        try {
+            const n8nUrl = localStorage.getItem('n8n_url');
+            
+            const selectedDocs = [];
+            const proposalDoc = documents.find(d => d.type === 'proposal' && !d.automation_id);
+            if (proposalDoc && selectedDocsToSend.includes('proposal')) selectedDocs.push(proposalDoc);
+            const ndaDoc = documents.find(d => d.type === 'nda' && !d.automation_id);
+            if (ndaDoc && selectedDocsToSend.includes('nda')) selectedDocs.push(ndaDoc);
+            const contractDoc = documents.find(d => d.type === 'contract' && !d.automation_id);
+            if (contractDoc && selectedDocsToSend.includes('contract')) selectedDocs.push(contractDoc);
+            
+            const additionalDocs = documents.filter(d => !d.automation_id && d.type !== 'proposal' && d.type !== 'nda' && d.type !== 'contract');
+            additionalDocs.forEach(d => {
+                if (selectedDocsToSend.includes(d.id)) selectedDocs.push(d);
+            });
+
+            const docNamesStr = selectedDocs.map(d => d.name || d.file_name).join(', ');
+            let sendSuccess = false;
+
+            if (n8nUrl) {
+                try {
+                    const cleanUrl = n8nUrl.replace(/\/$/, '');
+                    const response = await fetch(`${cleanUrl}/webhook/send-document`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            lead_id: leadId,
+                            lead_name: lead.name,
+                            lead_phone: lead.phone,
+                            lead_email: lead.email,
+                            lead_company: lead.company,
+                            channels: {
+                                whatsapp: sendViaWhatsApp,
+                                email: sendViaEmail
+                            },
+                            message: customMessageText,
+                            documents: selectedDocs.map(d => ({
+                                id: d.id,
+                                name: d.name || d.file_name,
+                                type: d.type,
+                                url: d.file_url
+                            }))
+                        })
+                    });
+
+                    if (response.ok) {
+                        sendSuccess = true;
+                    } else {
+                        console.warn('n8n webhook response was not ok, falling back to browser links');
+                    }
+                } catch (webhookErr) {
+                    console.error('Error posting to n8n webhook:', webhookErr);
+                }
+            }
+
+            const channelsUsed = [];
+            if (sendViaWhatsApp) channelsUsed.push('וואטסאפ');
+            if (sendViaEmail) channelsUsed.push('אימייל');
+
+            if (!sendSuccess) {
+                if (n8nUrl) {
+                    alert('השליחה האוטומטית דרך n8n נכשלה. עובר לשליחה ידנית (פתיחת וואטסאפ / אימייל במחשב)...');
+                }
+
+                if (sendViaWhatsApp) {
+                    let cleanPhone = lead.phone ? lead.phone.replace(/\D/g, '') : '';
+                    if (cleanPhone.startsWith('05')) {
+                        cleanPhone = '9725' + cleanPhone.substring(2);
+                    } else if (cleanPhone.startsWith('5')) {
+                        cleanPhone = '9725' + cleanPhone.substring(1);
+                    }
+                    
+                    const waUrl = `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(customMessageText)}`;
+                    window.open(waUrl, '_blank');
+                }
+
+                if (sendViaEmail) {
+                    const mailtoUrl = `mailto:${lead.email || ''}?subject=${encodeURIComponent('מסמכים לפרויקט - ' + (lead.company || lead.name || ''))}&body=${encodeURIComponent(customMessageText)}`;
+                    window.location.href = mailtoUrl;
+                }
+
+                await db.addNote({
+                    lead_id: leadId,
+                    content: `נשלחו מסמכים ללקוח בגיבוי ידני ב-[${channelsUsed.join(' + ')}]: ${docNamesStr}`
+                });
+                alert('הופעלה שליחה ידנית. המסמכים שנשלחו: ' + docNamesStr);
+            } else {
+                await db.addNote({
+                    lead_id: leadId,
+                    content: `נשלחו מסמכים ללקוח אוטומטית ב-[${channelsUsed.join(' + ')}]: ${docNamesStr}`
+                });
+                alert('המסמכים נשלחו בהצלחה ללקוח באמצעות n8n!');
+            }
+
+            const notesData = await db.getNotes(leadId);
+            setNotes(notesData);
+        } catch (err) {
+            console.error('Error sending documents:', err);
+            alert('שגיאה בתהליך השליחה: ' + (err.message || err));
+        } finally {
+            setIsSendingDoc(false);
+        }
+    };
 
     // Automations and Bugs states for Won projects
     const [automations, setAutomations] = useState([]);
@@ -559,6 +766,18 @@ export default function LeadDetailsModal({ leadId, onClose, onLeadUpdated }) {
             // Reload notes, docs and lead
             const docsData = await db.getDocuments(leadId);
             setDocuments(docsData || []);
+            if (docsData) {
+                setSelectedDocsToSend(prev => {
+                    const updated = [...prev];
+                    docsData.forEach(d => {
+                        const id = d.type === 'other' ? d.id : d.type;
+                        if (!updated.includes(id)) {
+                            updated.push(id);
+                        }
+                    });
+                    return updated;
+                });
+            }
             const notesData = await db.getNotes(leadId);
             setNotes(notesData);
             const updatedLead = await db.getLeadById(leadId);
@@ -634,6 +853,7 @@ export default function LeadDetailsModal({ leadId, onClose, onLeadUpdated }) {
                 file
             );
             setDocuments(prev => [...prev, newDoc]);
+            setSelectedDocsToSend(prev => [...prev, newDoc.type === 'other' ? newDoc.id : newDoc.type]);
         } catch (err) {
             console.error('Panel drop upload error:', err);
         } finally {
@@ -1061,6 +1281,7 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
                 file
             );
             setDocuments(prev => [newDoc, ...prev]);
+            setSelectedDocsToSend(prev => [...prev, newDoc.type === 'other' ? newDoc.id : newDoc.type]);
             setDocUploadName('');
             e.target.reset();
         } catch (err) {
@@ -1494,19 +1715,26 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
 
     const additionalDocs = documents.filter(d => !d.automation_id && d.type !== 'proposal' && d.type !== 'nda' && d.type !== 'contract');
 
-    const renderLeadDocumentSlot = (type, label, requiredForStatus) => {
-        const doc = documents.find(d => d.type === type && !d.automation_id);
-        const uniqueKey = `lead_${type}`;
+    const renderSendDocItem = (idOrType, label, requiredForStatus, existingDocObj = null) => {
+        const doc = existingDocObj || documents.find(d => d.type === idOrType && !d.automation_id);
+        const uniqueKey = `lead_send_${idOrType}`;
         const isDragActive = dragActive[uniqueKey];
+        const isChecked = selectedDocsToSend.includes(idOrType);
 
         return (
             <div
-                key={type}
+                key={idOrType}
                 className={`glass-card ${isDragActive ? 'drag-active' : ''}`}
                 style={{
-                    padding: '12px', border: isDragActive ? '2px dashed #8b5cf6' : '1px solid rgba(255,255,255,0.05)',
-                    borderRadius: '6px', background: isDragActive ? 'rgba(139, 92, 246, 0.04)' : 'rgba(255,255,255,0.01)',
-                    position: 'relative', transition: 'all 0.2s ease', display: 'flex', flexDirection: 'column', gap: '8px'
+                    padding: '10px 12px', 
+                    border: isDragActive ? '2px dashed #8b5cf6' : '1px solid rgba(255,255,255,0.05)',
+                    borderRadius: '6px', 
+                    background: isDragActive ? 'rgba(139, 92, 246, 0.04)' : 'rgba(255,255,255,0.01)',
+                    position: 'relative', 
+                    transition: 'all 0.2s ease', 
+                    display: 'flex', 
+                    flexDirection: 'column', 
+                    gap: '6px'
                 }}
                 onDragEnter={(e) => handleDocDrag(e, uniqueKey)}
                 onDragOver={(e) => handleDocDrag(e, uniqueKey)}
@@ -1519,8 +1747,10 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
                     if (!file || !leadId) return;
                     setDocUploading(true);
                     try {
-                        const added = await db.uploadDocument({ lead_id: leadId, name: label, type: type }, file);
+                        const typeVal = typeof idOrType === 'string' && ['proposal', 'nda', 'contract'].includes(idOrType) ? idOrType : 'other';
+                        const added = await db.uploadDocument({ lead_id: leadId, name: label, type: typeVal }, file);
                         setDocuments(prev => [...prev, added]);
+                        setSelectedDocsToSend(prev => [...prev, added.type === 'other' ? added.id : added.type]);
                         await db.addNote({ lead_id: leadId, content: `הועלה מסמך חדש: ${label} (${file.name})` });
                         const notesData = await db.getNotes(leadId);
                         setNotes(notesData);
@@ -1532,76 +1762,106 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
                 }}
             >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: '11px', fontWeight: '600', color: 'var(--text-light)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        {label}
-                        {requiredForStatus && (
-                            <span style={{ fontSize: '9px', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', padding: '1px 4px', borderRadius: '3px' }}>
-                                חובה ל-{requiredForStatus}
-                            </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        {doc && (
+                            <input 
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={() => {
+                                    setSelectedDocsToSend(prev => 
+                                        prev.includes(idOrType) 
+                                            ? prev.filter(x => x !== idOrType) 
+                                            : [...prev, idOrType]
+                                    );
+                                }}
+                                style={{ width: '13px', height: '13px', cursor: 'pointer', margin: 0 }}
+                            />
                         )}
-                    </span>
+                        <span style={{ fontSize: '11px', fontWeight: '600', color: 'var(--text-light)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            {label}
+                            {requiredForStatus && (
+                                <span style={{ fontSize: '8px', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', padding: '1px 3px', borderRadius: '3px' }}>
+                                    חובה ל-{requiredForStatus}
+                                </span>
+                            )}
+                        </span>
+                    </div>
                     {doc ? (
                         <span style={{ fontSize: '9px', color: '#10b981', background: 'rgba(16, 185, 129, 0.1)', padding: '1px 4px', borderRadius: '3px' }}>קיים</span>
                     ) : (
                         <span style={{ fontSize: '9px', color: '#ef4444', background: 'rgba(239, 68, 68, 0.08)', padding: '1px 4px', borderRadius: '3px' }}>חסר</span>
                     )}
                 </div>
-                <span style={{ fontSize: '9.5px', color: 'var(--text-secondary)', lineHeight: '1.3', marginTop: '-2px' }}>
-                    {DOC_DESCRIPTIONS[type]}
-                </span>
 
                 {doc ? (
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(255,255,255,0.02)', padding: '6px 8px', borderRadius: '4px', border: '1px solid rgba(255, 255, 255, 0.03)' }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', overflow: 'hidden', maxWidth: '75%' }}>
-                            <span style={{ fontSize: '11px', color: 'var(--text-light)', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }} title={doc.file_name || doc.name}>{doc.file_name || doc.name}</span>
-                            <span style={{ fontSize: '9px', color: 'var(--text-secondary)' }}>{doc.file_size ? `${(doc.file_size / 1024).toFixed(1)} KB` : new Date(doc.created_at).toLocaleDateString('he-IL')}</span>
+                    <div style={{ 
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between', 
+                        background: 'rgba(255,255,255,0.02)', padding: '4px 8px', borderRadius: '4px', 
+                        border: '1px solid rgba(255, 255, 255, 0.03)', marginTop: '2px' 
+                    }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', overflow: 'hidden', maxWidth: '70%' }}>
+                            <span style={{ fontSize: '10.5px', color: 'var(--text-secondary)', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }} title={doc.file_name || doc.name}>{doc.file_name || doc.name}</span>
+                            <span style={{ fontSize: '8.5px', color: 'var(--text-muted)' }}>{doc.file_size ? `${(doc.file_size / 1024).toFixed(1)} KB` : new Date(doc.created_at).toLocaleDateString('he-IL')}</span>
                         </div>
                         <div style={{ display: 'flex', gap: '4px' }}>
                             {doc.file_url && (
-                                <a href={doc.file_url} target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-icon" style={{ width: '22px', height: '22px', padding: '0', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="הורד/צפה">
-                                    <Download size={10} />
+                                <a href={doc.file_url} target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-icon" style={{ width: '20px', height: '20px', padding: '0', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="הורד/צפה">
+                                    <Download size={9} />
                                 </a>
                             )}
-                            <button className="btn btn-danger btn-icon" style={{ width: '22px', height: '22px', padding: '0', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: 'none' }} onClick={() => handleDeleteDocument(doc.id)} title="مחק מסמך">
-                                <Trash2 size={10} />
+                            <button className="btn btn-danger btn-icon" style={{ width: '20px', height: '20px', padding: '0', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: 'none' }} onClick={() => handleDeleteDocument(doc.id)} title="מחק מסמך">
+                                <Trash2 size={9} />
                             </button>
                         </div>
                     </div>
                 ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1 }}>
-                        <label style={{ border: '1px dashed rgba(255,255,255,0.1)', borderRadius: '4px', padding: '12px 6px', textAlign: 'center', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '4px', background: 'transparent', transition: 'all 0.2s ease' }}>
-                            <Upload size={14} style={{ color: 'var(--text-secondary)' }} />
-                            <span style={{ fontSize: '9.5px', color: 'var(--text-secondary)' }}>
-                                גרור קובץ או <span style={{ color: '#c084fc', textDecoration: 'underline' }}>לחץ לבחירה</span>
-                            </span>
-                            <input type="file" style={{ display: 'none' }} onChange={async (e) => {
-                                if (e.target.files && e.target.files[0]) {
-                                    const file = e.target.files[0];
-                                    setDocUploading(true);
-                                    try {
-                                        const added = await db.uploadDocument({ lead_id: leadId, name: label, type: type }, file);
-                                        setDocuments(prev => [...prev, added]);
-                                        await db.addNote({ lead_id: leadId, content: `הועלה מסמך חדש: ${label} (${file.name})` });
-                                        const notesData = await db.getNotes(leadId);
-                                        setNotes(notesData);
-                                    } catch (err) {
-                                        alert('שגיאה בהעלאה: ' + (err.message || err));
-                                    } finally {
-                                        setDocUploading(false);
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '2px' }}>
+                        <span style={{ fontSize: '9px', color: 'var(--text-secondary)', lineHeight: '1.3' }}>
+                            {DOC_DESCRIPTIONS[typeof idOrType === 'string' ? idOrType : 'other'] || 'העלה מסמך מותאם אישית עבור הלקוח.'}
+                        </span>
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                            <label style={{ 
+                                flex: 1, border: '1px dashed rgba(255,255,255,0.1)', borderRadius: '4px', 
+                                padding: '6px', textAlign: 'center', cursor: 'pointer', display: 'flex', 
+                                alignItems: 'center', justifyContent: 'center', gap: '4px', background: 'transparent' 
+                            }}>
+                                <Upload size={11} style={{ color: 'var(--text-secondary)' }} />
+                                <span style={{ fontSize: '9px', color: 'var(--text-secondary)' }}>העלה קובץ</span>
+                                <input type="file" style={{ display: 'none' }} onChange={async (e) => {
+                                    if (e.target.files && e.target.files[0]) {
+                                        const file = e.target.files[0];
+                                        setDocUploading(true);
+                                        try {
+                                            const typeVal = typeof idOrType === 'string' && ['proposal', 'nda', 'contract'].includes(idOrType) ? idOrType : 'other';
+                                            const added = await db.uploadDocument({ lead_id: leadId, name: label, type: typeVal }, file);
+                                            setDocuments(prev => [...prev, added]);
+                                            setSelectedDocsToSend(prev => [...prev, added.type === 'other' ? added.id : added.type]);
+                                            await db.addNote({ lead_id: leadId, content: `הועלה מסמך חדש: ${label} (${file.name})` });
+                                            const notesData = await db.getNotes(leadId);
+                                            setNotes(notesData);
+                                        } catch (err) {
+                                            alert('שגיאה בהעלאה: ' + (err.message || err));
+                                        } finally {
+                                            setDocUploading(false);
+                                        }
                                     }
-                                }
-                            }} />
-                        </label>
-                        <button
-                            type="button"
-                            onClick={() => downloadTemplate(type, lead)}
-                            className="btn btn-secondary"
-                            style={{ fontSize: '9.5px', padding: '3px 6px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)', borderRadius: '4px', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', width: '100%', transition: 'all 0.2s ease' }}
-                            onMouseEnter={(e) => { e.target.style.background = 'rgba(255,255,255,0.06)'; e.target.style.color = 'var(--text-light)'; }}
-                            onMouseLeave={(e) => { e.target.style.background = 'rgba(255,255,255,0.02)'; e.target.style.color = 'var(--text-secondary)'; }}
-                        >
-                            <FileText size={10} /> הורד תבנית שבלונה
-                        </button>
+                                }} />
+                            </label>
+                            {typeof idOrType === 'string' && ['proposal', 'nda', 'contract'].includes(idOrType) && (
+                                <button
+                                    type="button"
+                                    onClick={() => downloadTemplate(idOrType, lead)}
+                                    className="btn btn-secondary"
+                                    style={{ 
+                                        flex: 1, fontSize: '9px', padding: '4px', background: 'rgba(255,255,255,0.02)', 
+                                        border: '1px solid rgba(255,255,255,0.04)', borderRadius: '4px', color: 'var(--text-secondary)', 
+                                        cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px' 
+                                    }}
+                                >
+                                    <FileText size={9} /> שבלונה
+                                </button>
+                            )}
+                        </div>
                     </div>
                 )}
             </div>
@@ -2224,89 +2484,157 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
                                     )}
                                 </div>
 
-                                {/* ── Gating Documents Cards Section ── */}
-                                <div style={{ padding: '0 20px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                    <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', letterSpacing: '0.06em', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
-                                        <Lock size={11} /> מסמכי חובה לעסקה
+                                {/* ── Documents to Send (מסמכים לשליחה) Section ── */}
+                                <div style={{ padding: '0 20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                    <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', letterSpacing: '0.06em', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '2px' }}>
+                                        <Paperclip size={12} style={{ color: '#c084fc' }} /> מסמכים לשליחה
                                     </div>
-                                    {renderLeadDocumentSlot('proposal', 'הצעת מחיר', 'הצעת מחיר')}
-                                    {renderLeadDocumentSlot('nda', 'הסכם סודיות NDA', 'נסגר בהצלחה')}
-                                    {renderLeadDocumentSlot('contract', 'חוזה חתום', 'נסגר בהצלחה')}
-                                </div>
 
-                                {/* ── Additional Documents Section ── */}
-                                <div style={{ padding: '0 20px' }}>
-                                    <div style={{ padding: '12px', background: 'rgba(255,255,255,0.01)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '8px' }}>
-                                        <div style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-secondary)', marginBottom: '10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                <Paperclip size={13} /> מסמכים נוספים ({additionalDocs.length})
-                                            </span>
-                                            <label style={{ fontSize: '10.5px', color: '#c084fc', cursor: 'pointer', textDecoration: 'underline', margin: 0, display: 'flex', alignItems: 'center', gap: '3px' }}>
-                                                <Plus size={10} /> הוסף מסמך
-                                                <input
-                                                    type="file"
-                                                    style={{ display: 'none' }}
-                                                    onChange={async (e) => {
-                                                        if (e.target.files && e.target.files[0]) {
-                                                            const file = e.target.files[0];
-                                                            setDocUploading(true);
-                                                            try {
-                                                                const added = await db.uploadDocument({ lead_id: leadId, name: file.name, type: 'other' }, file);
-                                                                setDocuments(prev => [...prev, added]);
-                                                                await db.addNote({ lead_id: leadId, content: `הועלה מסמך נוסף: ${file.name}` });
-                                                                const notesData = await db.getNotes(leadId);
-                                                                setNotes(notesData);
-                                                            } catch (err) {
-                                                                alert('שגיאה בהעלאה: ' + (err.message || err));
-                                                            } finally {
-                                                                setDocUploading(false);
-                                                            }
+                                    {/* Document List (Standard + Additional) */}
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                        {/* 1. Proposal */}
+                                        {renderSendDocItem('proposal', 'הצעת מחיר', 'הצעת מחיר')}
+                                        
+                                        {/* 2. NDA */}
+                                        {renderSendDocItem('nda', 'הסכם סודיות NDA', 'נסגר בהצלחה')}
+
+                                        {/* 3. Contract */}
+                                        {renderSendDocItem('contract', 'חוזה חתום', 'נסגר בהצלחה')}
+
+                                        {/* 4. Additional Documents */}
+                                        {additionalDocs.map(doc => renderSendDocItem(doc.id, doc.name, null, doc))}
+                                    </div>
+
+                                    {/* Add Additional Document Trigger */}
+                                    <div style={{ marginTop: '2px' }}>
+                                        <label style={{ 
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                                            fontSize: '11px', color: '#c084fc', cursor: 'pointer', padding: '8px', 
+                                            background: 'rgba(139, 92, 246, 0.05)', border: '1px dashed rgba(139, 92, 246, 0.25)', 
+                                            borderRadius: '6px', width: '100%', transition: 'all 0.2s ease'
+                                        }}
+                                            onMouseEnter={(e) => { e.target.style.background = 'rgba(139, 92, 246, 0.1)'; }}
+                                            onMouseLeave={(e) => { e.target.style.background = 'rgba(139, 92, 246, 0.05)'; }}
+                                        >
+                                            <Plus size={12} /> הוסף מסמך נוסף לרשימה
+                                            <input
+                                                type="file"
+                                                style={{ display: 'none' }}
+                                                onChange={async (e) => {
+                                                    if (e.target.files && e.target.files[0]) {
+                                                        const file = e.target.files[0];
+                                                        setDocUploading(true);
+                                                        try {
+                                                            const added = await db.uploadDocument({ lead_id: leadId, name: file.name, type: 'other' }, file);
+                                                            setDocuments(prev => [...prev, added]);
+                                                            setSelectedDocsToSend(prev => [...prev, added.id]);
+                                                            await db.addNote({ lead_id: leadId, content: `הועלה מסמך נוסף לרשימת השליחה: ${file.name}` });
+                                                            const notesData = await db.getNotes(leadId);
+                                                            setNotes(notesData);
+                                                        } catch (err) {
+                                                            alert('שגיאה בהעלאה: ' + (err.message || err));
+                                                        } finally {
+                                                            setDocUploading(false);
                                                         }
+                                                    }
+                                                }}
+                                            />
+                                        </label>
+                                    </div>
+
+                                    {/* Sending Controls (WhatsApp / Email / Previews) - Only if we have at least one valid existing doc selected */}
+                                    {hasAnyDocsSelected() && (
+                                        <div style={{ 
+                                            padding: '12px', background: 'rgba(255,255,255,0.02)', 
+                                            border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px',
+                                            display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '4px'
+                                        }}>
+                                            {/* Channel Selector */}
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                                <span style={{ fontSize: '11px', fontWeight: '600', color: 'var(--text-secondary)' }}>בחר ערוצי שליחה:</span>
+                                                <div style={{ display: 'flex', gap: '16px' }}>
+                                                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11.5px', color: 'var(--text-light)', cursor: 'pointer' }}>
+                                                        <input 
+                                                            type="checkbox" 
+                                                            checked={sendViaWhatsApp} 
+                                                            onChange={(e) => setSendViaWhatsApp(e.target.checked)}
+                                                            style={{ width: '14px', height: '14px', cursor: 'pointer' }}
+                                                        />
+                                                        <MessageCircle size={12} style={{ color: '#10b981' }} /> וואטסאפ (WhatsApp)
+                                                    </label>
+                                                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11.5px', color: 'var(--text-light)', cursor: 'pointer' }}>
+                                                        <input 
+                                                            type="checkbox" 
+                                                            checked={sendViaEmail} 
+                                                            onChange={(e) => setSendViaEmail(e.target.checked)}
+                                                            style={{ width: '14px', height: '14px', cursor: 'pointer' }}
+                                                        />
+                                                        <Mail size={12} style={{ color: '#3b82f6' }} /> אימייל (Email)
+                                                    </label>
+                                                </div>
+                                            </div>
+
+                                            {/* Message Content Preview/Edit */}
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                    <span style={{ fontSize: '11px', fontWeight: '600', color: 'var(--text-secondary)' }}>נוסח ההודעה לשליחה:</span>
+                                                    {isMessageModified && (
+                                                        <button 
+                                                            type="button" 
+                                                            onClick={handleResetMessageText} 
+                                                            style={{ 
+                                                                background: 'none', border: 'none', color: '#c084fc', 
+                                                                fontSize: '10px', textDecoration: 'underline', cursor: 'pointer', padding: 0 
+                                                            }}
+                                                        >
+                                                            אפס לנוסח ברירת מחדל
+                                                        </button>
+                                                    )}
+                                                </div>
+                                                <textarea
+                                                    value={customMessageText}
+                                                    onChange={(e) => {
+                                                        setCustomMessageText(e.target.value);
+                                                        setIsMessageModified(true);
+                                                    }}
+                                                    placeholder="הקלד את ההודעה ללקוח..."
+                                                    style={{
+                                                        width: '100%', height: '110px', background: 'rgba(0,0,0,0.2)',
+                                                        border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px',
+                                                        color: 'var(--text-light)', padding: '8px', fontSize: '11.5px',
+                                                        fontFamily: 'inherit', resize: 'vertical', lineHeight: '1.4'
                                                     }}
                                                 />
-                                            </label>
-                                        </div>
-
-                                        {additionalDocs.length === 0 ? (
-                                            <p style={{ fontSize: '11px', color: 'var(--text-muted)', fontStyle: 'italic', textAlign: 'center', margin: '8px 0 0' }}>אין מסמכים נוספים</p>
-                                        ) : (
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '8px' }}>
-                                                {additionalDocs.map(doc => (
-                                                    <div key={doc.id} style={{
-                                                        display: 'flex', alignItems: 'center', gap: '8px',
-                                                        padding: '8px 10px',
-                                                        background: 'rgba(255,255,255,0.02)',
-                                                        border: '1px solid var(--border-color)',
-                                                        borderRight: '3px solid #6b7280',
-                                                        borderRadius: '6px'
-                                                    }}>
-                                                        <FileText size={13} style={{ color: '#6b7280', flexShrink: 0 }} />
-                                                        <div style={{ flex: 1, minWidth: 0 }}>
-                                                            <div style={{ fontSize: '11px', color: 'var(--text-light)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={doc.name}>{doc.name}</div>
-                                                            <div style={{ fontSize: '9px', color: 'var(--text-muted)', marginTop: '1px' }}>
-                                                                {doc.file_size ? `${(doc.file_size / 1024).toFixed(1)} KB` : new Date(doc.created_at).toLocaleDateString('he-IL')}
-                                                            </div>
-                                                        </div>
-                                                        <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
-                                                            {doc.file_url && (
-                                                                <a href={doc.file_url} target="_blank" rel="noopener noreferrer"
-                                                                    className="btn btn-secondary btn-icon"
-                                                                    style={{ width: '22px', height: '22px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}
-                                                                    title="הורד / פתח"
-                                                                ><Download size={10} /></a>
-                                                            )}
-                                                            <button
-                                                                className="btn btn-secondary btn-icon"
-                                                                onClick={() => handleDeleteDocument(doc.id)}
-                                                                style={{ width: '22px', height: '22px', padding: 0, background: 'transparent', border: 'none' }}
-                                                                title="מחק"
-                                                            ><Trash2 size={10} style={{ color: '#ef4444' }} /></button>
-                                                        </div>
-                                                    </div>
-                                                ))}
                                             </div>
-                                        )}
-                                    </div>
+
+                                            {/* Send Button */}
+                                            <button
+                                                type="button"
+                                                disabled={isSendingDoc}
+                                                onClick={handleSendDocuments}
+                                                className="btn btn-primary"
+                                                style={{
+                                                    background: 'linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%)',
+                                                    border: 'none', fontSize: '12px', padding: '8px',
+                                                    borderRadius: '6px', cursor: isSendingDoc ? 'not-allowed' : 'pointer',
+                                                    fontWeight: '600', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                                                    boxShadow: '0 4px 12px rgba(139, 92, 246, 0.2)'
+                                                }}
+                                            >
+                                                {isSendingDoc ? (
+                                                    <>
+                                                        <RefreshCw size={12} className="spin" />
+                                                        שולח...
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <Send size={12} />
+                                                        שלח ללקוח
+                                                    </>
+                                                )}
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                             {/* Panel close padding */}
