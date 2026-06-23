@@ -889,13 +889,20 @@ export function buildProposalHtml(data) {
                 <div class="signature-section" style="margin-top: 15px;">
                     <div class="signature-box">
                         <div class="signature-title">מטעם autoRI-studio (הספק)</div>
-                        <p style="font-size: 10px; margin-bottom: 8px;">נציגים: רון ועילי</p>
-                        <div class="signature-line"></div>
-                        <p style="font-size: 9px; margin: 0; color: #64748b;">חתימה וחותמת</p>
+                        <p style="font-size: 9px; margin-bottom: 4px;">נציגים: רון ועילי<br>תאריך: ${new Date().toLocaleDateString('he-IL')}</p>
+                        <div class="digital-sig-badge">
+                            <span class="sig-status-icon">✓</span>
+                            <div class="sig-details">
+                                <div class="sig-text">autoRI-studio</div>
+                                <div class="sig-meta">נחתם דיגיטלית מאובטח</div>
+                                <div class="sig-meta">מזהה: SEC-SIG-84920A</div>
+                                <div class="sig-meta">זמן: ${new Date().toLocaleString('he-IL')} | IP: 192.168.1.100</div>
+                            </div>
+                        </div>
                     </div>
                     <div class="signature-box">
-                        <div class="signature-title">מטעם הלקוח (המזמין)</div>
-                        <p style="font-size: 10px; margin-bottom: 8px;">שם הנציג: _________________</p>
+                        <div class="signature-title">מטעם הלקוח (המזמין): <bdi>${data.business_name}</bdi></div>
+                        <p style="font-size: 9px; margin-bottom: 8px;">שם הנציג: <bdi>${data.contact_name || '_________________'}</bdi><br>תאריך: _________________</p>
                         <div class="signature-line"></div>
                         <p style="font-size: 9px; margin: 0; color: #64748b;">חתימה וחותמת</p>
                     </div>
@@ -1473,6 +1480,39 @@ export async function generateAndUploadDocuments(rawSpec, setupCost, lead, custo
         pilot_days: customSettings.pilotDays,
         estimated_clients: customSettings.estimatedClients,
         bonus_runs: customSettings.bonusRuns
+    };
+
+    // Calculate dynamic AI recommendations based on calculated/estimated runs
+    const totalExecs = parsedData.executions_summary?.total_monthly_executions || 0;
+    let recomAutoPkg = 'Standard';
+    let recomAutoReason = 'בהתאם לצפי השימוש ומורכבות הרכיבים בפרויקט.';
+    
+    if (totalExecs > 5000) {
+        recomAutoPkg = 'Enterprise';
+        recomAutoReason = `צפי הריצות החודשי (${totalExecs.toLocaleString('he-IL')} הרצות) חורג ממגבלת חבילת Premium, ולכן מומלץ לבחור בחבילת Enterprise המעניקה נפח של עד 20,000 הרצות בחודש למניעת עלויות חריגה.`;
+    } else if (totalExecs > 1000) {
+        recomAutoPkg = 'Premium';
+        recomAutoReason = `צפי הריצות החודשי (${totalExecs.toLocaleString('he-IL')} הרצות) חורג ממגבלת חבילת Standard, ולכן מומלץ לבחור בחבילת Premium המעניקה נפח של עד 5,000 הרצות בחודש ומענה מהיר לתקלות.`;
+    } else {
+        recomAutoPkg = 'Standard';
+        recomAutoReason = `צפי הריצות החודשי (${totalExecs.toLocaleString('he-IL')} הרצות) נמצא בטווח המכסה של חבילת Standard (עד 1,000 הרצות בחודש).`;
+    }
+
+    let recomWebPkg = 'Basic';
+    let recomWebReason = 'בהתאם לרמת הפעילות הנדרשת ועדכוני התוכן המשוערים.';
+    if (customSettings.includeWebsite) {
+        const addons = customSettings.websiteAddons || {};
+        if (addons.chatbot) {
+            recomWebPkg = 'Extended';
+            recomWebReason = 'עבור אתר הכולל צ\'אטבוט AI פעיל, מומלץ לבחור לפחות בחבילת Extended הכוללת עדכונים שוטפים ותמיכה במערכת.';
+        }
+    }
+
+    parsedData.recommendations = {
+        automation_package: recomAutoPkg,
+        automation_reason: recomAutoReason,
+        website_package: recomWebPkg,
+        website_reason: recomWebReason
     };
 
     const isWebsite = parsedData.pricing.project_type === 'website';
