@@ -1450,36 +1450,52 @@ export async function generateAndUploadDocuments(rawSpec, setupCost, lead, custo
     if (onStatusUpdate) onStatusUpdate('מנתח אפיון ב-AI ומחלץ רכיבים...');
     const parsedData = await parseSpecWithAI(rawSpec, setupCost, clientData);
 
-    // Merge calculator pricing and custom form settings
-    const quoteData = lead.quote_data || {};
-    
     parsedData.pricing = {
-        project_type: quoteData.project_type || 'automation',
+        project_type: (customSettings.includeAutomation && customSettings.includeWebsite) ? 'both' : customSettings.includeAutomation ? 'automation' : 'website',
+        include_automation: customSettings.includeAutomation,
+        include_website: customSettings.includeWebsite,
+        automation_setup_price: customSettings.automationSetupPrice,
+        automation_sla: customSettings.automationSla,
+        automation_third_party: customSettings.automationThirdParty,
+        website_type: customSettings.websiteType,
+        website_setup_price: customSettings.websiteSetupPrice,
+        website_addons: customSettings.websiteAddons,
+        website_sla: customSettings.websiteSla,
+        website_third_party: customSettings.websiteThirdParty,
         setup_cost: setupCost,
-        sla_price: quoteData.sla_price || (quoteData.project_type === 'website' ? 150 : 1000),
-        hourly_rate: quoteData.hourly_rate || 230,
-        third_party_costs: quoteData.third_party_costs || parsedData.third_party_costs?.[0]?.estimated_cost || 0,
-        website_type: quoteData.website_type || null,
-        addons: quoteData.addons || null,
+        hourly_rate: 230,
+        third_party_costs: (customSettings.automationThirdParty || 0) + (customSettings.websiteThirdParty || 0),
         
         // Custom UI settings overrides
         has_advance: customSettings.hasAdvance,
         advance_payment: customSettings.advancePayment,
         final_payment: customSettings.finalPayment,
-        pilot_days: customSettings.pilotDays
+        pilot_days: customSettings.pilotDays,
+        estimated_clients: customSettings.estimatedClients,
+        bonus_runs: customSettings.bonusRuns
     };
 
     const isWebsite = parsedData.pricing.project_type === 'website';
+    const isBoth = parsedData.pricing.project_type === 'both';
+
+    let proposalName = 'הצעת מחיר לפרויקט אוטומציה ו-AI';
+    if (isWebsite) proposalName = 'הצעת מחיר לבניית אתר לעסק';
+    else if (isBoth) proposalName = 'הצעת מחיר לפרויקט אוטומציות ואתר אינטרנט';
+
+    let contractName = 'הסכם פיתוח והקמת מערכות אוטומציה';
+    if (isWebsite) contractName = 'הסכם פיתוח ותחזוקת אתר';
+    else if (isBoth) contractName = 'הסכם פיתוח, הקמה ותחזוקת מערכות';
+
     const docsToGenerate = [
         {
             type: 'proposal',
-            name: isWebsite ? 'הצעת מחיר לבניית אתר לעסק' : 'הצעת מחיר לפרויקט אוטומציה',
+            name: proposalName,
             html: buildProposalHtml(parsedData),
             fileName: 'Proposal.pdf'
         },
         {
             type: 'contract',
-            name: isWebsite ? 'הסכם פיתוח ותחזוקת אתר' : 'הסכם פיתוח והקמת מערכות',
+            name: contractName,
             html: buildContractHtml(parsedData),
             fileName: 'Contract.pdf'
         },
