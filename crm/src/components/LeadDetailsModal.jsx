@@ -402,12 +402,18 @@ export default function LeadDetailsModal({ leadId, onClose, onLeadUpdated }) {
 
                 if (sendViaEmail) {
                     const mailtoUrl = `mailto:${lead.email || ''}?subject=${encodeURIComponent('מסמכים לפרויקט - ' + (lead.company || lead.name || ''))}&body=${encodeURIComponent(customMessageText)}`;
+                    const triggerMailto = () => {
+                        const link = document.createElement('a');
+                        link.href = mailtoUrl;
+                        link.style.display = 'none';
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                    };
                     if (sendViaWhatsApp) {
-                        setTimeout(() => {
-                            window.open(mailtoUrl, '_blank');
-                        }, 400);
+                        setTimeout(triggerMailto, 400);
                     } else {
-                        window.open(mailtoUrl, '_blank');
+                        triggerMailto();
                     }
                 }
 
