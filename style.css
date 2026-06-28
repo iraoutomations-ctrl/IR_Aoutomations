@@ -66,7 +66,7 @@ html {
     scroll-behavior: smooth;
     font-size: 16px;
     background-color: var(--bg-primary);
-    overflow-x: hidden;
+    overflow-x: hidden !important;
     max-width: 100%;
 }
 
@@ -80,7 +80,7 @@ body {
         url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160'%3E%3Cpath d='M0 40h40l20 20h60l20 20h20' stroke='rgba(226,183,85,0.03)' stroke-width='0.8' fill='none'/%3E%3Cpath d='M40 0v40l20 20v60l20 20v20' stroke='rgba(30,178,192,0.02)' stroke-width='0.8' fill='none'/%3E%3Ccircle cx='40' cy='40' r='2' fill='rgba(226,183,85,0.08)'/%3E%3Ccircle cx='100' cy='60' r='2' fill='rgba(30,178,192,0.06)'/%3E%3C/svg%3E");
     background-attachment: fixed;
     line-height: 1.6;
-    overflow-x: hidden;
+    overflow-x: hidden !important;
     position: relative;
     max-width: 100%;
 }
@@ -2482,6 +2482,9 @@ textarea.survey-input {
 }
 
 @media (max-width: 768px) {
+    .tech-circuits-bg {
+        display: none !important;
+    }
     .nav-container {
         min-height: 70px;
         padding: 5px 16px;
@@ -3668,10 +3671,44 @@ textarea.survey-input {
     .hero-title {
         font-size: 1.8rem !important;
     }
+    .hero-actions {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        width: 100%;
+        gap: 12px !important;
+    }
+    .hero-actions .btn {
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 12px 20px !important;
+        font-size: 0.95rem !important;
+    }
     .calculator-results {
         padding: 24px 16px !important;
     }
     .metric-val {
         font-size: 1.7rem !important;
+    }
+    .visual-card {
+        padding: 20px 12px !important;
+    }
+    .flow-step {
+        padding: 12px 10px !important;
+        gap: 10px !important;
+    }
+    .step-icon {
+        width: 36px !important;
+        height: 36px !important;
+        font-size: 1rem !important;
+    }
+    .step-title {
+        font-size: 0.82rem !important;
+    }
+    .step-desc {
+        font-size: 0.72rem !important;
+    }
+    .step-status {
+        padding: 2px 8px !important;
+        font-size: 0.68rem !important;
     }
 }
