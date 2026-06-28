@@ -2441,7 +2441,9 @@ textarea.survey-input {
     .hero-visual {
         margin-top: 40px;
         display: flex;
-        justify-content: center;
+        flex-direction: column;
+        align-items: center;
+        gap: 30px;
     }
 
     .hero-robot-mascot {
@@ -2449,6 +2451,11 @@ textarea.survey-input {
         right: auto;
         top: 0;
         margin: 0 auto;
+    }
+
+    .visual-card-wrapper {
+        transform: none !important;
+        max-width: 100%;
     }
     
     .hero-content {
