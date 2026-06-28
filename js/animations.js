@@ -68,6 +68,7 @@ export function initParticleTrail() {
     
     let particles = [];
     let animationFrameId = null;
+    let throttleCounter = 0;
 
     function resizeCanvas() {
         canvas.width = window.innerWidth;
@@ -106,37 +107,38 @@ export function initParticleTrail() {
             return;
         }
 
-        // Calculate thruster blast direction (opposite to robot velocity vector)
-        const exhaustVx = -dx * 1.5;
-        const exhaustVy = -dy * 1.5;
-
-        // Number of flame particles scales with robot speed
+        // Throttle normal exhaust emission to keep it clean and performant
         const speed = Math.sqrt(dx*dx + dy*dy);
+        if (speed <= 0.3) return;
+
+        throttleCounter++;
+        if (throttleCounter % 3 !== 0) return; // Only emit every 3 frames of flight
+
+        // Calculate thruster blast direction (opposite to robot velocity vector)
+        const exhaustVx = -dx * 1.3;
+        const exhaustVy = -dy * 1.3;
+
+        // Emit exactly 1 flame/spark particle per throttle tick for a clean trail
+        const vx = exhaustVx + (Math.random() - 0.5) * 1.0;
+        const vy = exhaustVy + (Math.random() - 0.5) * 1.0;
         
-        // Spawn particles only when the robot is actively flying
-        const count = speed > 0.3 ? Math.min(Math.max(Math.floor(speed * 0.5), 1), 5) : 0;
+        const isSpark = Math.random() > 0.65; // 35% sparks, 65% flames
+        
+        particles.push({
+            // Emit directly from nozzle (Y-offset +10 matches 40x40 SVG nozzle at y=30 relative to center 20)
+            x: x,
+            y: y + 10,
+            vx: vx,
+            vy: vy,
+            size: isSpark ? Math.random() * 1.8 + 0.6 : Math.random() * 4.5 + 2.0,
+            color: colors[Math.floor(Math.random() * colors.length)],
+            alpha: 1,
+            // Shorter lifespan for a tighter, cleaner trail
+            decay: isSpark ? (Math.random() * 0.025 + 0.02) : (Math.random() * 0.06 + 0.04),
+            isSpark: isSpark
+        });
 
-        for (let i = 0; i < count; i++) {
-            const vx = exhaustVx + (Math.random() - 0.5) * 1.5;
-            const vy = exhaustVy + (Math.random() - 0.5) * 1.5;
-            
-            const isSpark = Math.random() > 0.65; // 35% sparks, 65% flames
-            
-            particles.push({
-                // Adjust starting position to nozzle (offset y by +16)
-                x: x,
-                y: y + 16,
-                vx: vx,
-                vy: vy,
-                size: isSpark ? Math.random() * 2 + 0.8 : Math.random() * 5.5 + 2.5,
-                color: colors[Math.floor(Math.random() * colors.length)],
-                alpha: 1,
-                decay: isSpark ? (Math.random() * 0.02 + 0.015) : (Math.random() * 0.045 + 0.03),
-                isSpark: isSpark
-            });
-        }
-
-        if (count > 0 && !animationFrameId) {
+        if (!animationFrameId) {
             animate();
         }
     }
