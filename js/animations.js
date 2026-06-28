@@ -56,6 +56,11 @@ export function initMouseGlow() {
     });
 }
 
+
+
+// Shared module-level function for custom robot exhaust
+let emitExhaust = null;
+
 export function initParticleTrail() {
     const canvas = document.getElementById('particleCanvas');
     if (!canvas) return;
@@ -63,8 +68,6 @@ export function initParticleTrail() {
     
     let particles = [];
     let animationFrameId = null;
-    let lastX = 0;
-    let lastY = 0;
 
     function resizeCanvas() {
         canvas.width = window.innerWidth;
@@ -103,23 +106,26 @@ export function initParticleTrail() {
             return;
         }
 
-        // Calculate thruster blast direction (opposite to velocity vector)
-        const exhaustVx = -dx * 0.18;
-        const exhaustVy = -dy * 0.18;
+        // Calculate thruster blast direction (opposite to robot velocity vector)
+        const exhaustVx = -dx * 1.5;
+        const exhaustVy = -dy * 1.5;
 
-        // Number of flame particles scales with velocity
+        // Number of flame particles scales with robot speed
         const speed = Math.sqrt(dx*dx + dy*dy);
-        const count = Math.min(Math.max(Math.floor(speed * 0.25), 1), 4);
+        
+        // Spawn particles only when the robot is actively flying
+        const count = speed > 0.3 ? Math.min(Math.max(Math.floor(speed * 0.5), 1), 5) : 0;
 
         for (let i = 0; i < count; i++) {
             const vx = exhaustVx + (Math.random() - 0.5) * 1.5;
-            const vy = exhaustVy + (Math.random() - 0.5) * 1.5 + (dx === 0 && dy === 0 ? 1.5 : 0); // drift down if static
+            const vy = exhaustVy + (Math.random() - 0.5) * 1.5;
             
             const isSpark = Math.random() > 0.65; // 35% sparks, 65% flames
             
             particles.push({
+                // Adjust starting position to nozzle (offset y by +16)
                 x: x,
-                y: y + 16, // Emit from the nozzle at the bottom of the robot
+                y: y + 16,
                 vx: vx,
                 vy: vy,
                 size: isSpark ? Math.random() * 2 + 0.8 : Math.random() * 5.5 + 2.5,
@@ -130,7 +136,7 @@ export function initParticleTrail() {
             });
         }
 
-        if (!animationFrameId) {
+        if (count > 0 && !animationFrameId) {
             animate();
         }
     }
@@ -179,162 +185,18 @@ export function initParticleTrail() {
         }
     }
 
-    window.addEventListener('mousemove', (e) => {
-        const dx = e.clientX - lastX;
-        const dy = e.clientY - lastY;
-        lastX = e.clientX;
-        lastY = e.clientY;
-        createParticles(e.clientX, e.clientY, dx, dy);
-    });
-
-    window.addEventListener('touchmove', (e) => {
-        if (e.touches.length > 0) {
-            const touch = e.touches[0];
-            const dx = touch.clientX - lastX;
-            const dy = touch.clientY - lastY;
-            lastX = touch.clientX;
-            lastY = touch.clientY;
-            createParticles(touch.clientX, touch.clientY, dx, dy);
+    // Assign the shared helper so initCustomCursor can call it
+    emitExhaust = (x, y, dx, dy) => {
+        createParticles(x, y, dx, dy);
+        if (!animationFrameId && particles.length > 0) {
+            animate();
         }
-    });
+    };
 
     window.addEventListener('click', (e) => {
         createParticles(e.clientX, e.clientY, 0, 0, true);
     });
 }
-export function initRobotMascot() {
-    const robot = document.getElementById('heroRobot');
-    if (!robot) return;
-
-    const eyeLeft = robot.querySelector('.eye-left .eye-pupil');
-    const eyeRight = robot.querySelector('.eye-right .eye-pupil');
-    const head = robot.querySelector('.robot-head');
-    const torso = robot.querySelector('.robot-torso');
-    const armLeft = robot.querySelector('.arm-left');
-    const armRight = robot.querySelector('.arm-right');
-
-    window.addEventListener('mousemove', (e) => {
-        const rect = robot.getBoundingClientRect();
-        const robotX = rect.left + rect.width / 2;
-        const robotY = rect.top + rect.height / 2;
-
-        const deltaX = e.clientX - robotX;
-        const deltaY = e.clientY - robotY;
-        const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-
-        // Limit pupils movement
-        const maxPupilMove = 4; // pixels
-        const angle = Math.atan2(deltaY, deltaX);
-        const pupilX = Math.cos(angle) * Math.min(maxPupilMove, distance * 0.03);
-        const pupilY = Math.sin(angle) * Math.min(maxPupilMove, distance * 0.03);
-
-        if (eyeLeft && eyeRight) {
-            eyeLeft.style.transform = `translate3d(${pupilX}px, ${pupilY}px, 0)`;
-            eyeRight.style.transform = `translate3d(${pupilX}px, ${pupilY}px, 0)`;
-        }
-
-        // Tilt the head towards mouse
-        const maxTilt = 12; // degrees
-        const tiltX = Math.min(maxTilt, Math.max(-maxTilt, (deltaY / window.innerHeight) * maxTilt));
-        const tiltY = Math.min(maxTilt, Math.max(-maxTilt, (deltaX / window.innerWidth) * -maxTilt));
-
-        if (head) {
-            head.style.transform = `rotateX(${tiltX}deg) rotateY(${tiltY}deg)`;
-        }
-
-        // Counter-tilt the torso for organic balance
-        if (torso) {
-            torso.style.transform = `rotateX(${-tiltX * 0.4}deg) rotateY(${-tiltY * 0.4}deg)`;
-        }
-
-        // Sway arms slightly based on mouse horizontal movement
-        if (armLeft) {
-            armLeft.style.transform = `rotate(${12 - tiltY * 0.6}deg)`;
-        }
-        
-        // Only apply mouse sway to right arm if robot is not hovered (so it doesn't conflict with wave)
-        const isHovered = robot.matches(':hover');
-        if (armRight && !isHovered) {
-            armRight.style.transform = `rotate(${-12 - tiltY * 0.6}deg)`;
-        }
-    });
-
-    // Reset right arm transform on hover end to allow transition back to wave/idle state
-    robot.addEventListener('mouseleave', () => {
-        if (armRight) {
-            armRight.style.transform = '';
-        }
-    });
-}
-
-export function initRoadmapAnimations() {
-    const roadmapSection = document.querySelector('.roadmap-section');
-    const fillLine = document.getElementById('roadmapLineFill');
-    const steps = document.querySelectorAll('.roadmap-step');
-    if (!roadmapSection || !fillLine || steps.length === 0) return;
-
-    const firstStep = steps[0];
-    const lastStep = steps[steps.length - 1];
-
-    // 1. Smooth scroll-linked filling of the vertical timeline line
-    const handleScroll = () => {
-        const firstRect = firstStep.getBoundingClientRect();
-        const lastRect = lastStep.getBoundingClientRect();
-        const triggerY = window.innerHeight * 0.6; // Matches the Observer trigger point (60% from top)
-        
-        const totalDistance = lastRect.top - firstRect.top;
-        if (totalDistance <= 0) return;
-        
-        const currentProgress = triggerY - firstRect.top;
-        let percentage = (currentProgress / totalDistance) * 100;
-        percentage = Math.max(0, Math.min(100, percentage));
-        
-        fillLine.style.height = `${percentage}%`;
-    };
-
-    // Use requestAnimationFrame for smooth execution on scroll
-    let scrollTimeout;
-    const scrollListener = () => {
-        if (scrollTimeout) {
-            cancelAnimationFrame(scrollTimeout);
-        }
-        scrollTimeout = requestAnimationFrame(handleScroll);
-    };
-
-    window.addEventListener('scroll', scrollListener);
-    // Run once on load
-    handleScroll();
-
-    // 2. Active status and checkmark toggle on scroll for steps
-    // When the step dot crosses 60% of viewport height, mark as active
-    const stepObserverOptions = {
-        root: null,
-        rootMargin: '0px 0px -40% 0px',
-        threshold: 0.1
-    };
-
-    const stepObserver = new IntersectionObserver((entries) => {
-        entries.forEach(entry => {
-            if (entry.isIntersecting) {
-                entry.target.classList.add('active');
-            } else {
-                const rect = entry.target.getBoundingClientRect();
-                if (rect.top > window.innerHeight * 0.6) {
-                    entry.target.classList.remove('active');
-                }
-            }
-        });
-    }, stepObserverOptions);
-
-    steps.forEach(step => {
-        stepObserver.observe(step);
-    });
-}
-
-
-
-
-
 
 export function initCustomCursor() {
     const cursor = document.getElementById('customCursor');
@@ -345,6 +207,11 @@ export function initCustomCursor() {
     let targetY = 0;
     let currentX = 0;
     let currentY = 0;
+    
+    // Track robot's last frame coordinates to compute actual velocity vector
+    let lastRobotX = 0;
+    let lastRobotY = 0;
+    
     const speed = 0.12; // LERP speed
 
     window.addEventListener('mousemove', (e) => {
@@ -358,18 +225,32 @@ export function initCustomCursor() {
     });
 
     function updateCursor() {
-        let dx = targetX - currentX;
-        let dy = targetY - currentY;
+        // Calculate difference to target
+        let diffX = targetX - currentX;
+        let diffY = targetY - currentY;
         
-        currentX += dx * speed;
-        currentY += dy * speed;
+        // Update current LERP coordinates
+        currentX += diffX * speed;
+        currentY += diffY * speed;
+        
+        // Calculate robot's actual displacement (velocity) in this frame
+        let dx = currentX - lastRobotX;
+        let dy = currentY - lastRobotY;
+        
+        lastRobotX = currentX;
+        lastRobotY = currentY;
         
         cursor.style.transform = `translate3d(${currentX}px, ${currentY}px, 0)`;
         
-        // Tilt robot based on horizontal velocity
+        // Tilt robot based on displacement velocity
         if (robot) {
-            let tilt = Math.min(Math.max(dx * 0.15, -20), 20); // Limit tilt to [-20, 20] degrees
+            let tilt = Math.min(Math.max(dx * 1.5, -20), 20); // Limit tilt to [-20, 20] degrees
             robot.style.transform = `rotate(${tilt}deg)`;
+        }
+        
+        // Emit flame particles directly from the robot thruster location
+        if (emitExhaust) {
+            emitExhaust(currentX, currentY, dx, dy);
         }
         
         requestAnimationFrame(updateCursor);

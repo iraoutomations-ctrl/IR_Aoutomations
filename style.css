@@ -303,7 +303,9 @@ input, select, textarea, button {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    height: 90px;
+    padding: 10px 24px;
+    height: auto;
+    min-height: 110px;
 }
 
 .logo-area {
@@ -313,8 +315,8 @@ input, select, textarea, button {
 }
 
 .nav-logo {
-    height: 84px;
-    width: 84px;
+    height: 110px;
+    width: 110px;
     object-fit: contain;
     border-radius: 50%;
     transition: transform 0.3s ease, filter 0.3s ease;
@@ -326,12 +328,7 @@ input, select, textarea, button {
 }
 
 .logo-text {
-    font-size: 0.9rem;
-    font-weight: 600;
-    letter-spacing: 0.8px;
-    color: var(--text-secondary);
-    white-space: nowrap;
-    text-transform: uppercase;
+    display: none !important;
 }
 
 .nav-menu {
