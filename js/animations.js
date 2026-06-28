@@ -71,7 +71,7 @@ export function initParticleTrail() {
     resizeCanvas();
     window.addEventListener('resize', resizeCanvas);
 
-    const colors = ['#8b5cf6', '#06b6d4', '#3b82f6'];
+    const colors = ['#e2b755', '#1eb2c0', '#cfac62'];
 
     function createParticles(x, y, count = 2, speedFactor = 1) {
         for (let i = 0; i < count; i++) {
@@ -278,5 +278,45 @@ export function initRoadmapAnimations() {
 
     steps.forEach(step => {
         stepObserver.observe(step);
+    });
+}
+
+
+export function initCustomCursor() {
+    const cursor = document.getElementById('customCursor');
+    if (!cursor) return;
+
+    let targetX = 0;
+    let targetY = 0;
+    let currentX = 0;
+    let currentY = 0;
+    const speed = 0.12; // LERP speed
+
+    window.addEventListener('mousemove', (e) => {
+        targetX = e.clientX;
+        targetY = e.clientY;
+        cursor.style.opacity = '1';
+    });
+
+    document.addEventListener('mouseleave', () => {
+        cursor.style.opacity = '0';
+    });
+
+    function updateCursor() {
+        currentX += (targetX - currentX) * speed;
+        currentY += (targetY - currentY) * speed;
+        cursor.style.transform = `translate3d(${currentX}px, ${currentY}px, 0)`;
+        requestAnimationFrame(updateCursor);
+    }
+    updateCursor();
+
+    // Hover effect on interactive elements via delegation
+    document.addEventListener('mouseover', (e) => {
+        const interactive = e.target.closest('a, button, .chat-chip, .carousel-item, .service-card, input[type="range"]');
+        if (interactive) {
+            cursor.classList.add('hover');
+        } else {
+            cursor.classList.remove('hover');
+        }
     });
 }

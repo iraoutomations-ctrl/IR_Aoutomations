@@ -74,6 +74,11 @@ body {
     font-family: var(--font-family);
     color: var(--text-primary);
     background-color: var(--bg-primary);
+    background-image: 
+        radial-gradient(circle at 10% 20%, rgba(30, 178, 192, 0.05) 0%, transparent 40%),
+        radial-gradient(circle at 90% 80%, rgba(226, 183, 85, 0.04) 0%, transparent 40%),
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160'%3E%3Cpath d='M0 40h40l20 20h60l20 20h20' stroke='rgba(226,183,85,0.03)' stroke-width='0.8' fill='none'/%3E%3Cpath d='M40 0v40l20 20v60l20 20v20' stroke='rgba(30,178,192,0.02)' stroke-width='0.8' fill='none'/%3E%3Ccircle cx='40' cy='40' r='2' fill='rgba(226,183,85,0.08)'/%3E%3Ccircle cx='100' cy='60' r='2' fill='rgba(30,178,192,0.06)'/%3E%3C/svg%3E");
+    background-attachment: fixed;
     line-height: 1.6;
     overflow-x: hidden;
     position: relative;
@@ -308,10 +313,10 @@ input, select, textarea, button {
 }
 
 .nav-logo {
-    height: 48px;
-    width: 48px;
+    height: 64px;
+    width: 64px;
     object-fit: contain;
-    border-radius: 8px;
+    border-radius: 50%;
     transition: transform 0.3s ease, filter 0.3s ease;
     filter: drop-shadow(0 0 8px rgba(30, 178, 192, 0.45)) drop-shadow(0 0 15px rgba(207, 172, 98, 0.25));
 }
@@ -321,13 +326,14 @@ input, select, textarea, button {
 }
 
 .logo-text {
-    font-size: 1.4rem;
-    font-weight: 800;
+    font-size: 1.15rem;
+    font-weight: 700;
     background: linear-gradient(135deg, #fff 30%, var(--text-secondary) 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
     letter-spacing: 0.5px;
+    white-space: nowrap;
 }
 
 .nav-menu {
@@ -1766,10 +1772,10 @@ textarea.survey-input {
 }
 
 .footer-logo {
-    height: 48px;
-    width: 48px;
+    height: 60px;
+    width: 60px;
     object-fit: contain;
-    border-radius: 8px;
+    border-radius: 50%;
     transition: transform 0.3s ease;
 }
 .footer-logo:hover {
@@ -3535,3 +3541,61 @@ textarea.survey-input {
     }
 }
 
+
+
+/* ==========================================================================
+   Custom Cursor Follower
+   ========================================================================== */
+.custom-cursor {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 24px;
+    height: 24px;
+    border: 2px solid var(--accent-violet); /* Gold border */
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 10000;
+    transform: translate3d(-50%, -50%, 0);
+    transition: width 0.25s cubic-bezier(0.16, 1, 0.3, 1), 
+                height 0.25s cubic-bezier(0.16, 1, 0.3, 1), 
+                border-color 0.25s ease, 
+                background-color 0.25s ease, 
+                box-shadow 0.25s ease;
+    box-shadow: 0 0 10px rgba(30, 178, 192, 0.3);
+    opacity: 0;
+    will-change: transform, opacity;
+}
+
+.custom-cursor::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 4px;
+    height: 4px;
+    background-color: var(--accent-cyan); /* Teal center */
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    transition: width 0.25s ease, height 0.25s ease, background-color 0.25s ease;
+}
+
+.custom-cursor.hover {
+    width: 48px;
+    height: 48px;
+    border-color: var(--accent-cyan); /* Teal border on hover */
+    background-color: rgba(226, 183, 85, 0.08); /* Transparent gold bg */
+    box-shadow: 0 0 20px rgba(226, 183, 85, 0.5), inset 0 0 10px rgba(226, 183, 85, 0.2);
+}
+
+.custom-cursor.hover::before {
+    width: 6px;
+    height: 6px;
+    background-color: var(--accent-violet); /* Gold center on hover */
+}
+
+@media (max-width: 1024px) {
+    .custom-cursor {
+        display: none !important; /* Disable on mobile/tablet */
+    }
+}
