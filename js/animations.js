@@ -112,7 +112,7 @@ export function initParticleTrail() {
         if (speed <= 0.3) return;
 
         throttleCounter++;
-        if (throttleCounter % 3 !== 0) return; // Only emit every 3 frames of flight
+        if (throttleCounter % 2 !== 0) return; // Only emit every 3 frames of flight
 
         // Calculate thruster blast direction (opposite to robot velocity vector)
         const exhaustVx = -dx * 1.3;
@@ -130,7 +130,7 @@ export function initParticleTrail() {
             y: y + 10,
             vx: vx,
             vy: vy,
-            size: isSpark ? Math.random() * 1.8 + 0.6 : Math.random() * 4.5 + 2.0,
+            size: isSpark ? Math.random() * 2.2 + 0.8 : Math.random() * 7.5 + 3.0,
             color: colors[Math.floor(Math.random() * colors.length)],
             alpha: 1,
             // Shorter lifespan for a tighter, cleaner trail
@@ -372,7 +372,7 @@ export function initCustomCursor() {
         lastRobotX = currentX;
         lastRobotY = currentY;
         
-        cursor.style.transform = `translate3d(${currentX}px, ${currentY}px, 0)`;
+        cursor.style.transform = `translate3d(${currentX}px, ${currentY}px, 0) translate(-50%, -50%)`;
         
         // Tilt robot based on displacement velocity
         if (robot) {
