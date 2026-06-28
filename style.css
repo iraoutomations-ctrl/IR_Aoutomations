@@ -303,7 +303,7 @@ input, select, textarea, button {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    height: 80px;
+    height: 90px;
 }
 
 .logo-area {
@@ -313,8 +313,8 @@ input, select, textarea, button {
 }
 
 .nav-logo {
-    height: 64px;
-    width: 64px;
+    height: 84px;
+    width: 84px;
     object-fit: contain;
     border-radius: 50%;
     transition: transform 0.3s ease, filter 0.3s ease;
@@ -326,14 +326,12 @@ input, select, textarea, button {
 }
 
 .logo-text {
-    font-size: 1.15rem;
-    font-weight: 700;
-    background: linear-gradient(135deg, #fff 30%, var(--text-secondary) 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    letter-spacing: 0.5px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    letter-spacing: 0.8px;
+    color: var(--text-secondary);
     white-space: nowrap;
+    text-transform: uppercase;
 }
 
 .nav-menu {
@@ -3543,59 +3541,109 @@ textarea.survey-input {
 
 
 
+
 /* ==========================================================================
-   Custom Cursor Follower
+   Technology Background Circuits
+   ========================================================================== */
+.tech-circuits-bg {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    pointer-events: none;
+    z-index: 0;
+    overflow: hidden;
+}
+
+.tech-circuit {
+    position: absolute;
+    width: 450px;
+    height: 450px;
+}
+
+.circuit-top-right {
+    top: -40px;
+    right: -40px;
+}
+
+.circuit-middle-left {
+    top: 35%;
+    left: -120px;
+    transform: rotate(20deg);
+}
+
+.circuit-bottom-right {
+    bottom: -60px;
+    right: -60px;
+    transform: rotate(-15deg);
+}
+
+.pulse-path {
+    stroke-dasharray: 40 300;
+    stroke-dashoffset: 340;
+    animation: circuitPulse 6s linear infinite;
+    opacity: 0.9;
+}
+
+.pulse-path.delay-1 {
+    animation-delay: 2s;
+}
+
+.pulse-path.delay-2 {
+    animation-delay: 4s;
+}
+
+@keyframes circuitPulse {
+    0% { stroke-dashoffset: 340; }
+    100% { stroke-dashoffset: -340; }
+}
+
+/* ==========================================================================
+   Custom Cursor (Mini-Robot Follower)
    ========================================================================== */
 .custom-cursor {
     position: fixed;
     top: 0;
     left: 0;
-    width: 24px;
-    height: 24px;
-    border: 2px solid var(--accent-violet); /* Gold border */
-    border-radius: 50%;
+    width: 40px;
+    height: 40px;
     pointer-events: none;
     z-index: 10000;
     transform: translate3d(-50%, -50%, 0);
-    transition: width 0.25s cubic-bezier(0.16, 1, 0.3, 1), 
-                height 0.25s cubic-bezier(0.16, 1, 0.3, 1), 
-                border-color 0.25s ease, 
-                background-color 0.25s ease, 
-                box-shadow 0.25s ease;
-    box-shadow: 0 0 10px rgba(30, 178, 192, 0.3);
     opacity: 0;
+    transition: opacity 0.3s ease;
     will-change: transform, opacity;
 }
 
-.custom-cursor::before {
-    content: '';
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 4px;
-    height: 4px;
-    background-color: var(--accent-cyan); /* Teal center */
-    border-radius: 50%;
-    transform: translate(-50%, -50%);
-    transition: width 0.25s ease, height 0.25s ease, background-color 0.25s ease;
+.mini-robot {
+    width: 40px;
+    height: 40px;
+    animation: hoverFloat 1.6s ease-in-out infinite;
+    transform-origin: center bottom;
+    transition: transform 0.15s ease;
 }
 
-.custom-cursor.hover {
-    width: 48px;
-    height: 48px;
-    border-color: var(--accent-cyan); /* Teal border on hover */
-    background-color: rgba(226, 183, 85, 0.08); /* Transparent gold bg */
-    box-shadow: 0 0 20px rgba(226, 183, 85, 0.5), inset 0 0 10px rgba(226, 183, 85, 0.2);
+@keyframes hoverFloat {
+    0% { transform: translateY(0px) rotate(0deg); }
+    50% { transform: translateY(-4px) rotate(2deg); }
+    100% { transform: translateY(0px) rotate(0deg); }
 }
 
-.custom-cursor.hover::before {
-    width: 6px;
-    height: 6px;
-    background-color: var(--accent-violet); /* Gold center on hover */
+.custom-cursor.hover .mini-robot {
+    transform: scale(1.2);
+}
+
+.custom-cursor.hover .eye {
+    fill: #00ffcc !important;
+    filter: drop-shadow(0 0 4px #00ffcc) !important;
 }
 
 @media (max-width: 1024px) {
     .custom-cursor {
-        display: none !important; /* Disable on mobile/tablet */
+        display: none !important;
+    }
+    .logo-text {
+        display: none !important;
     }
 }

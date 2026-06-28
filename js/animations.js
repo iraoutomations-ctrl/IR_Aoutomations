@@ -63,6 +63,8 @@ export function initParticleTrail() {
     
     let particles = [];
     let animationFrameId = null;
+    let lastX = 0;
+    let lastY = 0;
 
     function resizeCanvas() {
         canvas.width = window.innerWidth;
@@ -71,23 +73,63 @@ export function initParticleTrail() {
     resizeCanvas();
     window.addEventListener('resize', resizeCanvas);
 
-    const colors = ['#e2b755', '#1eb2c0', '#cfac62'];
+    // Fire and Spark colors
+    const colors = [
+        'rgba(239, 68, 68, 0.85)',   // Red
+        'rgba(249, 115, 22, 0.95)',  // Orange
+        'rgba(245, 158, 11, 0.95)',  // Gold
+        'rgba(226, 183, 85, 0.9)',   // Yellow-gold
+        'rgba(255, 223, 120, 0.95)'  // White-hot sparks
+    ];
 
-    function createParticles(x, y, count = 2, speedFactor = 1) {
+    function createParticles(x, y, dx, dy, isClick = false) {
+        if (isClick) {
+            // Click explosion - radial burst
+            for (let i = 0; i < 18; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = Math.random() * 4.5 + 2;
+                particles.push({
+                    x: x,
+                    y: y,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    size: Math.random() * 3 + 1,
+                    color: colors[Math.floor(Math.random() * colors.length)],
+                    alpha: 1,
+                    decay: Math.random() * 0.035 + 0.02,
+                    isSpark: true
+                });
+            }
+            return;
+        }
+
+        // Calculate thruster blast direction (opposite to velocity vector)
+        const exhaustVx = -dx * 0.18;
+        const exhaustVy = -dy * 0.18;
+
+        // Number of flame particles scales with velocity
+        const speed = Math.sqrt(dx*dx + dy*dy);
+        const count = Math.min(Math.max(Math.floor(speed * 0.25), 1), 4);
+
         for (let i = 0; i < count; i++) {
-            const vx = count === 1 ? (Math.random() - 0.5) * 1.5 : (Math.random() - 0.5) * 3 * speedFactor;
-            const vy = count === 1 ? (Math.random() - 0.5) * 1.5 - 0.6 : (Math.random() - 0.5) * 3 * speedFactor - 0.2;
+            const vx = exhaustVx + (Math.random() - 0.5) * 1.5;
+            const vy = exhaustVy + (Math.random() - 0.5) * 1.5 + (dx === 0 && dy === 0 ? 1.5 : 0); // drift down if static
+            
+            const isSpark = Math.random() > 0.65; // 35% sparks, 65% flames
+            
             particles.push({
                 x: x,
-                y: y,
+                y: y + 16, // Emit from the nozzle at the bottom of the robot
                 vx: vx,
                 vy: vy,
-                size: Math.random() * 2.5 + 1.2,
+                size: isSpark ? Math.random() * 2 + 0.8 : Math.random() * 5.5 + 2.5,
                 color: colors[Math.floor(Math.random() * colors.length)],
                 alpha: 1,
-                decay: count === 1 ? (Math.random() * 0.02 + 0.015) : (Math.random() * 0.03 + 0.02)
+                decay: isSpark ? (Math.random() * 0.02 + 0.015) : (Math.random() * 0.045 + 0.03),
+                isSpark: isSpark
             });
         }
+
         if (!animationFrameId) {
             animate();
         }
@@ -102,6 +144,14 @@ export function initParticleTrail() {
             p.y += p.vy;
             p.alpha -= p.decay;
 
+            // Apply gravity to sparks, drag to flame particles
+            if (!p.isSpark) {
+                p.vy += 0.03; // hot gas floats down and spreads
+                p.vx *= 0.97;
+            } else {
+                p.vy += 0.08; // spark gravity
+            }
+
             if (p.alpha <= 0) {
                 particles.splice(i, 1);
                 continue;
@@ -110,9 +160,13 @@ export function initParticleTrail() {
             ctx.save();
             ctx.globalAlpha = p.alpha;
             ctx.beginPath();
-            ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+            
+            // Flames shrink as they fade
+            const size = p.isSpark ? p.size : p.size * p.alpha;
+            ctx.arc(p.x, p.y, size, 0, Math.PI * 2);
+            
             ctx.fillStyle = p.color;
-            ctx.shadowBlur = 8;
+            ctx.shadowBlur = p.isSpark ? 8 : 4;
             ctx.shadowColor = p.color;
             ctx.fill();
             ctx.restore();
@@ -126,32 +180,28 @@ export function initParticleTrail() {
     }
 
     window.addEventListener('mousemove', (e) => {
-        createParticles(e.clientX, e.clientY, 1, 0.4);
+        const dx = e.clientX - lastX;
+        const dy = e.clientY - lastY;
+        lastX = e.clientX;
+        lastY = e.clientY;
+        createParticles(e.clientX, e.clientY, dx, dy);
     });
 
     window.addEventListener('touchmove', (e) => {
         if (e.touches.length > 0) {
-            createParticles(e.touches[0].clientX, e.touches[0].clientY, 1, 0.4);
+            const touch = e.touches[0];
+            const dx = touch.clientX - lastX;
+            const dy = touch.clientY - lastY;
+            lastX = touch.clientX;
+            lastY = touch.clientY;
+            createParticles(touch.clientX, touch.clientY, dx, dy);
         }
     });
 
     window.addEventListener('click', (e) => {
-        createParticles(e.clientX, e.clientY, 15, 1.3);
-    });
-
-    document.addEventListener('mouseover', (e) => {
-        const interactive = e.target.closest('a, button, .chat-chip, .carousel-item, .service-card, input[type="range"]');
-        if (interactive) {
-            const now = Date.now();
-            const lastHover = interactive.dataset.lastHover || 0;
-            if (now - lastHover > 300) {
-                interactive.dataset.lastHover = now;
-                createParticles(e.clientX, e.clientY, 6, 0.6);
-            }
-        }
+        createParticles(e.clientX, e.clientY, 0, 0, true);
     });
 }
-
 export function initRobotMascot() {
     const robot = document.getElementById('heroRobot');
     if (!robot) return;
@@ -282,9 +332,14 @@ export function initRoadmapAnimations() {
 }
 
 
+
+
+
+
 export function initCustomCursor() {
     const cursor = document.getElementById('customCursor');
     if (!cursor) return;
+    const robot = cursor.querySelector('.mini-robot');
 
     let targetX = 0;
     let targetY = 0;
@@ -303,9 +358,20 @@ export function initCustomCursor() {
     });
 
     function updateCursor() {
-        currentX += (targetX - currentX) * speed;
-        currentY += (targetY - currentY) * speed;
+        let dx = targetX - currentX;
+        let dy = targetY - currentY;
+        
+        currentX += dx * speed;
+        currentY += dy * speed;
+        
         cursor.style.transform = `translate3d(${currentX}px, ${currentY}px, 0)`;
+        
+        // Tilt robot based on horizontal velocity
+        if (robot) {
+            let tilt = Math.min(Math.max(dx * 0.15, -20), 20); // Limit tilt to [-20, 20] degrees
+            robot.style.transform = `rotate(${tilt}deg)`;
+        }
+        
         requestAnimationFrame(updateCursor);
     }
     updateCursor();
