@@ -1261,15 +1261,10 @@ export const db = {
                 let errType = alert.title || '';
                 errType = errType.replace(/🚨|⚠️|✅/g, '').replace('תקלה:', '').replace('הצלחה:', '').trim();
 
-                let wfId = alert.n8n_workflow_id;
-                if (!wfId) {
-                    const textToSearch = ((alert.title || '') + ' ' + (alert.message || '')).toLowerCase();
-                    if (textToSearch.includes('צ\'אטבוט') || textToSearch.includes('chatbot') || textToSearch.includes('gemini') || textToSearch.includes('בוט') || textToSearch.includes('מענה')) {
-                        wfId = 'lyCrWBmsGlRSMJmo';
-                    } else if (textToSearch.includes('תקלה') || textToSearch.includes('נכשל') || textToSearch.includes('שגיאה')) {
-                        wfId = 'bRNz7Lq79wYJ5Dvo';
-                    }
-                }
+                // Every live n8n workflow stamps its own n8n_workflow_id via
+                // n8n's $workflow.id expression when writing this alert, so
+                // there's no need to guess it from the alert's text.
+                const wfId = alert.n8n_workflow_id;
 
                 return {
                     id: alert.id,
