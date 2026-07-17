@@ -29,3 +29,7 @@ crm/node_modules/
 # from old debugging sessions, never meant to reach version control.
 _archive/
 
+# Independent project with its own repo/remote - accidentally got tracked as
+# a broken gitlink (no .gitmodules entry) which broke GitHub Pages builds.
+whatsapp-warmup/
+
