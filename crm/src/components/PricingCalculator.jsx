@@ -36,7 +36,6 @@ export default function PricingCalculator() {
     const [employeeWage, setEmployeeWage] = useState(60);
     const [includeHumanError, setIncludeHumanError] = useState(true);
 
-    const [selectedSla, setSelectedSla] = useState('standard');
     const [thirdPartyCosts, setThirdPartyCosts] = useState(0);
 
     // Outputs State
@@ -52,11 +51,24 @@ export default function PricingCalculator() {
     const [showWarning, setShowWarning] = useState(false);
     const [showGuide, setShowGuide] = useState(false);
 
-    // Retainer Package definitions
-    const SLA_PACKAGES = {
-        standard: { name: 'Standard', limit: 1000, price: 400 },
-        premium: { name: 'Premium', limit: 5000, price: 1000 },
-        enterprise: { name: 'Enterprise', limit: 20000, price: 3000 }
+    // Multi-automation quote list - a client is often quoted several
+    // automations at once (each with its own complexity/maintenance tier),
+    // so the panel below lets several configured automations accumulate
+    // into one combined quote instead of only ever pricing one at a time.
+    const [automationItems, setAutomationItems] = useState([]);
+    const [automationItemLabel, setAutomationItemLabel] = useState('');
+
+    // Maintenance floor by complexity tier - a workflow's complexity is also
+    // what drives its ongoing maintenance risk (external dependencies, AI
+    // prompt drift, scraping breakage), so the same input that prices setup
+    // also prices the retainer floor instead of an unrelated manual SLA pick.
+    // `key` matches the tier keys used by the AI document generator
+    // (aiDocGenerator.js / LeadDetailsModal.jsx) so a quote saved here
+    // prefills the exact same tier there instead of a mismatched one.
+    const MAINTENANCE_TIERS = {
+        1.0: { key: 'basic', name: 'תחזוקה בסיסית', limit: 500, price: 400 },
+        1.25: { key: 'medium', name: 'תחזוקה בינונית', limit: 2000, price: 650 },
+        1.5: { key: 'advanced', name: 'תחזוקה מתקדמת (AI)', limit: 5000, price: 900 }
     };
 
     // Website Quoting State
@@ -145,10 +157,13 @@ export default function PricingCalculator() {
             }
             setGrossSavings(Math.round(gross));
 
-            // 4. Total Monthly Cost (includes overage billing beyond the SLA's run limit,
-            // matching the 0.05 ₪/run rate quoted in the warning box below)
-            const retainerPrice = SLA_PACKAGES[selectedSla].price;
-            const limit = SLA_PACKAGES[selectedSla].limit;
+            // 4. Total Monthly Cost (includes overage billing beyond the maintenance
+            // tier's run limit, matching the 0.05 ₪/run rate quoted in the warning
+            // box below). The tier itself is derived from complexity, not picked
+            // manually - a more complex workflow carries more maintenance risk.
+            const maintenanceTier = MAINTENANCE_TIERS[complexity] || MAINTENANCE_TIERS[1.0];
+            const retainerPrice = maintenanceTier.price;
+            const limit = maintenanceTier.limit;
             const excessRuns = Math.max(0, parseInt(monthlyVolume || 0) - limit);
             const overageCost = excessRuns * 0.05;
             const totalMonthly = retainerPrice + parseFloat(thirdPartyCosts || 0) + overageCost;
@@ -173,7 +188,7 @@ export default function PricingCalculator() {
         projectType, websiteType, addons, webSla,
         hours, hourlyRate, complexity, integrations,
         taskTime, monthlyVolume, employeeWage, includeHumanError,
-        selectedSla, thirdPartyCosts
+        thirdPartyCosts
     ]);
 
     // Load leads on mount
@@ -188,6 +203,14 @@ export default function PricingCalculator() {
         }
         loadLeads();
     }, []);
+
+    // Switching to a different lead starts a fresh combined quote - otherwise
+    // line items meant for the previous lead could get silently attached to
+    // this one when the sales rep saves or copies the proposal.
+    useEffect(() => {
+        setAutomationItems([]);
+        setAutomationItemLabel('');
+    }, [selectedLeadId]);
 
     // Prefill fields when a lead is selected
     useEffect(() => {
@@ -209,35 +232,82 @@ export default function PricingCalculator() {
         }
     }, [selectedLeadId, leads]);
 
+    // Add the currently-configured automation as a line item in the combined
+    // quote, snapshotting its already-computed numbers (setup, monthly,
+    // savings) so later changes to the form don't retroactively alter items
+    // already added to the list.
+    const handleAddAutomationItem = () => {
+        const maintenanceTier = MAINTENANCE_TIERS[complexity] || MAINTENANCE_TIERS[1.0];
+        const newItem = {
+            id: `${Date.now()}-${automationItems.length}`,
+            label: automationItemLabel.trim() || `אוטומציה ${automationItems.length + 1}`,
+            setupCost: finalSetupCost,
+            monthlyCost: totalMonthlyCost,
+            hoursSaved,
+            grossSavings,
+            maintenanceTierKey: maintenanceTier.key,
+            maintenanceTierName: maintenanceTier.name,
+            maintenanceTierPrice: maintenanceTier.price,
+            thirdPartyCosts: parseFloat(thirdPartyCosts) || 0
+        };
+        setAutomationItems(prev => [...prev, newItem]);
+        setAutomationItemLabel('');
+    };
+
+    const handleRemoveAutomationItem = (id) => {
+        setAutomationItems(prev => prev.filter(item => item.id !== id));
+    };
+
     // Save calculation to lead object
     const handleSaveQuoteToLead = async () => {
         if (!selectedLeadId) return;
         try {
+            const maintenanceTier = MAINTENANCE_TIERS[complexity] || MAINTENANCE_TIERS[1.0];
             const quoteData = {
                 project_type: projectType,
-                setup_cost: finalSetupCost,
-                monthly_cost: totalMonthlyCost,
-                sla_price: projectType === 'website' ? WEBSITE_SLA[webSla].price : SLA_PACKAGES[selectedSla].price,
+                setup_cost: hasMultipleItems ? itemsTotalSetup : finalSetupCost,
+                monthly_cost: hasMultipleItems ? itemsTotalMonthly : totalMonthlyCost,
+                sla_price: projectType === 'website' ? WEBSITE_SLA[webSla].price : (hasMultipleItems ? itemsTotalMonthly : maintenanceTier.price),
+                automation_sla: projectType === 'website' || hasMultipleItems ? null : maintenanceTier.key,
+                // Per-automation breakdown for a combined quote - consumed by the
+                // AI document generator so the proposal itemizes each automation
+                // instead of only showing one lump sum.
+                automation_items: hasMultipleItems ? automationItems.map(item => ({
+                    label: item.label,
+                    setup_cost: item.setupCost,
+                    monthly_cost: item.monthlyCost,
+                    sla_key: item.maintenanceTierKey,
+                    sla_price: item.maintenanceTierPrice,
+                    third_party_costs: item.thirdPartyCosts
+                })) : null,
                 hourly_rate: projectType === 'website' ? null : hourlyRate,
-                net_profit: netMonthlyProfit,
-                break_even: breakEven,
-                third_party_costs: thirdPartyCosts,
+                net_profit: hasMultipleItems ? itemsTotalNetProfit : netMonthlyProfit,
+                break_even: hasMultipleItems ? itemsTotalBreakEven : breakEven,
+                third_party_costs: hasMultipleItems ? automationItems.reduce((s, item) => s + item.thirdPartyCosts, 0) : thirdPartyCosts,
                 website_type: projectType === 'website' ? websiteType : null,
                 addons: projectType === 'website' ? addons : null
             };
 
             await db.updateLead(selectedLeadId, { quote_data: quoteData });
-            
-            const content = projectType === 'website' 
+
+            const content = projectType === 'website'
                 ? `הופקה הצעת מחיר לבניית אתר במחשבון ה-ROI:
 • סוג האתר: ${WEBSITE_TYPES[websiteType].name}
 • תוספות: ${Object.entries(addons).filter(([k,v]) => v).map(([k]) => WEBSITE_ADDONS[k].name).join(', ') || 'ללא'}
 • עלות הקמה חד-פעמית: ₪${finalSetupCost.toLocaleString('he-IL')}
 • אחסון ותחזוקה חודשית (${WEBSITE_SLA[webSla].name}): ₪${totalMonthlyCost.toLocaleString('he-IL')}
 • החזר השקעה מחושב: תוך ${breakEven} חודשים`
-                : `הופקה הצעת מחיר במחשבון ה-ROI:
+                : hasMultipleItems
+                    ? `הופקה הצעת מחיר משולבת (${automationItems.length} אוטומציות) במחשבון ה-ROI:
+${automationItems.map(item => `• ${item.label}: הקמה ₪${item.setupCost.toLocaleString('he-IL')}, ריטיינר ₪${item.monthlyCost.toLocaleString('he-IL')} (${item.maintenanceTierName})`).join('\n')}
+—
+• סה"כ עלות הקמה: ₪${itemsTotalSetup.toLocaleString('he-IL')}
+• סה"כ ריטיינר חודשי: ₪${itemsTotalMonthly.toLocaleString('he-IL')}
+• רווח חודשי נקי לעסק: ₪${itemsTotalNetProfit.toLocaleString('he-IL')}
+• החזר השקעה: תוך ${itemsTotalBreakEven} חודשים`
+                    : `הופקה הצעת מחיר במחשבון ה-ROI:
 • עלות הקמה חד-פעמית: ₪${finalSetupCost.toLocaleString('he-IL')}
-• ריטיינר חודשי קבוע: ₪${SLA_PACKAGES[selectedSla].price.toLocaleString('he-IL')}
+• ריטיינר חודשי (${maintenanceTier.name}): ₪${maintenanceTier.price.toLocaleString('he-IL')}
 • עלויות צד ג': ₪${thirdPartyCosts.toLocaleString('he-IL')}
 • רווח חודשי נקי לעסק: ₪${netMonthlyProfit.toLocaleString('he-IL')}
 • החזר השקעה: תוך ${breakEven} חודשים`;
@@ -286,7 +356,38 @@ ${activeAddons.length > 0 ? `✨ רכיבים ותוספות מתוכננים:\n
 
 נשמח לצאת לדרך! לכל שאלה אני כאן.
 🚀 autoRI-studio`;
+        } else if (hasMultipleItems) {
+            const grossStr = itemsTotalGrossSavings.toLocaleString('he-IL');
+            const netStr = itemsTotalNetProfit.toLocaleString('he-IL');
+            const breakEvenStr = itemsTotalBreakEven > 0 ? itemsTotalBreakEven.toString() : 'לא מגיע';
+            const nextMonthStr = itemsTotalBreakEven > 0 ? Math.ceil(itemsTotalBreakEven + 1).toString() : 'הבא';
+            const itemsList = automationItems.map(item =>
+                `- ${item.label}: הקמה ${item.setupCost.toLocaleString('he-IL')} ₪ + מע"מ, ריטיינר חודשי (${item.maintenanceTierName}) ${item.monthlyCost.toLocaleString('he-IL')} ₪ + מע"מ.`
+            ).join('\n');
+
+            text = `שם הלקוח/הפרויקט: ${pName}
+שלום רב, בהמשך לאפיון צרכי האוטומציה עבורכם, להלן סיכום הנתונים הכלכליים והצעת המחיר לחבילת האוטומציות המשולבת (${automationItems.length} אוטומציות):
+
+🔧 פירוט האוטומציות:
+${itemsList}
+
+📊 פוטנציאל חיסכון חודשי כולל:
+- זמן עבודה שנחסך: ${itemsTotalHoursSaved} שעות בחודש.
+- חיסכון כספי ישיר לעסק: ${grossStr} ₪ בחודש.
+
+💰 סה"כ עלויות החבילה (לא כולל מע"מ):
+- סה"כ עלות הקמה חד-פעמית: ${itemsTotalSetup.toLocaleString('he-IL')} ₪ + מע"מ.
+- סה"כ ריטיינר חודשי לכל האוטומציות: ${itemsTotalMonthly.toLocaleString('he-IL')} ₪ + מע"מ.
+
+📈 כדאיות כלכלית - ROI:
+- רווח נקי חודשי לעסק (לאחר קיזוז עלות שוטפת): ${netStr} ₪.
+- נקודת איזון והחזר השקעה - Break-even: תוך ${breakEvenStr} חודשים בלבד!
+* החל מהחודש ה-${nextMonthStr}, המערכת מייצרת לעסק רווח נקי של ${netStr} ₪ בכל חודש מחדש.
+
+נשמח לצאת לדרך, לכל שאלה אני כאן!
+🚀 autoRI-studio`;
         } else {
+            const maintenanceTier = MAINTENANCE_TIERS[complexity] || MAINTENANCE_TIERS[1.0];
             const grossStr = grossSavings.toLocaleString('he-IL');
             const netStr = netMonthlyProfit.toLocaleString('he-IL');
             const breakEvenStr = breakEven > 0 ? breakEven.toString() : 'לא מגיע';
@@ -301,7 +402,7 @@ ${activeAddons.length > 0 ? `✨ רכיבים ותוספות מתוכננים:\n
 
 💰 עלויות המערכת (לא כולל מע"מ):
 - עלות הקמה חד-פעמית - כולל פיתוח, שילוב AI וחיבור מערכות: ${setupStr} ₪ + מע"מ.
-- ריטיינר חודשי קבוע - כולל תמיכה, ניטור וחבילת הרצות: ${SLA_PACKAGES[selectedSla].price.toLocaleString('he-IL')} ₪ + מע"מ.
+- ריטיינר חודשי (${maintenanceTier.name}) - כולל תמיכה, ניטור וחבילת הרצות: ${maintenanceTier.price.toLocaleString('he-IL')} ₪ + מע"מ.
 
 📈 כדאיות כלכלית - ROI:
 - רווח נקי חודשי לעסק (לאחר קיזוז עלות שוטפת): ${netStr} ₪.
@@ -319,6 +420,17 @@ ${activeAddons.length > 0 ? `✨ רכיבים ותוספות מתוכננים:\n
             console.error("Failed to copy text:", err);
         });
     };
+
+    // Combined totals across every automation added to the list - this is
+    // what gets quoted to the client when they're buying more than one
+    // automation at once, instead of only ever pricing a single automation.
+    const itemsTotalSetup = automationItems.reduce((sum, item) => sum + item.setupCost, 0);
+    const itemsTotalMonthly = automationItems.reduce((sum, item) => sum + item.monthlyCost, 0);
+    const itemsTotalHoursSaved = automationItems.reduce((sum, item) => sum + item.hoursSaved, 0);
+    const itemsTotalGrossSavings = automationItems.reduce((sum, item) => sum + item.grossSavings, 0);
+    const itemsTotalNetProfit = itemsTotalGrossSavings - itemsTotalMonthly;
+    const itemsTotalBreakEven = itemsTotalNetProfit > 0 ? parseFloat((itemsTotalSetup / itemsTotalNetProfit).toFixed(1)) : 0;
+    const hasMultipleItems = projectType === 'automation' && automationItems.length > 0;
 
     return (
         <div style={{ direction: 'rtl', textAlign: 'right', padding: '20px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -542,44 +654,46 @@ ${activeAddons.length > 0 ? `✨ רכיבים ותוספות מתוכננים:\n
                                 </h3>
 
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                    <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>בחירת חבילת ריטיינר (SLA)</label>
+                                    <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>רצפת תחזוקה חודשית (נגזרת אוטומטית מרמת המורכבות שנבחרה למעלה)</label>
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                        {Object.entries(SLA_PACKAGES).map(([key, value]) => (
-                                            <label 
-                                                key={key} 
-                                                style={{ 
-                                                    display: 'flex', 
-                                                    alignItems: 'center', 
-                                                    justifyContent: 'space-between',
-                                                    padding: '8px 12px', 
-                                                    background: selectedSla === key ? 'rgba(139, 92, 246, 0.05)' : 'rgba(255,255,255,0.01)', 
-                                                    border: selectedSla === key ? '1px solid #8b5cf6' : '1px solid rgba(255,255,255,0.04)', 
-                                                    borderRadius: '6px', 
-                                                    cursor: 'pointer',
-                                                    transition: 'all 0.2s ease'
-                                                }}
-                                            >
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                                    <input 
-                                                        type="radio" 
-                                                        name="slaPackage" 
-                                                        value={key} 
-                                                        checked={selectedSla === key}
-                                                        onChange={() => setSelectedSla(key)}
-                                                        style={{ cursor: 'pointer', accentColor: '#8b5cf6' }}
-                                                    />
-                                                    <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-light)' }}>{value.name}</span>
-                                                    <span style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>(עד {value.limit.toLocaleString()} הרצות)</span>
+                                        {Object.entries(MAINTENANCE_TIERS).map(([key, tier]) => {
+                                            const isActive = String(complexity) === key;
+                                            return (
+                                                <div
+                                                    key={key}
+                                                    style={{
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'space-between',
+                                                        padding: '8px 12px',
+                                                        background: isActive ? 'rgba(139, 92, 246, 0.05)' : 'rgba(255,255,255,0.01)',
+                                                        border: isActive ? '1px solid #8b5cf6' : '1px solid rgba(255,255,255,0.04)',
+                                                        borderRadius: '6px',
+                                                        opacity: isActive ? 1 : 0.55
+                                                    }}
+                                                >
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                        <input
+                                                            type="radio"
+                                                            checked={isActive}
+                                                            readOnly
+                                                            disabled={!isActive}
+                                                            style={{ cursor: 'default', accentColor: '#8b5cf6' }}
+                                                        />
+                                                        <span style={{ fontSize: '13px', fontWeight: isActive ? '600' : '400', color: 'var(--text-light)' }}>{tier.name}</span>
+                                                        <span style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>(עד {tier.limit.toLocaleString()} הרצות)</span>
+                                                    </div>
+                                                    <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#8b5cf6' }}>₪{tier.price} / חודש</span>
                                                 </div>
-                                                <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#8b5cf6' }}>₪{value.price} / חודש</span>
-                                            </label>
-                                        ))}
+                                            );
+                                        })}
                                     </div>
+                                    <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>הרמה המסומנת נבחרה אוטומטית לפי רמת המורכבות שהוגדרה בסעיף א' למעלה - היא לא ניתנת לבחירה ידנית. מעבר לנפח הכלול, כל ריצה נוספת מחויבת ב-0.05 ₪ (ראה אזהרה מתחת ללוח התוצאות אם רלוונטי).</span>
                                 </div>
 
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '4px' }}>
                                     <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>עלויות צד ג' צפויות (OpenAI, רשיונות, טוקנים וכו')</label>
-                                    <input 
+                                    <input
                                         type="number" 
                                         className="form-control" 
                                         value={thirdPartyCosts} 
@@ -741,7 +855,7 @@ ${activeAddons.length > 0 ? `✨ רכיבים ותוספות מתוכננים:\n
                         <div style={{ display: 'flex', gap: '8px', background: 'rgba(245, 158, 11, 0.08)', border: '1px solid rgba(245, 158, 11, 0.3)', borderRadius: '8px', padding: '12px', alignItems: 'flex-start' }}>
                             <AlertTriangle size={18} style={{ color: '#f59e0b', flexShrink: 0, marginTop: '2px' }} />
                             <span style={{ fontSize: '11.5px', color: '#f59e0b', lineHeight: '1.4' }}>
-                                <strong>אזהרה:</strong> נפח הפעולות החודשי שהוזן ({monthlyVolume.toLocaleString()}) חורג ממגבלת הריצות של חבילת {SLA_PACKAGES[selectedSla].name} (עד {SLA_PACKAGES[selectedSla].limit.toLocaleString()} ריצות). מומלץ לשדרג את חבילת ה-SLA על מנת למנוע חיוב חריגות של 0.05 ₪ לכל ריצה נוספת.
+                                <strong>אזהרה:</strong> נפח הפעולות החודשי שהוזן ({monthlyVolume.toLocaleString()}) חורג ממגבלת הריצות של רמת {(MAINTENANCE_TIERS[complexity] || MAINTENANCE_TIERS[1.0]).name} (עד {(MAINTENANCE_TIERS[complexity] || MAINTENANCE_TIERS[1.0]).limit.toLocaleString()} ריצות). ההפרש יחויב אוטומטית ב-0.05 ₪ לכל ריצה נוספת (מוצג בעלות השוטפת החודשית).
                             </span>
                         </div>
                     )}
@@ -834,6 +948,86 @@ ${activeAddons.length > 0 ? `✨ רכיבים ותוספות מתוכננים:\n
                             )}
                         </div>
                     </div>
+
+                    {/* Multi-Automation Quote Builder - lets several configured
+                        automations (each priced separately above) accumulate into
+                        one combined quote for a client buying more than one. */}
+                    {projectType === 'automation' && (
+                        <div className="glass-card" style={{ padding: '20px', borderRadius: '10px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                            <h3 style={{ margin: 0, fontSize: '14px', fontWeight: '600', color: 'var(--text-light)', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <Database size={16} style={{ color: '#8b5cf6' }} />
+                                הצעה משולבת - כמה אוטומציות ללקוח אחד
+                            </h3>
+                            <p style={{ fontSize: '11.5px', color: 'var(--text-secondary)', margin: 0, lineHeight: '1.4' }}>
+                                הגדרתם למעלה אוטומציה אחת? הוסיפו אותה לרשימה כאן, אחר כך שנו את הנתונים למעלה לאוטומציה הבאה והוסיפו גם אותה. הסיכום הכולל בתחתית ישקף את כל האוטומציות יחד.
+                            </p>
+
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                                <input
+                                    type="text"
+                                    placeholder="שם/תיאור האוטומציה הנוכחית (למשל: סנכרון לידים)"
+                                    value={automationItemLabel}
+                                    onChange={(e) => setAutomationItemLabel(e.target.value)}
+                                    style={{ flex: 1, padding: '6px 10px', fontSize: '13px', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border-color)', borderRadius: '6px', color: 'var(--text-light)' }}
+                                />
+                                <button
+                                    type="button"
+                                    onClick={handleAddAutomationItem}
+                                    className="btn btn-secondary"
+                                    style={{ padding: '6px 14px', fontSize: '12.5px', whiteSpace: 'nowrap', borderRadius: '6px', cursor: 'pointer' }}
+                                >
+                                    + הוסף לרשימה
+                                </button>
+                            </div>
+
+                            {automationItems.length > 0 && (
+                                <>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                        {automationItems.map(item => (
+                                            <div key={item.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '6px' }}>
+                                                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                                    <span style={{ fontSize: '12.5px', fontWeight: '600', color: 'var(--text-light)' }}>{item.label}</span>
+                                                    <span style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>
+                                                        הקמה ₪{item.setupCost.toLocaleString('he-IL')} · ריטיינר ₪{item.monthlyCost.toLocaleString('he-IL')} ({item.maintenanceTierName})
+                                                    </span>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleRemoveAutomationItem(item.id)}
+                                                    aria-label={`הסר את ${item.label} מהרשימה`}
+                                                    style={{ background: 'none', border: 'none', color: '#f87171', cursor: 'pointer', fontSize: '16px', padding: '2px 6px', lineHeight: 1 }}
+                                                >
+                                                    ×
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '4px', padding: '12px', background: 'rgba(139, 92, 246, 0.05)', border: '1px solid #8b5cf6', borderRadius: '8px' }}>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                            <span style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>סה"כ הקמה ({automationItems.length} אוטומציות)</span>
+                                            <span style={{ fontSize: '16px', fontWeight: 'bold', color: '#3b82f6' }}>₪{itemsTotalSetup.toLocaleString('he-IL')}</span>
+                                        </div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                            <span style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>סה"כ ריטיינר חודשי</span>
+                                            <span style={{ fontSize: '16px', fontWeight: 'bold', color: '#06b6d4' }}>₪{itemsTotalMonthly.toLocaleString('he-IL')}</span>
+                                        </div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                            <span style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>רווח נקי חודשי כולל</span>
+                                            <span style={{ fontSize: '16px', fontWeight: 'bold', color: '#c084fc' }}>₪{itemsTotalNetProfit.toLocaleString('he-IL')}</span>
+                                        </div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                            <span style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>החזר השקעה כולל</span>
+                                            <span style={{ fontSize: '16px', fontWeight: 'bold', color: 'var(--text-light)' }}>{itemsTotalBreakEven > 0 ? `תוך ${itemsTotalBreakEven} חודשים` : 'לא מגיע'}</span>
+                                        </div>
+                                    </div>
+                                    <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
+                                        כל עוד יש אוטומציות ברשימה, "שמור לליד" ו"העתק הצעה" ישתמשו בסכומים הכוללים האלה במקום בנתוני האוטומציה הבודדת שמוגדרת כרגע למעלה.
+                                    </span>
+                                </>
+                            )}
+                        </div>
+                    )}
 
                     {/* Export Card */}
                     <div className="glass-card" style={{ padding: '20px', borderRadius: '10px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
@@ -972,12 +1166,14 @@ ${activeAddons.length > 0 ? `✨ רכיבים ותוספות מתוכננים:\n
                         </div>
                         <div>
                             <strong style={{ color: 'var(--text-light)', display: 'block', marginBottom: '4px' }}>3. עלות שוטפת חודשית (Total Monthly Cost):</strong>
-                            מחושבת לפי: <code>עלות חבילת ה-SLA שנבחרה + עלויות צד ג' צפויות</code>
+                            מחושבת לפי: <code>רצפת תחזוקה (נגזרת מהמורכבות) + חריגת הרצות (0.05 ₪ לריצה) + עלויות צד ג' צפויות</code>
                             <ul style={{ paddingRight: '18px', marginTop: '4px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                                <li><strong>חבילת Standard (₪400):</strong> מיועדת לעד 1,000 הרצות בחודש.</li>
-                                <li><strong>חבילת Premium (₪1,000):</strong> מיועדת לעד 5,000 הרצות בחודש.</li>
-                                <li><strong>חבילת Enterprise (₪3,000):</strong> מיועדת לעד 20,000 הרצות בחודש.</li>
-                                <li><strong>עלויות צד ג':</strong> עלויות ישירות של הלקוח עבור רשיונות (Make/n8n cloud), קרדיטים וטוקנים של OpenAI/Gemini שאינם כלולים בריטיינר שלכם.</li>
+                                <li><strong>רצפת התחזוקה נגזרת אוטומטית מרמת המורכבות שנבחרה בסעיף א'</strong> - ולא נבחרת בנפרד - כי מורכבות הפרויקט היא גם מה שקובע כמה סיכון תחזוקה הוא נושא (תלות ב-AI, Scraping ואינטגרציות חיצוניות שיכולות להישבר).</li>
+                                <li><strong>בסיסי (₪400):</strong> עד 500 הרצות בחודש כלולות.</li>
+                                <li><strong>בינוני (₪650):</strong> עד 2,000 הרצות בחודש כלולות.</li>
+                                <li><strong>מתקדם/AI (₪900):</strong> עד 5,000 הרצות בחודש כלולות.</li>
+                                <li><strong>חריגת נפח:</strong> כל ריצה מעבר לנפח הכלול מחויבת אוטומטית ב-0.05 ₪.</li>
+                                <li><strong>עלויות צד ג':</strong> עלויות ישירות של הלקוח עבור רשיונות (Make/n8n cloud), קרדיטים וטוקנים של OpenAI/Gemini שאינם כלולים ברצפת התחזוקה.</li>
                             </ul>
                         </div>
                         <div>

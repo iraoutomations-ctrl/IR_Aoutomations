@@ -543,8 +543,12 @@ export default function LeadDetailsModal({ leadId, onClose, onLeadUpdated }) {
     // Integrated Calculator States inside AI Document Generator
     const [aiDocIncludeAutomation, setAiDocIncludeAutomation] = useState(true);
     const [aiDocIncludeWebsite, setAiDocIncludeWebsite] = useState(false);
-    const [aiDocAutomationSetupPrice, setAiDocAutomationSetupPrice] = useState(12500);
-    const [aiDocAutomationSla, setAiDocAutomationSla] = useState('standard');
+    // Each automation being quoted (setup price + maintenance tier) - a client
+    // is often quoted several automations together, so this is a list rather
+    // than a single price/tier pair.
+    const [aiDocAutomationItems, setAiDocAutomationItems] = useState([
+        { id: 'auto-0', label: '', setupPrice: 12500, slaKey: 'basic' }
+    ]);
     const [aiDocAutomationThirdParty, setAiDocAutomationThirdParty] = useState(0);
     const [aiDocWebsiteType, setAiDocWebsiteType] = useState('landing');
     const [aiDocWebsiteSetupPrice, setAiDocWebsiteSetupPrice] = useState(2500);
@@ -581,15 +585,30 @@ export default function LeadDetailsModal({ leadId, onClose, onLeadUpdated }) {
             setAiDocIncludeAutomation(incAuto);
             setAiDocIncludeWebsite(incWeb);
 
-            // 2. Automation prefill
-            if (q.automation_setup_price !== undefined) {
-                setAiDocAutomationSetupPrice(q.automation_setup_price);
-            } else if (q.project_type === 'automation' && q.setup_cost) {
-                setAiDocAutomationSetupPrice(q.setup_cost);
+            // 2. Automation prefill - use the itemized list if the quote has one
+            // (saved from the multi-automation calculator), otherwise wrap the
+            // legacy single setup_price/sla pair into a one-item list.
+            // Leads quoted before the maintenance-tier rework may still carry the
+            // old standard/premium/enterprise keys - map them onto their closest
+            // new equivalent instead of silently falling back to the default.
+            const LEGACY_SLA_KEY_MAP = { standard: 'basic', premium: 'medium', enterprise: 'advanced' };
+            if (Array.isArray(q.automation_items) && q.automation_items.length > 0) {
+                setAiDocAutomationItems(q.automation_items.map((item, idx) => ({
+                    id: `auto-${idx}`,
+                    label: item.label || '',
+                    setupPrice: item.setup_cost || 0,
+                    slaKey: LEGACY_SLA_KEY_MAP[item.sla_key] || item.sla_key || 'basic'
+                })));
             } else {
-                setAiDocAutomationSetupPrice(12500);
+                let setupPrice = 12500;
+                if (q.automation_setup_price !== undefined) {
+                    setupPrice = q.automation_setup_price;
+                } else if (q.project_type === 'automation' && q.setup_cost) {
+                    setupPrice = q.setup_cost;
+                }
+                const rawSlaKey = q.automation_sla || q.sla_level || 'basic';
+                setAiDocAutomationItems([{ id: 'auto-0', label: '', setupPrice, slaKey: LEGACY_SLA_KEY_MAP[rawSlaKey] || rawSlaKey }]);
             }
-            setAiDocAutomationSla(q.automation_sla || q.sla_level || 'standard');
             setAiDocAutomationThirdParty(q.automation_third_party || q.third_party_costs || 0);
 
             // 3. Website prefill
@@ -667,7 +686,7 @@ export default function LeadDetailsModal({ leadId, onClose, onLeadUpdated }) {
         if (aiDocSetupPriceManual) return;
         let total = 0;
         if (aiDocIncludeAutomation) {
-            total += parseFloat(aiDocAutomationSetupPrice) || 0;
+            total += aiDocAutomationItems.reduce((s, item) => s + (parseFloat(item.setupPrice) || 0), 0);
         }
         if (aiDocIncludeWebsite) {
             total += parseFloat(aiDocWebsiteSetupPrice) || 0;
@@ -682,7 +701,7 @@ export default function LeadDetailsModal({ leadId, onClose, onLeadUpdated }) {
     }, [
         aiDocSetupPriceManual,
         aiDocIncludeAutomation,
-        aiDocAutomationSetupPrice,
+        aiDocAutomationItems,
         aiDocIncludeWebsite,
         aiDocWebsiteSetupPrice,
         aiDocWebsiteAddons
@@ -728,23 +747,35 @@ export default function LeadDetailsModal({ leadId, onClose, onLeadUpdated }) {
         const pilotDaysVal = parseInt(aiDocPilotDays) || 14;
 
         // Calculate combined monthly costs and retainers
-        const autoSlaPrices = { standard: 400, premium: 1000, enterprise: 3000 };
+        const autoSlaPrices = { basic: 400, medium: 650, advanced: 900 };
         const webSlaPrices = { basic: 150, extended: 300, premium: 600 };
-        
-        let autoSlaPrice = aiDocIncludeAutomation ? (autoSlaPrices[aiDocAutomationSla] || 0) : 0;
+
+        // Each configured automation, with its per-item setup cost and
+        // maintenance tier price resolved - consumed by aiDocGenerator.js to
+        // itemize the proposal instead of showing a single lump sum.
+        const automationItemsPayload = aiDocAutomationItems.map(item => ({
+            label: item.label.trim() || null,
+            setup_cost: parseFloat(item.setupPrice) || 0,
+            sla_key: item.slaKey,
+            sla_price: autoSlaPrices[item.slaKey] || 0
+        }));
+        const totalAutomationSetup = automationItemsPayload.reduce((s, item) => s + item.setup_cost, 0);
+
+        let autoSlaPrice = aiDocIncludeAutomation ? automationItemsPayload.reduce((s, item) => s + item.sla_price, 0) : 0;
         let webSlaPrice = aiDocIncludeWebsite ? (webSlaPrices[aiDocWebsiteSla] || 0) : 0;
         let monthlyCostVal = autoSlaPrice + webSlaPrice;
         if (aiDocIncludeWebsite && aiDocWebsiteAddons.chatbot) {
             monthlyCostVal += 250; // Chatbot monthly
         }
-        const totalThirdParty = (aiDocIncludeAutomation ? parseFloat(aiDocAutomationThirdParty || 0) : 0) + 
+        const totalThirdParty = (aiDocIncludeAutomation ? parseFloat(aiDocAutomationThirdParty || 0) : 0) +
                                 (aiDocIncludeWebsite ? parseFloat(aiDocWebsiteThirdParty || 0) : 0);
 
         const customSettings = {
             includeAutomation: aiDocIncludeAutomation,
             includeWebsite: aiDocIncludeWebsite,
-            automationSetupPrice: parseFloat(aiDocAutomationSetupPrice) || 0,
-            automationSla: aiDocAutomationSla,
+            automationItems: aiDocIncludeAutomation ? automationItemsPayload : [],
+            automationSetupPrice: totalAutomationSetup,
+            automationSla: automationItemsPayload[0]?.sla_key || 'basic',
             automationThirdParty: parseFloat(aiDocAutomationThirdParty) || 0,
             websiteType: aiDocWebsiteType,
             websiteSetupPrice: parseFloat(aiDocWebsiteSetupPrice) || 0,
@@ -776,8 +807,9 @@ export default function LeadDetailsModal({ leadId, onClose, onLeadUpdated }) {
                 project_type: (aiDocIncludeAutomation && aiDocIncludeWebsite) ? 'both' : aiDocIncludeAutomation ? 'automation' : 'website',
                 include_automation: aiDocIncludeAutomation,
                 include_website: aiDocIncludeWebsite,
-                automation_setup_price: parseFloat(aiDocAutomationSetupPrice) || 0,
-                automation_sla: aiDocAutomationSla,
+                automation_items: aiDocIncludeAutomation ? automationItemsPayload : null,
+                automation_setup_price: totalAutomationSetup,
+                automation_sla: automationItemsPayload[0]?.sla_key || 'basic',
                 automation_third_party: parseFloat(aiDocAutomationThirdParty) || 0,
                 website_type: aiDocWebsiteType,
                 website_setup_price: parseFloat(aiDocWebsiteSetupPrice) || 0,
@@ -2237,63 +2269,92 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
                                                     <div style={{ fontSize: '11px', fontWeight: '700', color: '#c084fc', display: 'flex', alignItems: 'center', gap: '4px' }}>
                                                         <Cpu size={12} /> הגדרות פרויקט אוטומציה
                                                     </div>
-                                                    <div>
-                                                        <label style={{ display: 'block', fontSize: '10px', color: 'var(--text-secondary)', marginBottom: '3px' }}>
-                                                            עלות הקמה אוטומציות (₪ ללא מע"מ):
-                                                        </label>
-                                                        <input
-                                                            type="number"
-                                                            required
-                                                            min="0"
-                                                            value={aiDocAutomationSetupPrice}
-                                                            onChange={(e) => setAiDocAutomationSetupPrice(parseFloat(e.target.value) || 0)}
-                                                            style={{ width: '100%', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', color: 'var(--text-light)', padding: '4px 6px', fontSize: '11px' }}
-                                                        />
-                                                    </div>
-                                                    
-                                                    {/* Automation SLA Radio Selection Card-style */}
+                                                    {/* Each automation being quoted - its own setup price and
+                                                        maintenance tier (matches PricingCalculator.jsx's
+                                                        complexity-derived tiers, picked manually here since this
+                                                        form doesn't collect a complexity input of its own). A
+                                                        client is often quoted several automations at once. */}
                                                     <div>
                                                         <label style={{ display: 'block', fontSize: '10px', color: 'var(--text-secondary)', marginBottom: '4px' }}>
-                                                            בחירת חבילת ריטיינר (SLA):
+                                                            אוטומציות בהצעה ({aiDocAutomationItems.length}):
                                                         </label>
-                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                                                            {[
-                                                                { key: 'standard', name: 'Standard', desc: 'עד 1,000 הרצות', price: 400 },
-                                                                { key: 'premium', name: 'Premium', desc: 'עד 5,000 הרצות', price: 1000 },
-                                                                { key: 'enterprise', name: 'Enterprise', desc: 'עד 20,000 הרצות', price: 3000 }
-                                                            ].map(pkg => {
-                                                                const isSelected = aiDocAutomationSla === pkg.key;
-                                                                return (
-                                                                    <div 
-                                                                        key={pkg.key}
-                                                                        onClick={() => setAiDocAutomationSla(pkg.key)}
-                                                                        style={{
-                                                                            display: 'flex',
-                                                                            alignItems: 'center',
-                                                                            justifyContent: 'space-between',
-                                                                            padding: '6px 10px',
-                                                                            background: isSelected ? 'rgba(139, 92, 246, 0.15)' : 'rgba(0,0,0,0.15)',
-                                                                            border: isSelected ? '1px solid #8b5cf6' : '1px solid rgba(255,255,255,0.06)',
-                                                                            borderRadius: '5px',
-                                                                            cursor: 'pointer',
-                                                                            transition: 'all 0.2s ease'
-                                                                        }}
-                                                                    >
-                                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                                            <input 
-                                                                                type="radio" 
-                                                                                checked={isSelected}
-                                                                                onChange={() => {}}
-                                                                                style={{ cursor: 'pointer' }}
-                                                                            />
-                                                                            <span style={{ fontSize: '11px', fontWeight: isSelected ? '700' : '400', color: 'var(--text-light)' }}>{pkg.name}</span>
-                                                                            <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>({pkg.desc})</span>
-                                                                        </div>
-                                                                        <span style={{ fontSize: '11px', color: '#c084fc', fontWeight: '700' }}>₪{pkg.price} / חודש</span>
+                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                            {aiDocAutomationItems.map((item, idx) => (
+                                                                <div key={item.id} style={{ padding: '8px', background: 'rgba(0,0,0,0.15)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '5px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                                                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                                                                        <input
+                                                                            type="text"
+                                                                            placeholder={`שם האוטומציה ${idx + 1} (אופציונלי)`}
+                                                                            value={item.label}
+                                                                            onChange={(e) => setAiDocAutomationItems(prev => prev.map(it => it.id === item.id ? { ...it, label: e.target.value } : it))}
+                                                                            style={{ flex: 1, background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', color: 'var(--text-light)', padding: '4px 6px', fontSize: '10.5px' }}
+                                                                        />
+                                                                        {aiDocAutomationItems.length > 1 && (
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => setAiDocAutomationItems(prev => prev.filter(it => it.id !== item.id))}
+                                                                                aria-label={`הסר אוטומציה ${idx + 1}`}
+                                                                                style={{ background: 'none', border: 'none', color: '#f87171', cursor: 'pointer', fontSize: '14px', padding: '0 4px', lineHeight: 1 }}
+                                                                            >
+                                                                                ×
+                                                                            </button>
+                                                                        )}
                                                                     </div>
-                                                                );
-                                                            })}
+                                                                    <div>
+                                                                        <label style={{ display: 'block', fontSize: '9.5px', color: 'var(--text-muted)', marginBottom: '2px' }}>עלות הקמה (₪ ללא מע"מ):</label>
+                                                                        <input
+                                                                            type="number"
+                                                                            required
+                                                                            min="0"
+                                                                            value={item.setupPrice}
+                                                                            onChange={(e) => setAiDocAutomationItems(prev => prev.map(it => it.id === item.id ? { ...it, setupPrice: parseFloat(e.target.value) || 0 } : it))}
+                                                                            style={{ width: '100%', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', color: 'var(--text-light)', padding: '4px 6px', fontSize: '11px' }}
+                                                                        />
+                                                                    </div>
+                                                                    <div style={{ display: 'flex', gap: '4px' }}>
+                                                                        {[
+                                                                            { key: 'basic', name: 'בסיסית', price: 400 },
+                                                                            { key: 'medium', name: 'בינונית', price: 650 },
+                                                                            { key: 'advanced', name: 'AI', price: 900 }
+                                                                        ].map(pkg => {
+                                                                            const isSelected = item.slaKey === pkg.key;
+                                                                            return (
+                                                                                <button
+                                                                                    type="button"
+                                                                                    key={pkg.key}
+                                                                                    onClick={() => setAiDocAutomationItems(prev => prev.map(it => it.id === item.id ? { ...it, slaKey: pkg.key } : it))}
+                                                                                    style={{
+                                                                                        flex: 1,
+                                                                                        padding: '4px 6px',
+                                                                                        fontSize: '9.5px',
+                                                                                        fontWeight: isSelected ? '700' : '400',
+                                                                                        background: isSelected ? 'rgba(139, 92, 246, 0.2)' : 'rgba(0,0,0,0.15)',
+                                                                                        border: isSelected ? '1px solid #8b5cf6' : '1px solid rgba(255,255,255,0.06)',
+                                                                                        borderRadius: '4px',
+                                                                                        color: 'var(--text-light)',
+                                                                                        cursor: 'pointer'
+                                                                                    }}
+                                                                                >
+                                                                                    {pkg.name} ₪{pkg.price}
+                                                                                </button>
+                                                                            );
+                                                                        })}
+                                                                    </div>
+                                                                </div>
+                                                            ))}
                                                         </div>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setAiDocAutomationItems(prev => [...prev, { id: `auto-${Date.now()}`, label: '', setupPrice: 5000, slaKey: 'basic' }])}
+                                                            style={{ marginTop: '6px', padding: '5px 10px', fontSize: '10.5px', background: 'rgba(139, 92, 246, 0.1)', border: '1px solid rgba(139, 92, 246, 0.3)', borderRadius: '5px', color: '#c084fc', cursor: 'pointer', width: '100%' }}
+                                                        >
+                                                            + הוסף אוטומציה
+                                                        </button>
+                                                        {aiDocAutomationItems.length > 1 && (
+                                                            <div style={{ marginTop: '6px', fontSize: '10px', color: 'var(--text-muted)' }}>
+                                                                סה"כ הקמה: ₪{aiDocAutomationItems.reduce((s, i) => s + (parseFloat(i.setupPrice) || 0), 0).toLocaleString('he-IL')} · סה"כ ריטיינר: ₪{aiDocAutomationItems.reduce((s, i) => s + ({ basic: 400, medium: 650, advanced: 900 }[i.slaKey] || 0), 0).toLocaleString('he-IL')} / חודש
+                                                            </div>
+                                                        )}
                                                     </div>
 
                                                     <div>

@@ -24,11 +24,29 @@ const WEBSITE_SLA = {
     premium: { name: 'תמיכה מהירה ושינויים שוטפים', price: 600 }
 };
 
-const SLA_PACKAGES = {
-    standard: { name: 'Standard', limit: 1000, price: 400 },
-    premium: { name: 'Premium', limit: 5000, price: 1000 },
-    enterprise: { name: 'Enterprise', limit: 20000, price: 3000 }
+// Matches PricingCalculator.jsx's MAINTENANCE_TIERS - the retainer floor is
+// derived from workflow complexity there, and quotes saved from the
+// calculator carry these same keys via automation_sla.
+const MAINTENANCE_TIERS = {
+    basic: { name: 'תחזוקה בסיסית', limit: 500, price: 400 },
+    medium: { name: 'תחזוקה בינונית', limit: 2000, price: 650 },
+    advanced: { name: 'תחזוקה מתקדמת (AI)', limit: 5000, price: 900 }
 };
+
+// A client can be quoted several automations at once (each with its own
+// setup price and maintenance tier). Older quotes only ever carried one
+// automation_setup_price/automation_sla pair, so wrap those into a
+// single-item array when no automation_items list is present.
+function getAutomationItems(pricing) {
+    if (Array.isArray(pricing.automation_items) && pricing.automation_items.length > 0) {
+        return pricing.automation_items;
+    }
+    return [{
+        label: null,
+        setup_cost: pricing.automation_setup_price || 12500,
+        sla_key: pricing.automation_sla || 'basic'
+    }];
+}
 
 // Recursively HTML-escapes every string in an object/array so lead- or AI-derived
 // text (business_name, contact_name, AI narrative fields, etc.) can never break out
@@ -510,25 +528,41 @@ export function buildProposalHtml(data) {
     let totalMonthly = 0;
 
     if (includeAutomation) {
-        const autoSetup = data.pricing.automation_setup_price || 12500;
-        const autoSlaKey = data.pricing.automation_sla || 'standard';
-        const autoSlaInfo = SLA_PACKAGES[autoSlaKey] || { name: 'Standard', price: 400, limit: 1000 };
-        
-        totalSetup += autoSetup;
-        totalMonthly += autoSlaInfo.price;
+        const automationItems = getAutomationItems(data.pricing);
 
-        pricingRowsHtml += `
-            <tr>
-                <td><strong>חבילת האוטומציות והבינה המלאכותית (AI)</strong><br><span style="font-size: 9.5px; color: #64748b;">פיתוח, אינטגרציה מלאה, בדיקות QA והדרכה.</span></td>
-                <td style="text-align: left;">${autoSetup.toLocaleString('he-IL')} ₪</td>
-                <td style="text-align: left;">₪ 0</td>
-            </tr>
-            <tr>
-                <td><strong>ריטיינר ותחזוקת אוטומציות (SLA - ${autoSlaInfo.name})</strong><br><span style="font-size: 9.5px; color: #64748b;">שרת n8n מאובטח, ניטור שגיאות 24/7, עדכוני API ותמיכה שוטפת (עד ${autoSlaInfo.limit.toLocaleString('he-IL')} הרצות בחודש).</span></td>
-                <td style="text-align: left;">כלול בהקמה</td>
-                <td style="text-align: left;">${autoSlaInfo.price.toLocaleString('he-IL')} ₪ / חודש</td>
-            </tr>
-        `;
+        automationItems.forEach((item, idx) => {
+            const itemSetup = item.setup_cost || 0;
+            const itemSlaInfo = MAINTENANCE_TIERS[item.sla_key] || MAINTENANCE_TIERS.basic;
+            const itemLabel = item.label || (automationItems.length > 1 ? `אוטומציה ${idx + 1}` : 'חבילת האוטומציות והבינה המלאכותית (AI)');
+
+            totalSetup += itemSetup;
+            totalMonthly += itemSlaInfo.price;
+
+            pricingRowsHtml += `
+                <tr>
+                    <td><strong>${itemLabel}</strong><br><span style="font-size: 9.5px; color: #64748b;">פיתוח, אינטגרציה מלאה, בדיקות QA והדרכה.</span></td>
+                    <td style="text-align: left;">${itemSetup.toLocaleString('he-IL')} ₪</td>
+                    <td style="text-align: left;">₪ 0</td>
+                </tr>
+                <tr>
+                    <td><strong>ריטיינר ותחזוקה (SLA - ${itemSlaInfo.name})</strong><br><span style="font-size: 9.5px; color: #64748b;">שרת n8n מאובטח, ניטור שגיאות 24/7, עדכוני API ותמיכה שוטפת (עד ${itemSlaInfo.limit.toLocaleString('he-IL')} הרצות בחודש).</span></td>
+                    <td style="text-align: left;">כלול בהקמה</td>
+                    <td style="text-align: left;">${itemSlaInfo.price.toLocaleString('he-IL')} ₪ / חודש</td>
+                </tr>
+            `;
+        });
+
+        if (automationItems.length > 1) {
+            const totalAutoSetup = automationItems.reduce((s, item) => s + (item.setup_cost || 0), 0);
+            const totalAutoMonthly = automationItems.reduce((s, item) => s + ((MAINTENANCE_TIERS[item.sla_key] || MAINTENANCE_TIERS.basic).price), 0);
+            pricingRowsHtml += `
+                <tr style="border-top: 2px solid #cbd5e1;">
+                    <td><strong>סה"כ אוטומציות (${automationItems.length})</strong></td>
+                    <td style="text-align: left;"><strong>${totalAutoSetup.toLocaleString('he-IL')} ₪</strong></td>
+                    <td style="text-align: left;"><strong>${totalAutoMonthly.toLocaleString('he-IL')} ₪ / חודש</strong></td>
+                </tr>
+            `;
+        }
     }
 
     if (includeWebsite) {
@@ -1019,20 +1053,32 @@ export function buildContractHtml(data) {
     let retainerHtml = '';
     
     if (includeAutomation) {
-        const autoSlaKey = data.pricing.automation_sla || 'standard';
-        const autoSlaInfo = SLA_PACKAGES[autoSlaKey] || { name: 'Standard', price: 400, limit: 1000 };
+        const automationItems = getAutomationItems(data.pricing);
         const autoThird = parseFloat(data.pricing.automation_third_party || 0);
         const bonusRuns = data.pricing?.bonus_runs || 0;
 
-        let limitText = `עד ${autoSlaInfo.limit.toLocaleString('he-IL')} הרצות בחודש`;
-        if (bonusRuns > 0) {
-            limitText = `עד ${autoSlaInfo.limit.toLocaleString('he-IL')} הרצות בחודש ובתוספת הטבה מיוחדת של ${bonusRuns.toLocaleString('he-IL')} הרצות בונוס חודשיות נוספות ללא עלות (סה"כ ${(autoSlaInfo.limit + bonusRuns).toLocaleString('he-IL')} הרצות בחודש)`;
-        }
+        let itemsHtml = '';
+        automationItems.forEach((item, idx) => {
+            const itemSlaInfo = MAINTENANCE_TIERS[item.sla_key] || MAINTENANCE_TIERS.basic;
+            const itemLabel = item.label || (automationItems.length > 1 ? `אוטומציה ${idx + 1}` : null);
+
+            let limitText = `עד ${itemSlaInfo.limit.toLocaleString('he-IL')} הרצות בחודש`;
+            if (bonusRuns > 0 && automationItems.length === 1) {
+                limitText = `עד ${itemSlaInfo.limit.toLocaleString('he-IL')} הרצות בחודש ובתוספת הטבה מיוחדת של ${bonusRuns.toLocaleString('he-IL')} הרצות בונוס חודשיות נוספות ללא עלות (סה"כ ${(itemSlaInfo.limit + bonusRuns).toLocaleString('he-IL')} הרצות בחודש)`;
+            }
+
+            itemsHtml += `
+                <p style="margin: ${idx === 0 ? '3px' : '8px'} 0 0 0; font-size: 10.5px;">${itemLabel ? `<strong>${itemLabel}</strong> - ` : ''}תחזוקה ברמת ${itemSlaInfo.name}: <strong>${itemSlaInfo.price.toLocaleString('he-IL')} ₪ + מע"מ לחודש</strong> (כולל ${limitText}). חריגה מעבר למכסה זו תחוייב בעלות של 0.05 ₪ לכל ריצה נוספת.</p>
+            `;
+        });
+
+        const totalAutoMonthly = automationItems.reduce((s, item) => s + ((MAINTENANCE_TIERS[item.sla_key] || MAINTENANCE_TIERS.basic).price), 0);
 
         retainerHtml += `
             <div style="margin-bottom: 8px;">
-                <strong>א. תחזוקת אוטומציות ושרת (SLA - ${autoSlaInfo.name}):</strong>
-                <p style="margin: 3px 0 0 0; font-size: 10.5px;">עבור אירוח המערכות בשרת n8n פרטי ומאובטח, ניטור אקטיבי של שגיאות 24/7, עדכוני API ותמיכה שוטפת, ישלם הלקוח סך של <strong>${autoSlaInfo.price.toLocaleString('he-IL')} ₪ + מע"מ לחודש</strong> (כולל ${limitText}). חריגה מעבר למכסה זו תחוייב בעלות של 0.20 ₪ לכל ריצה נוספת.</p>
+                <strong>א. תחזוקת אוטומציות ושרת:</strong>
+                ${itemsHtml}
+                ${automationItems.length > 1 ? `<p style="margin: 6px 0 0 0; font-size: 10.5px;"><strong>סה"כ ריטיינר אוטומציות: ${totalAutoMonthly.toLocaleString('he-IL')} ₪ + מע"מ לחודש.</strong></p>` : ''}
                 ${autoThird > 0 ? `<p style="margin: 2px 0 0 0; font-size: 10px; color: #64748b;">* עלויות צד ג' צפויות (OpenAI, מנויים וכדומה): כ-₪${autoThird} בחודש (משולם ישירות לספקים/בפירוט הריטיינר).</p>` : ''}
             </div>
         `;
@@ -1492,6 +1538,7 @@ export async function generateAndUploadDocuments(rawSpec, setupCost, lead, custo
         project_type: (customSettings.includeAutomation && customSettings.includeWebsite) ? 'both' : customSettings.includeAutomation ? 'automation' : 'website',
         include_automation: customSettings.includeAutomation,
         include_website: customSettings.includeWebsite,
+        automation_items: customSettings.automationItems,
         automation_setup_price: customSettings.automationSetupPrice,
         automation_sla: customSettings.automationSla,
         automation_third_party: customSettings.automationThirdParty,
