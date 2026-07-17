@@ -957,7 +957,7 @@ export function buildProposalHtml(data) {
                             <span class="sig-status-icon">✓</span>
                             <div class="sig-details">
                                 <div class="sig-text">autoRI-studio</div>
-                                <div class="sig-meta">נחתם דיגיטלית מאובטח</div>
+                                <div class="sig-meta">הופק ואושר על ידי autoRI-studio</div>
                                 <div class="sig-meta">מזהה: ${docSignatureId}</div>
                                 <div class="sig-meta">זמן: ${new Date().toLocaleString('he-IL')}</div>
                             </div>
@@ -1147,7 +1147,7 @@ export function buildContractHtml(data) {
                 <table class="data-table">
                     <tr>
                         <th width="35%">הספק (מפתח):</th>
-                        <td><strong>autoRI-studio (רון ועילי)</strong><br>שותפות פיתוח פתרונות אינטגרציה</td>
+                        <td><strong>autoRI-studio (רון ועילי)</strong><br>שותפות פיתוח פתרונות אינטגרציה<br>ע.מ. / ח.פ.: ________________________</td>
                     </tr>
                     <tr>
                         <th>הלקוח (המזמין):</th>
@@ -1229,7 +1229,7 @@ export function buildContractHtml(data) {
                             <span class="sig-status-icon">✓</span>
                             <div class="sig-details">
                                 <div class="sig-text">autoRI-studio</div>
-                                <div class="sig-meta">נחתם דיגיטלית מאובטח</div>
+                                <div class="sig-meta">הופק ואושר על ידי autoRI-studio</div>
                                 <div class="sig-meta">מזהה: ${docSignatureId}</div>
                                 <div class="sig-meta">זמן: ${new Date().toLocaleString('he-IL')}</div>
                             </div>
@@ -1279,7 +1279,7 @@ export function buildNdaHtml(data) {
                     </tr>
                     <tr>
                         <th>הצד המקבל:</th>
-                        <td><strong>autoRI-studio (רון ועילי)</strong><br>שותפות פיתוח פתרונות אינטגרציה</td>
+                        <td><strong>autoRI-studio (רון ועילי)</strong><br>שותפות פיתוח פתרונות אינטגרציה<br>ע.מ. / ח.פ.: ________________________</td>
                     </tr>
                 </table>
             </div>
@@ -1335,7 +1335,7 @@ export function buildNdaHtml(data) {
                             <span class="sig-status-icon">✓</span>
                             <div class="sig-details">
                                 <div class="sig-text">autoRI-studio</div>
-                                <div class="sig-meta">נחתם דיגיטלית מאובטח</div>
+                                <div class="sig-meta">הופק ואושר על ידי autoRI-studio</div>
                                 <div class="sig-meta">מזהה: ${docSignatureId}</div>
                                 <div class="sig-meta">זמן: ${new Date().toLocaleString('he-IL')}</div>
                             </div>
