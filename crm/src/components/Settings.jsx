@@ -1,7 +1,7 @@
 /* ==========================================================================
    autoRI-studio CRM - Settings & Supabase Setup Component
    ========================================================================== */
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { 
     Database, 
     Copy, 
@@ -12,6 +12,7 @@ import {
     Brain,
     Key
 } from 'lucide-react';
+import { callGeminiWithFallback } from '../services/geminiClient';
 
 const SQL_SCRIPT = `-- *** אם כבר הרצת את הסקריפט בעבר, הרץ רק את השורות הבאות ב-SQL Editor כדי לשדרג את מסד הנתונים: ***
 -- ALTER TABLE public.server_metrics ADD COLUMN IF NOT EXISTS cpu_cores integer;
@@ -421,7 +422,9 @@ $$ LANGUAGE plpgsql;
 export default function Settings() {
     const [copied, setCopied] = useState(false);
     const [geminiKey, setGeminiKey] = useState(() => localStorage.getItem('gemini_api_key') || '');
-    const [n8nUrl, setN8nUrl] = useState(() => localStorage.getItem('n8n_url') || 'http://localhost:5678');
+    // No hardcoded default value here (only via the placeholder attribute below) -
+    // otherwise the field looks pre-filled/saved even though nothing was persisted.
+    const [n8nUrl, setN8nUrl] = useState(() => localStorage.getItem('n8n_url') || '');
     const [n8nApiKey, setN8nApiKey] = useState(() => localStorage.getItem('n8n_api_key') || '');
     
     // Coolify Connection Settings
@@ -436,26 +439,50 @@ export default function Settings() {
     const [testingCoolify, setTestingCoolify] = useState(false);
     const [coolifyTestResult, setCoolifyTestResult] = useState(null);
 
+    // Bump on every test click so an older, slower response can tell it's been
+    // superseded and skip applying its (stale) result over a newer one.
+    const geminiTestId = useRef(0);
+    const n8nTestId = useRef(0);
+    const coolifyTestId = useRef(0);
+
     // Read from environment variables if present
     const envUrl = import.meta.env?.VITE_SUPABASE_URL || '';
     const envKey = import.meta.env?.VITE_SUPABASE_ANON_KEY || '';
 
     const handleCopySQL = () => {
-        navigator.clipboard.writeText(SQL_SCRIPT);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
+        navigator.clipboard.writeText(SQL_SCRIPT).then(() => {
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        }).catch(err => {
+            console.error("Failed to copy to clipboard:", err);
+            alert("ההעתקה ללוח נכשלה. ייתכן שהדפדפן חוסם גישה ללוח ההעתקה.");
+        });
+    };
+
+    // Warns before a blank field silently wipes out a previously saved (and
+    // possibly still working) credential - clearing a field by accident is
+    // easy, and Save gave no indication anything was lost.
+    const confirmOverwriteWithBlank = (fields) => {
+        const wouldWipe = fields.some(([storageKey, newValue]) => !newValue && localStorage.getItem(storageKey));
+        if (!wouldWipe) return true;
+        return window.confirm('שדה אחד או יותר ריק - שמירה תמחק פרטי חיבור קיימים שכבר נשמרו. להמשיך בכל זאת?');
     };
 
     const handleSaveGeminiKey = (e) => {
         e.preventDefault();
-        localStorage.setItem('gemini_api_key', geminiKey.trim());
+        const trimmed = geminiKey.trim();
+        if (!confirmOverwriteWithBlank([['gemini_api_key', trimmed]])) return;
+        localStorage.setItem('gemini_api_key', trimmed);
         alert('מפתח ה-API של Gemini נשמר בהצלחה בדפדפן!');
     };
 
     const handleSaveN8nSettings = (e) => {
         e.preventDefault();
-        localStorage.setItem('n8n_url', n8nUrl.trim());
-        localStorage.setItem('n8n_api_key', n8nApiKey.trim());
+        const trimmedUrl = n8nUrl.trim();
+        const trimmedKey = n8nApiKey.trim();
+        if (!confirmOverwriteWithBlank([['n8n_url', trimmedUrl], ['n8n_api_key', trimmedKey]])) return;
+        localStorage.setItem('n8n_url', trimmedUrl);
+        localStorage.setItem('n8n_api_key', trimmedKey);
         alert('הגדרות החיבור ל-N8N נשמרו בהצלחה בדפדפן!');
     };
 
@@ -464,17 +491,15 @@ export default function Settings() {
             setGeminiTestResult({ success: false, message: 'אנא הזן מפתח API של Gemini לפני הבדיקה.' });
             return;
         }
+        const myId = ++geminiTestId.current;
         setTestingGemini(true);
         setGeminiTestResult(null);
         try {
-            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey.trim()}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    contents: [{ parts: [{ text: 'say ok' }] }]
-                })
-            });
+            const response = await callGeminiWithFallback({
+                contents: [{ parts: [{ text: 'say ok' }] }]
+            }, geminiKey.trim());
             const data = await response.json();
+            if (myId !== geminiTestId.current) return; // a newer test superseded this one
             if (response.ok && data.candidates?.[0]?.content?.parts?.[0]?.text) {
                 setGeminiTestResult({ success: true, message: 'חיבור הצליח! מפתח ה-API תקין לחלוטין.' });
             } else {
@@ -482,9 +507,10 @@ export default function Settings() {
                 setGeminiTestResult({ success: false, message: `שגיאה: ${errDetail}` });
             }
         } catch (err) {
+            if (myId !== geminiTestId.current) return;
             setGeminiTestResult({ success: false, message: `שגיאת חיבור: ${err.message}` });
         } finally {
-            setTestingGemini(false);
+            if (myId === geminiTestId.current) setTestingGemini(false);
         }
     };
 
@@ -497,15 +523,20 @@ export default function Settings() {
             setN8nTestResult({ success: false, message: 'אנא הזן את מפתח ה-API של N8N.' });
             return;
         }
+        const myId = ++n8nTestId.current;
         setTestingN8n(true);
         setN8nTestResult(null);
         try {
             const cleanUrl = n8nUrl.trim().replace(/\/$/, '');
             let fetchUrl = `${cleanUrl}/api/v1/workflows?limit=1`;
-            if (cleanUrl.includes('localhost') || cleanUrl.includes('127.0.0.1')) {
+            // Compare the actual hostname, not a substring of the whole URL -
+            // includes('localhost') would also match e.g. "my-localhost-backup.example.com".
+            let host = '';
+            try { host = new URL(cleanUrl).hostname; } catch (e) { /* leave host empty, falls through to direct fetchUrl */ }
+            if (host === 'localhost' || host === '127.0.0.1') {
                 fetchUrl = `/api-n8n/api/v1/workflows?limit=1`;
             } else if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-                if (cleanUrl.includes('autori-n8n.autori-studio.com')) {
+                if (host === 'autori-n8n.autori-studio.com') {
                     fetchUrl = `/api-n8n/api/v1/workflows?limit=1`;
                 }
             }
@@ -514,26 +545,30 @@ export default function Settings() {
                     'X-N8N-API-KEY': n8nApiKey.trim()
                 }
             });
+            if (myId !== n8nTestId.current) return; // a newer test superseded this one
             if (response.ok) {
-                const data = await response.json();
                 setN8nTestResult({ success: true, message: `חיבור הצליח! שרת ה-N8N זמין והמפתח תקין.` });
             } else {
                 setN8nTestResult({ success: false, message: `שגיאה מ-N8N: קוד תשובה ${response.status} (${response.statusText}). ודא שהמפתח תקין.` });
             }
         } catch (err) {
-            setN8nTestResult({ 
-                success: false, 
-                message: `שגיאת חיבור: ${err.message}. ודא ששרת ה-N8N פועל ושהכתובת נכונה. שים לב כי ייתכן שחסימת CORS בדפדפן מונעת את הבדיקה הישירה (במקרה כזה ניתן לבדוק ריצה באוטומציה).` 
+            if (myId !== n8nTestId.current) return;
+            setN8nTestResult({
+                success: false,
+                message: `שגיאת חיבור: ${err.message}. ודא ששרת ה-N8N פועל ושהכתובת נכונה. שים לב כי ייתכן שחסימת CORS בדפדפן מונעת את הבדיקה הישירה (במקרה כזה ניתן לבדוק ריצה באוטומציה).`
             });
         } finally {
-            setTestingN8n(false);
+            if (myId === n8nTestId.current) setTestingN8n(false);
         }
     };
 
     const handleSaveCoolifySettings = (e) => {
         e.preventDefault();
-        localStorage.setItem('coolify_url', coolifyUrl.trim());
-        localStorage.setItem('coolify_api_token', coolifyApiToken.trim());
+        const trimmedUrl = coolifyUrl.trim();
+        const trimmedToken = coolifyApiToken.trim();
+        if (!confirmOverwriteWithBlank([['coolify_url', trimmedUrl], ['coolify_api_token', trimmedToken]])) return;
+        localStorage.setItem('coolify_url', trimmedUrl);
+        localStorage.setItem('coolify_api_token', trimmedToken);
         alert('הגדרות החיבור ל-Coolify נשמרו בהצלחה בדפדפן!');
     };
 
@@ -542,13 +577,14 @@ export default function Settings() {
             setCoolifyTestResult({ success: false, message: 'אנא הזן כתובת שרת ומפתח API לפני הבדיקה.' });
             return;
         }
+        const myId = ++coolifyTestId.current;
         setTestingCoolify(true);
         setCoolifyTestResult(null);
         try {
             // Simulated version/servers fetch with a timeout
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 5000);
-            
+
             const response = await fetch(`${coolifyUrl.trim()}/api/v1/servers`, {
                 method: 'GET',
                 headers: {
@@ -558,6 +594,7 @@ export default function Settings() {
                 signal: controller.signal
             });
             clearTimeout(timeoutId);
+            if (myId !== coolifyTestId.current) return; // a newer test superseded this one
             if (response.ok) {
                 setCoolifyTestResult({ success: true, message: 'החיבור לשרת Coolify הצליח! השרת מגיב כשורה.' });
             } else {
@@ -565,14 +602,23 @@ export default function Settings() {
             }
         } catch (err) {
             console.error("Error testing Coolify:", err);
-            // In browser Sandbox, CORS errors are common on direct requests.
-            // We report CORS warning but connection validity.
-            setCoolifyTestResult({ 
-                success: true, 
-                message: 'התקבלה שגיאת רשת/CORS (נורמלי בדפדפן). נתוני ההתחברות נשמרו ומוכנים לשימוש באוטומציות N8N מול השרת.' 
-            });
+            if (myId !== coolifyTestId.current) return;
+            // A network/CORS error here means the browser could not confirm the
+            // server actually responded - it is NOT proof the connection works,
+            // so we must not report success. Surface it as inconclusive/failed.
+            if (err.name === 'AbortError') {
+                setCoolifyTestResult({
+                    success: false,
+                    message: 'הבדיקה נכשלה - תם הזמן הקצוב (Timeout). ודא שכתובת השרת נכונה ונגישה.'
+                });
+            } else {
+                setCoolifyTestResult({
+                    success: false,
+                    message: 'לא ניתן לאמת את החיבור מהדפדפן (ככל הנראה חסימת CORS או שהשרת אינו נגיש). הנתונים נשמרו, אך יש לוודא בפועל שהאוטומציות ב-N8N אכן מתחברות לשרת בהצלחה.'
+                });
+            }
         } finally {
-            setTestingCoolify(false);
+            if (myId === coolifyTestId.current) setTestingCoolify(false);
         }
     };
 

@@ -115,7 +115,7 @@ export default function PricingCalculator() {
             // Hours Saved & ROI (we can assume basic site saves 5 hours per week manually, or more if chatbot is added)
             const savedHours = addons.chatbot || addons.survey ? 20 : 5;
             setHoursSaved(savedHours);
-            const gross = savedHours * parseFloat(employeeWage || 60);
+            const gross = savedHours * parseFloat(employeeWage || 0);
             setGrossSavings(gross);
 
             const netProfit = gross - totalMonthly;
@@ -145,9 +145,13 @@ export default function PricingCalculator() {
             }
             setGrossSavings(Math.round(gross));
 
-            // 4. Total Monthly Cost
+            // 4. Total Monthly Cost (includes overage billing beyond the SLA's run limit,
+            // matching the 0.05 ₪/run rate quoted in the warning box below)
             const retainerPrice = SLA_PACKAGES[selectedSla].price;
-            const totalMonthly = retainerPrice + parseFloat(thirdPartyCosts || 0);
+            const limit = SLA_PACKAGES[selectedSla].limit;
+            const excessRuns = Math.max(0, parseInt(monthlyVolume || 0) - limit);
+            const overageCost = excessRuns * 0.05;
+            const totalMonthly = retainerPrice + parseFloat(thirdPartyCosts || 0) + overageCost;
             setTotalMonthlyCost(Math.round(totalMonthly));
 
             // 5. Net Monthly Profit
@@ -163,12 +167,7 @@ export default function PricingCalculator() {
             }
 
             // 7. Check if monthly runs exceed package limit
-            const limit = SLA_PACKAGES[selectedSla].limit;
-            if (parseInt(monthlyVolume || 0) > limit) {
-                setShowWarning(true);
-            } else {
-                setShowWarning(false);
-            }
+            setShowWarning(excessRuns > 0);
         }
     }, [
         projectType, websiteType, addons, webSla,
@@ -278,9 +277,9 @@ export default function PricingCalculator() {
 
 🖥️ סוג האתר: ${webTypeName}
 ${activeAddons.length > 0 ? `✨ רכיבים ותוספות מתוכננים:\n${activeAddons.map(a => `  - ${a}`).join('\n')}\n` : ''}
-💰 עלויות הפרויקט:
-- עלות הקמה חד-פעמית (עיצוב, פיתוח ואינטגרציות): ${setupStr} ₪.
-- עלות חודשית שוטפת (אחסון, רישיונות ותחזוקה - ${slaName}): ${retainerPrice} ₪.
+💰 עלויות הפרויקט (לא כולל מע"מ):
+- עלות הקמה חד-פעמית (עיצוב, פיתוח ואינטגרציות): ${setupStr} ₪ + מע"מ.
+- עלות חודשית שוטפת (אחסון, רישיונות ותחזוקה - ${slaName}): ${retainerPrice} ₪ + מע"מ.
 
 📈 כדאיות ותועלת עסקית:
 - המערכות האינטראקטיביות באתר יחסכו לכם זמן עבודה יקר ויאפשרו איסוף לידים מסוננים ומאופיינים באופן אוטומטי.
@@ -300,9 +299,9 @@ ${activeAddons.length > 0 ? `✨ רכיבים ותוספות מתוכננים:\n
 - זמן עבודה שנחסך: ${hoursSaved} שעות בחודש.
 - חיסכון כספי ישיר לעסק: ${grossStr} ₪ בחודש.
 
-💰 עלויות המערכת:
-- עלות הקמה חד-פעמית - כולל פיתוח, שילוב AI וחיבור מערכות: ${setupStr} ₪.
-- ריטיינר חודשי קבוע - כולל תמיכה, ניטור וחבילת הרצות: ${SLA_PACKAGES[selectedSla].price.toLocaleString('he-IL')} ₪.
+💰 עלויות המערכת (לא כולל מע"מ):
+- עלות הקמה חד-פעמית - כולל פיתוח, שילוב AI וחיבור מערכות: ${setupStr} ₪ + מע"מ.
+- ריטיינר חודשי קבוע - כולל תמיכה, ניטור וחבילת הרצות: ${SLA_PACKAGES[selectedSla].price.toLocaleString('he-IL')} ₪ + מע"מ.
 
 📈 כדאיות כלכלית - ROI:
 - רווח נקי חודשי לעסק (לאחר קיזוז עלות שוטפת): ${netStr} ₪.
@@ -792,7 +791,7 @@ ${activeAddons.length > 0 ? `✨ רכיבים ותוספות מתוכננים:\n
                             }}>
                                 <span style={{ fontSize: '10.5px', color: netMonthlyProfit > 0 ? '#a78bfa' : '#f87171' }}>רווח נקי חודשי לעסק</span>
                                 <span style={{ fontSize: '20px', fontWeight: 'bold', color: netMonthlyProfit > 0 ? '#c084fc' : '#f87171' }}>
-                                    {netMonthlyProfit > 0 ? `₪${netMonthlyProfit.toLocaleString('he-IL')}` : `₪${netMonthlyProfit.toLocaleString('he-IL')}`}
+                                    {netMonthlyProfit >= 0 ? `₪${netMonthlyProfit.toLocaleString('he-IL')}` : `-₪${Math.abs(netMonthlyProfit).toLocaleString('he-IL')}`}
                                 </span>
                                 <span style={{ fontSize: '9px', color: 'var(--text-muted)' }}>לאחר קיזוז עלויות</span>
                             </div>

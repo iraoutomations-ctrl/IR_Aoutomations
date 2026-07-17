@@ -7,6 +7,7 @@ CREATE OR REPLACE FUNCTION check_automation_quota(p_automation_id UUID)
 RETURNS JSONB
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public, pg_temp
 AS $$
 DECLARE
     v_runs_count INTEGER := 0;
@@ -72,8 +73,10 @@ BEGIN
         END;
     END IF;
 
-    -- הגדרת גבול 7 ימים למניעת כפל ספירה מול ה-Daily Rollups (בדומה למיזוג בפרונטאנד)
-    v_cutoff := NOW() - INTERVAL '7 days';
+    -- הגדרת גבול 7 ימים (חצות מדויקת) למניעת פער/כפל ספירה מול ה-Daily Rollups.
+    -- שימוש בחצות (ולא ב-NOW() עם שעה מדויקת) מבטיח שהצומת בין שתי השאילתות
+    -- למטה מכסה כל יום פעם אחת בדיוק, ולא משאיר "חור" חלקי ביום הגבול.
+    v_cutoff := date_trunc('day', NOW() - INTERVAL '7 days');
 
     -- 3. ספירת ריצות מפורטות מהשבוע האחרון (בחודש הנוכחי)
     SELECT COALESCE(COUNT(*)::INTEGER, 0)
@@ -83,7 +86,8 @@ BEGIN
       AND created_at >= date_trunc('month', now())
       AND created_at >= v_cutoff
       -- סינון ריצות שנחסמו כדי שלא יאכלו את המכסה במידה ונגדיל אותה
-      AND (status != 'error' OR error_type NOT LIKE '%נחסמה%');
+      -- (COALESCE מונע מריצות שגיאה עם error_type ריק/NULL "ליפול" בשקט מהספירה)
+      AND (status != 'error' OR COALESCE(error_type, '') NOT LIKE '%נחסמה%');
 
     -- 4. ספירת ריצות היסטוריות מה-Daily Rollups (מעבר ל-7 ימים, בחודש הנוכחי)
     SELECT COALESCE(SUM(total_runs)::INTEGER, 0)

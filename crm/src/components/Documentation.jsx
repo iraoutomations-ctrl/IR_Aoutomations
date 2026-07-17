@@ -40,9 +40,13 @@ export default function Documentation() {
     ];
 
     const copyToClipboard = (text, key) => {
-        navigator.clipboard.writeText(text);
-        setCopiedText(key);
-        setTimeout(() => setCopiedText(null), 2000);
+        navigator.clipboard.writeText(text).then(() => {
+            setCopiedText(key);
+            setTimeout(() => setCopiedText(null), 2000);
+        }).catch(err => {
+            console.error("Failed to copy to clipboard:", err);
+            alert("ההעתקה ללוח נכשלה. ייתכן שהדפדפן חוסם גישה ללוח ההעתקה.");
+        });
     };
 
     // Dictionary of all tables and columns
@@ -718,7 +722,7 @@ $$;
             { "name": "n8n_workflow_id", "value": "={{ $workflow.id }}" },
             { "name": "status", "value": "blocked" },
             { "name": "duration_ms", "value": "0" },
-            { "name": "details", "value": "{\"reason\":\"Quota exceeded / Account blocked\"}" }
+            { "name": "details", "value": "{\\"reason\\":\\"Quota exceeded / Account blocked\\"}" }
           ]
         },
         "options": {}
@@ -767,7 +771,7 @@ $$;
             { "name": "n8n_workflow_id", "value": "={{ $workflow.id }}" },
             { "name": "status", "value": "success" },
             { "name": "duration_ms", "value": "={{ new Date().getTime() - $('init-timer').first().json.startTime }}" },
-            { "name": "details", "value": "{\"message\":\"האוטומציה בוצעה בהצלחה\"}" }
+            { "name": "details", "value": "{\\"message\\":\\"האוטומציה בוצעה בהצלחה\\"}" }
           ]
         },
         "options": {}

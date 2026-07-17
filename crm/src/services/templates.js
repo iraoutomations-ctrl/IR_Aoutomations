@@ -328,6 +328,136 @@ export const TEMPLATE_HTMLS = {
         </div>
     `,
 
+    discovery: `
+        <h1>מסמך איפיון ראשוני – מיפוי אפשרויות אוטומציה ודרישות</h1>
+
+        <h2>1. פרטי הפרויקט והלקוח</h2>
+        <table class="data-table">
+            <tr>
+                <th width="30%">עבור לקוח / חברה:</th>
+                <td>[שם הלקוח / שם החברה]</td>
+            </tr>
+            <tr>
+                <th>תאריך הפקה:</th>
+                <td>\${new Date().toLocaleDateString('he-IL')}</td>
+            </tr>
+            <tr>
+                <th>שלב בתהליך:</th>
+                <td>איפיון ראשוני - טרם נבחרה אפשרות סופית ליישום</td>
+            </tr>
+            <tr>
+                <th>נכתב על ידי:</th>
+                <td><span dir="ltr">autoRI-studio</span></td>
+            </tr>
+        </table>
+
+        <h2>2. רקע ומטרות</h2>
+        <p>מסמך זה מסכם את שיחות האפיון הראשוניות עם הלקוח, וממפה את מכלול האפשרויות הטכנולוגיות הרלוונטיות לפתרון הצרכים העסקיים שהועלו. מטרת המסמך היא לאפשר ללקוח לבחור, מתוך מספר כיווני פעולה, את האפשרות (או שילוב האפשרויות) המתאימה ביותר להמשך פיתוח - בטרם מעבר לשלב מסמך האפיון הטכני הסופי והמחייב.</p>
+
+        <h2>3. מיפוי אפשרויות האוטומציה</h2>
+
+        <h3>אפשרות 1: [שם האפשרות]</h3>
+        <p><strong>תיאור:</strong> [תיאור ההזדמנות / הבעיה שהאפשרות פותרת, ואופן הפעולה המוצע]</p>
+        <table class="data-table">
+            <tr>
+                <th width="30%">מערכות מעורבות:</th>
+                <td>[רשימת מערכות ואינטגרציות]</td>
+            </tr>
+            <tr>
+                <th>מורכבות משוערת:</th>
+                <td>[נמוכה / בינונית / גבוהה]</td>
+            </tr>
+            <tr>
+                <th>השפעה עסקית משוערת:</th>
+                <td>[תיאור התועלת הצפויה - חיסכון בזמן, הגדלת מכירות וכו']</td>
+            </tr>
+        </table>
+        <p><strong>דרישות גישה ומשאבים נדרשים מהלקוח למימוש אפשרות זו:</strong></p>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th width="40%">פריט נדרש</th>
+                    <th width="30%">סוג</th>
+                    <th width="30%">הערות</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>[לדוגמה: הרשאת אדמין למערכת קיימת של הלקוח]</td>
+                    <td>גישת משתמש</td>
+                    <td>[פרטים נוספים]</td>
+                </tr>
+                <tr>
+                    <td>[לדוגמה: יצירת חשבון מפתח / API Key בפלטפורמה מסוימת]</td>
+                    <td>מפתח API</td>
+                    <td>[פרטים נוספים]</td>
+                </tr>
+                <tr>
+                    <td>[לדוגמה: רכישת מנוי / שדרוג תוכנית בפלטפורמה נדרשת]</td>
+                    <td>רכישה / מנוי</td>
+                    <td>[פרטים נוספים]</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3>אפשרות 2: [שם האפשרות]</h3>
+        <p><strong>תיאור:</strong> [תיאור ההזדמנות / הבעיה שהאפשרות פותרת, ואופן הפעולה המוצע]</p>
+        <table class="data-table">
+            <tr>
+                <th width="30%">מערכות מעורבות:</th>
+                <td>[רשימת מערכות ואינטגרציות]</td>
+            </tr>
+            <tr>
+                <th>מורכבות משוערת:</th>
+                <td>[נמוכה / בינונית / גבוהה]</td>
+            </tr>
+            <tr>
+                <th>השפעה עסקית משוערת:</th>
+                <td>[תיאור התועלת הצפויה]</td>
+            </tr>
+        </table>
+        <p><strong>דרישות גישה ומשאבים נדרשים מהלקוח למימוש אפשרות זו:</strong> [פירוט הרשאות, משתמשים, סיסמאות ומנויים נדרשים]</p>
+
+        <h2>4. טבלת השוואה מסכמת</h2>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th width="25%">אפשרות</th>
+                    <th width="20%">מורכבות</th>
+                    <th width="20%">עלות הקמה משוערת</th>
+                    <th width="20%">זמן פיתוח משוער</th>
+                    <th width="15%">עדיפות מומלצת</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>אפשרות 1: [שם]</td>
+                    <td>[נמוכה / בינונית / גבוהה]</td>
+                    <td>[סכום בשקלים]</td>
+                    <td>[X ימי עסקים]</td>
+                    <td>[גבוהה / בינונית / נמוכה]</td>
+                </tr>
+                <tr>
+                    <td>אפשרות 2: [שם]</td>
+                    <td>[נמוכה / בינונית / גבוהה]</td>
+                    <td>[סכום בשקלים]</td>
+                    <td>[X ימי עסקים]</td>
+                    <td>[גבוהה / בינונית / נמוכה]</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h2>5. המלצת הסטודיו ושלבי המשך</h2>
+        <div class="info-box">
+            <div class="info-box-title">המלצה:</div>
+            <p>[המלצת הסטודיו לגבי האפשרות / האפשרויות המומלצות למימוש ראשוני, ונימוק קצר]</p>
+        </div>
+        <div class="alert-box">
+            <div class="alert-box-title">שלב הבא בתהליך:</div>
+            <p>לאחר בחירת הלקוח באפשרות (או באפשרויות) הרצויה מתוך מסמך זה, יופק <strong>מסמך אפיון טכני וארכיטקטורה</strong> מפורט ומחייב עבור האפשרות שנבחרה, הכולל את כל שלבי הזרימה הטכניים, טיפול בשגיאות ולוחות זמנים מדויקים.</p>
+        </div>
+    `,
+
     spec: `
         <h1>מסמך אפיון טכני וארכיטקטורה <span dir="ltr">(Technical Spec)</span></h1>
         
@@ -668,6 +798,7 @@ export const downloadTemplate = (type, data = {}) => {
         proposal: 'proposal_template',
         contract: 'contract_template',
         nda: 'nda_template',
+        discovery: 'initial_discovery_template',
         spec: 'technical_spec_template',
         credentials: 'credentials_vault_template',
         handover: 'handover_protocol_template',
@@ -679,6 +810,7 @@ export const downloadTemplate = (type, data = {}) => {
         proposal: 'הצעת מחיר לפרויקט אוטומציה',
         contract: 'הסכם פיתוח ותחזוקת אוטומציות',
         nda: 'הסכם שמירת סודיות (NDA)',
+        discovery: 'מסמך איפיון ראשוני - מיפוי אפשרויות אוטומציה',
         spec: 'מסמך אפיון טכני וארכיטקטורה',
         credentials: 'כרטיס גישות ומזהי מערכת',
         handover: 'פרוטוקול מסירה ואישור הפעלה',
@@ -704,7 +836,9 @@ export const downloadTemplate = (type, data = {}) => {
             .replace(/\[שם הלקוח \/ שם החברה\]/g, companyName)
             .replace(/\[שם החברה\]/g, companyName)
             .replace(/\[שם הלקוח\]/g, clientName)
-            .replace(/\[מספר חברה\]/g, clientPhone)
+            // No company registration number (ח.פ./ע.מ.) is collected anywhere in the
+            // lead data model - leave this placeholder for staff to fill in manually
+            // rather than silently substituting the client's phone number for it.
             .replace(/\[טלפון\]/g, clientPhone)
             .replace(/\[אימייל\]/g, clientEmail);
 

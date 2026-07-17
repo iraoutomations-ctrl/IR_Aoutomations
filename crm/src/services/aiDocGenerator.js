@@ -1,6 +1,7 @@
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import { db } from './db';
+import { callGeminiWithFallback } from './geminiClient';
 
 // Pricing configuration maps matching PricingCalculator.jsx
 const WEBSITE_TYPES = {
@@ -28,6 +29,39 @@ const SLA_PACKAGES = {
     premium: { name: 'Premium', limit: 5000, price: 1000 },
     enterprise: { name: 'Enterprise', limit: 20000, price: 3000 }
 };
+
+// Recursively HTML-escapes every string in an object/array so lead- or AI-derived
+// text (business_name, contact_name, AI narrative fields, etc.) can never break out
+// of the generated HTML when it is later set via innerHTML in htmlToPdfBlob().
+function escapeHtmlDeep(value) {
+    if (typeof value === 'string') {
+        return value
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+    if (Array.isArray(value)) {
+        return value.map(escapeHtmlDeep);
+    }
+    if (value && typeof value === 'object') {
+        const out = {};
+        for (const key of Object.keys(value)) {
+            out[key] = escapeHtmlDeep(value[key]);
+        }
+        return out;
+    }
+    return value;
+}
+
+// There is no real e-signature/verification system behind these documents yet
+// (see roadmap: Auto-Doc & E-Sign is still planned, not built) - this generates
+// a unique per-document reference instead of the same hardcoded "SEC-SIG-84920A"
+// that used to appear identically on every proposal/contract/NDA, which read as
+// obviously fake to anyone who noticed two documents shared the same "ID".
+function generateSignatureId() {
+    return `SEC-SIG-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+}
 
 /**
  * Parses raw specification text and pricing into structured JSON data using Gemini API
@@ -107,22 +141,16 @@ ${rawSpec}
 הפלט חייב להיות אובייקט JSON תקין בלבד! אל תעטוף אותו ב-markdown (ללא \`\`\`json) ואל תוסיף שום טקסט לפני או אחרי.
 `;
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            contents: [{
-                parts: [{
-                    text: prompt
-                }]
-            }],
-            generationConfig: {
-                responseMimeType: "application/json"
-            }
-        })
-    });
+    const response = await callGeminiWithFallback({
+        contents: [{
+            parts: [{
+                text: prompt
+            }]
+        }],
+        generationConfig: {
+            responseMimeType: "application/json"
+        }
+    }, apiKey);
 
     if (!response.ok) {
         throw new Error(`שגיאה בפנייה ל-Gemini API: ${response.status} ${response.statusText}`);
@@ -368,6 +396,7 @@ const documentStyle = `
  * Builds the HTML content for the Proposal
  */
 export function buildProposalHtml(data) {
+    const docSignatureId = generateSignatureId();
     const includeAutomation = data.pricing?.include_automation !== false;
     const includeWebsite = !!data.pricing?.include_website;
     const isWebsiteOnly = includeWebsite && !includeAutomation;
@@ -651,7 +680,7 @@ export function buildProposalHtml(data) {
         `;
     }
 
-    const totalExecutions = data.executions_summary?.total_monthly_executions.toLocaleString('he-IL') || '2,200';
+    const totalExecutions = data.executions_summary?.total_monthly_executions?.toLocaleString('he-IL') || '2,200';
 
     let executionsSectionHtml = '';
     if (includeAutomation) {
@@ -895,8 +924,8 @@ export function buildProposalHtml(data) {
                             <div class="sig-details">
                                 <div class="sig-text">autoRI-studio</div>
                                 <div class="sig-meta">נחתם דיגיטלית מאובטח</div>
-                                <div class="sig-meta">מזהה: SEC-SIG-84920A</div>
-                                <div class="sig-meta">זמן: ${new Date().toLocaleString('he-IL')} | IP: 192.168.1.100</div>
+                                <div class="sig-meta">מזהה: ${docSignatureId}</div>
+                                <div class="sig-meta">זמן: ${new Date().toLocaleString('he-IL')}</div>
                             </div>
                         </div>
                     </div>
@@ -914,6 +943,7 @@ export function buildProposalHtml(data) {
 
 
 export function buildContractHtml(data) {
+    const docSignatureId = generateSignatureId();
     const includeAutomation = data.pricing?.include_automation !== false;
     const includeWebsite = !!data.pricing?.include_website;
     const isWebsiteOnly = includeWebsite && !includeAutomation;
@@ -1154,8 +1184,8 @@ export function buildContractHtml(data) {
                             <div class="sig-details">
                                 <div class="sig-text">autoRI-studio</div>
                                 <div class="sig-meta">נחתם דיגיטלית מאובטח</div>
-                                <div class="sig-meta">מזהה: SEC-SIG-84920A</div>
-                                <div class="sig-meta">זמן: ${new Date().toLocaleString('he-IL')} | IP: 192.168.1.100</div>
+                                <div class="sig-meta">מזהה: ${docSignatureId}</div>
+                                <div class="sig-meta">זמן: ${new Date().toLocaleString('he-IL')}</div>
                             </div>
                         </div>
                     </div>
@@ -1173,6 +1203,7 @@ export function buildContractHtml(data) {
 
 
 export function buildNdaHtml(data) {
+    const docSignatureId = generateSignatureId();
     return `
         <div class="nda-container">
             ${documentStyle}
@@ -1259,8 +1290,8 @@ export function buildNdaHtml(data) {
                             <div class="sig-details">
                                 <div class="sig-text">autoRI-studio</div>
                                 <div class="sig-meta">נחתם דיגיטלית מאובטח</div>
-                                <div class="sig-meta">מזהה: SEC-SIG-84920A</div>
-                                <div class="sig-meta">זמן: ${new Date().toLocaleString('he-IL')} | IP: 192.168.1.100</div>
+                                <div class="sig-meta">מזהה: ${docSignatureId}</div>
+                                <div class="sig-meta">זמן: ${new Date().toLocaleString('he-IL')}</div>
                             </div>
                         </div>
                     </div>
@@ -1515,8 +1546,12 @@ export async function generateAndUploadDocuments(rawSpec, setupCost, lead, custo
         website_reason: recomWebReason
     };
 
-    const isWebsite = parsedData.pricing.project_type === 'website';
-    const isBoth = parsedData.pricing.project_type === 'both';
+    // Escape all lead-/AI-derived text before it is interpolated into HTML that
+    // htmlToPdfBlob() later sets via innerHTML on a live DOM node.
+    const safeData = escapeHtmlDeep(parsedData);
+
+    const isWebsite = safeData.pricing.project_type === 'website';
+    const isBoth = safeData.pricing.project_type === 'both';
 
     let proposalName = 'הצעת מחיר לפרויקט אוטומציה ו-AI';
     if (isWebsite) proposalName = 'הצעת מחיר לבניית אתר לעסק';
@@ -1530,19 +1565,19 @@ export async function generateAndUploadDocuments(rawSpec, setupCost, lead, custo
         {
             type: 'proposal',
             name: proposalName,
-            html: buildProposalHtml(parsedData),
+            html: buildProposalHtml(safeData),
             fileName: 'Proposal.pdf'
         },
         {
             type: 'contract',
             name: contractName,
-            html: buildContractHtml(parsedData),
+            html: buildContractHtml(safeData),
             fileName: 'Contract.pdf'
         },
         {
             type: 'nda',
             name: 'הסכם שמירת סודיות NDA',
-            html: buildNdaHtml(parsedData),
+            html: buildNdaHtml(safeData),
             fileName: 'NDA.pdf'
         }
     ];

@@ -1,11 +1,15 @@
 /* ==========================================================================
    autoRI-studio CRM - Add Lead Manually Component
    ========================================================================== */
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { X, Plus, User } from 'lucide-react';
 import { db } from '../services/db';
+import { useModalA11y } from '../hooks/useModalA11y';
 
 export default function AddLeadModal({ onClose, onLeadAdded }) {
+    const modalRef = useRef(null);
+    useModalA11y(modalRef, onClose);
+
     const [name, setName] = useState('');
     const [company, setCompany] = useState('');
     const [phone, setPhone] = useState('');
@@ -18,10 +22,35 @@ export default function AddLeadModal({ onClose, onLeadAdded }) {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!name.trim()) return;
+        if (!name.trim()) {
+            alert('אנא הזן שם מלא (לא ניתן להזין רק רווחים).');
+            return;
+        }
 
         try {
             setLoading(true);
+
+            // Warn (but don't hard-block) on a likely duplicate by phone/email,
+            // since staff has no other way to notice one before saving.
+            const trimmedPhone = phone.trim();
+            const trimmedEmail = email.trim();
+            if (trimmedPhone || trimmedEmail) {
+                const existingLeads = await db.getLeads();
+                const duplicate = existingLeads.find(l =>
+                    (trimmedPhone && l.phone === trimmedPhone) ||
+                    (trimmedEmail && l.email === trimmedEmail)
+                );
+                if (duplicate) {
+                    const proceed = window.confirm(
+                        `כבר קיים ליד עם אותו טלפון/אימייל: "${duplicate.name}". להמשיך וליצור ליד נוסף בכל זאת?`
+                    );
+                    if (!proceed) {
+                        setLoading(false);
+                        return;
+                    }
+                }
+            }
+
             const newLead = {
                 name: name.trim(),
                 company: company.trim() || null,
@@ -48,14 +77,23 @@ export default function AddLeadModal({ onClose, onLeadAdded }) {
 
     return (
         <div className="modal-overlay" onClick={onClose}>
-            <div className="modal-card glass-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '550px' }}>
+            <div
+                ref={modalRef}
+                className="modal-card glass-card"
+                onClick={(e) => e.stopPropagation()}
+                style={{ maxWidth: '550px' }}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="add-lead-modal-title"
+                tabIndex={-1}
+            >
                 {/* Header */}
                 <div className="modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '14px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                         <User size={20} style={{ color: '#8b5cf6' }} />
-                        <h2 style={{ fontSize: '18px', margin: '0', color: 'var(--text-light)' }}>הוספת ליד ידני חדש</h2>
+                        <h2 id="add-lead-modal-title" style={{ fontSize: '18px', margin: '0', color: 'var(--text-light)' }}>הוספת ליד ידני חדש</h2>
                     </div>
-                    <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex' }}>
+                    <button onClick={onClose} aria-label="סגור חלון" style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex' }}>
                         <X size={20} />
                     </button>
                 </div>

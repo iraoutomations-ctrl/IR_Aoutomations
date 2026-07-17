@@ -122,9 +122,13 @@ BEGIN
 END; $$;`;
 
     const copySqlToClipboard = () => {
-        navigator.clipboard.writeText(sqlSetupCode);
-        setCopiedText(true);
-        setTimeout(() => setCopiedText(false), 2000);
+        navigator.clipboard.writeText(sqlSetupCode).then(() => {
+            setCopiedText(true);
+            setTimeout(() => setCopiedText(false), 2000);
+        }).catch(err => {
+            console.error("Failed to copy to clipboard:", err);
+            alert("ההעתקה ללוח נכשלה. ייתכן שהדפדפן חוסם גישה ללוח ההעתקה.");
+        });
     };
 
     // --------------------------------------------------
@@ -337,7 +341,7 @@ END; $$;`;
                                     </thead>
                                     <tbody>
                                         {metrics && metrics.tables && metrics.tables.length > 0 ? (
-                                            metrics.tables
+                                            [...metrics.tables]
                                                 .sort((a, b) => b.size_bytes - a.size_bytes)
                                                 .map((table, idx) => (
                                                     <tr key={idx} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)', transition: 'background 0.2s' }} className="table-row-hover">

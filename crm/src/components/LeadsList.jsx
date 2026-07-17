@@ -60,19 +60,19 @@ export default function LeadsList({ onSelectLead, activeTab, onAddLead, refreshT
             const ind = l.survey_data?.industry || l.chatbot_session?.industry || 'general';
             return [
                 new Date(l.created_at).toLocaleDateString('he-IL'),
-                l.name,
-                l.phone,
-                l.email,
+                l.name || '',
+                l.phone || '',
+                l.email || '',
                 l.company || '',
-                l.status,
-                l.source,
+                l.status || '',
+                l.source || '',
                 ind
             ];
         });
-        
+
         // Add BOM for Excel Hebrew support
         let csvContent = '\uFEFF';
-        csvContent += [headers.join(','), ...rows.map(e => e.map(val => `"${val.replace(/"/g, '""')}"`).join(','))].join('\n');
+        csvContent += [headers.join(','), ...rows.map(e => e.map(val => `"${String(val).replace(/"/g, '""')}"`).join(','))].join('\n');
         
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
@@ -88,11 +88,12 @@ export default function LeadsList({ onSelectLead, activeTab, onAddLead, refreshT
     // Filter and Search logic
     const filteredLeads = leads.filter(lead => {
         // Search filter
-        const matchesSearch = 
-            lead.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            lead.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            lead.phone.includes(searchTerm) ||
-            (lead.company && lead.company.toLowerCase().includes(searchTerm.toLowerCase()));
+        const term = searchTerm.toLowerCase();
+        const matchesSearch =
+            (lead.name || '').toLowerCase().includes(term) ||
+            (lead.email || '').toLowerCase().includes(term) ||
+            (lead.phone || '').includes(searchTerm) ||
+            (lead.company || '').toLowerCase().includes(term);
 
         // Status filter
         const matchesStatus = statusFilter === 'all' || lead.status === statusFilter;

@@ -66,12 +66,23 @@ export default function Dashboard({ onSelectLead, activeTab, alerts = [], refres
     // Incomplete tasks
     const openTasks = tasks.filter(t => !t.completed).length;
     
+    // Local (not UTC) calendar date as YYYY-MM-DD. toISOString()/string-slicing
+    // a timestamp gives the UTC date, which is a day behind the real local date
+    // for part of every evening/early-morning in Israel (UTC+2/+3) - that made
+    // "today"/"overdue" task checks flip a day early or late around midnight.
+    const toLocalDateStr = (d) => {
+        const yyyy = d.getFullYear();
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        return `${yyyy}-${mm}-${dd}`;
+    };
+
     // Today's / Overdue tasks
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = toLocalDateStr(new Date());
     const todayTasks = tasks.filter(t => {
         if (t.completed) return false;
         if (!t.due_date) return false;
-        const taskDateStr = t.due_date.split('T')[0];
+        const taskDateStr = toLocalDateStr(new Date(t.due_date));
         return taskDateStr <= todayStr; // due today or overdue
     }).sort((a, b) => new Date(a.due_date) - new Date(b.due_date));
 
@@ -103,16 +114,17 @@ export default function Dashboard({ onSelectLead, activeTab, alerts = [], refres
     const last7Days = Array.from({ length: 7 }, (_, i) => {
         const d = new Date();
         d.setDate(d.getDate() - i);
-        return d.toISOString().split('T')[0];
+        return toLocalDateStr(d);
     }).reverse();
 
     const leadsByDay = last7Days.map(dateStr => {
-        const count = leads.filter(l => l.created_at.split('T')[0] === dateStr).length;
+        const count = leads.filter(l => toLocalDateStr(new Date(l.created_at)) === dateStr).length;
         const label = new Date(dateStr).toLocaleDateString('he-IL', { weekday: 'short' });
         return { dateStr, label, count };
     });
 
     const maxDayCount = Math.max(...leadsByDay.map(d => d.count), 1);
+    const leadsByDaySummary = `קצב גידול לידים ב-7 הימים האחרונים: ${leadsByDay.map(d => `${d.label} ${d.count}`).join(', ')}.`;
 
     // Helper to find lead name for task display
     const getLeadName = (leadId) => {
@@ -192,7 +204,7 @@ export default function Dashboard({ onSelectLead, activeTab, alerts = [], refres
                                 return (
                                     <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                         <div style={{ width: '90px', fontSize: '13px', color: 'var(--text-secondary)' }}>
-                                            {industryLabels[key]}
+                                            {industryLabels[key] || key}
                                         </div>
                                         <div style={{ flex: 1, height: '16px', background: 'rgba(255, 255, 255, 0.03)', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-color)' }}>
                                             <div 
@@ -221,7 +233,7 @@ export default function Dashboard({ onSelectLead, activeTab, alerts = [], refres
                         
                         {/* Custom SVG Line/Area Chart */}
                         <div style={{ position: 'relative', height: '180px', width: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
-                            <svg viewBox="0 0 500 120" style={{ width: '100%', height: '120px' }}>
+                            <svg viewBox="0 0 500 120" style={{ width: '100%', height: '120px' }} role="img" aria-label={leadsByDaySummary}>
                                 <defs>
                                     <linearGradient id="chartGlow" x1="0" y1="0" x2="0" y2="1">
                                         <stop offset="0%" stopColor="#8b5cf6" stopOpacity="0.4" />
@@ -331,7 +343,7 @@ export default function Dashboard({ onSelectLead, activeTab, alerts = [], refres
                             </div>
                         ) : (
                             todayTasks.map(task => {
-                                const isOverdue = task.due_date.split('T')[0] < todayStr;
+                                const isOverdue = toLocalDateStr(new Date(task.due_date)) < todayStr;
                                 const depTask = task.depends_on_task_id ? tasks.find(t => t.id === task.depends_on_task_id) : null;
                                 const isBlocked = depTask ? !depTask.completed : false;
                                 return (

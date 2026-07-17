@@ -1,19 +1,21 @@
 /* ==========================================================================
    autoRI-studio CRM - Sidebar Component
    ========================================================================== */
-import React, { useState } from 'react';
-import { 
-    LayoutDashboard, 
-    Columns, 
-    Users, 
+import React, { useState, useRef } from 'react';
+import { useModalA11y } from '../hooks/useModalA11y';
+import {
+    LayoutDashboard,
+    Columns,
+    Users,
     Settings as SettingsIcon,
-    Database, 
+    Database,
     Cpu,
     Briefcase,
     Bell,
     Trash2,
     CheckCheck,
     X,
+    Menu,
     Calculator,
     BookOpen,
     Map,
@@ -33,6 +35,11 @@ export default function Sidebar({
     onDeleteAllAlerts
 }) {
     const [showNotifications, setShowNotifications] = useState(false);
+    const drawerRef = useRef(null);
+    useModalA11y(drawerRef, () => setShowNotifications(false), showNotifications);
+
+    // Off-canvas sidebar state for mobile (<=768px) - see .sidebar / .mobile-nav-toggle in index.css
+    const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
     const handleLogout = async () => {
         if (confirm("האם אתה בטוח שברצונך להתנתק מהמערכת?")) {
@@ -59,7 +66,24 @@ export default function Sidebar({
 
     return (
         <>
-            <aside className="sidebar">
+            {/* Hamburger toggle - only visible below 768px, see index.css */}
+            <button
+                type="button"
+                className="mobile-nav-toggle"
+                onClick={() => setMobileNavOpen(prev => !prev)}
+                aria-label={mobileNavOpen ? 'סגור תפריט' : 'פתח תפריט'}
+                aria-expanded={mobileNavOpen}
+            >
+                {mobileNavOpen ? <X size={20} /> : <Menu size={20} />}
+            </button>
+
+            {/* Backdrop behind the off-canvas sidebar on mobile */}
+            <div
+                className={`sidebar-backdrop ${mobileNavOpen ? 'mobile-open' : ''}`}
+                onClick={() => setMobileNavOpen(false)}
+            />
+
+            <aside className={`sidebar ${mobileNavOpen ? 'mobile-open' : ''}`}>
                 <div style={{ display: 'flex', flexDirection: 'column', height: '100%', justifyContent: 'space-between' }}>
                     <div>
                         {/* Branding Logo */}
@@ -74,16 +98,19 @@ export default function Sidebar({
                                 const Icon = item.icon;
                                 return (
                                     <li key={item.id}>
-                                        <div 
+                                        <button
+                                            type="button"
                                             className={`sidebar-link ${activeTab === item.id ? 'active' : ''}`}
                                             onClick={() => {
                                                 setActiveTab(item.id);
                                                 setShowNotifications(false);
+                                                setMobileNavOpen(false);
                                             }}
+                                            style={{ width: '100%', border: 'none', background: 'none', textAlign: 'right', font: 'inherit' }}
                                         >
                                             <Icon size={18} />
                                             <span>{item.label}</span>
-                                        </div>
+                                        </button>
                                     </li>
                                 );
                             })}
@@ -182,11 +209,19 @@ export default function Sidebar({
             {/* Slide-out Notifications Drawer Overlay */}
             {showNotifications && (
                 <div className="notifications-drawer-overlay" onClick={() => setShowNotifications(false)}>
-                    <div className="notifications-drawer glass-card" onClick={e => e.stopPropagation()}>
+                    <div
+                        ref={drawerRef}
+                        className="notifications-drawer glass-card"
+                        onClick={e => e.stopPropagation()}
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="notifications-drawer-title"
+                        tabIndex={-1}
+                    >
                         <div className="drawer-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', borderBottom: '1px solid var(--border-color)', paddingBottom: '14px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                 <Bell size={18} style={{ color: '#8b5cf6' }} />
-                                <h3 style={{ fontSize: '15px', margin: '0', color: 'var(--text-light)' }}>התראות מערכת (N8N)</h3>
+                                <h3 id="notifications-drawer-title" style={{ fontSize: '15px', margin: '0', color: 'var(--text-light)' }}>התראות מערכת (N8N)</h3>
                             </div>
                             <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                                 {unreadCount > 0 && (
@@ -209,7 +244,7 @@ export default function Sidebar({
                                         נקה הכל
                                     </button>
                                 )}
-                                <button onClick={() => setShowNotifications(false)} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', padding: '4px' }}>
+                                <button onClick={() => setShowNotifications(false)} aria-label="סגור התראות" style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', padding: '4px' }}>
                                     <X size={18} />
                                 </button>
                             </div>

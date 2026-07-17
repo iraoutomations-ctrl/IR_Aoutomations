@@ -22,6 +22,12 @@ const COLUMNS = [
     { id: 'lost', title: 'אבוד (Lost)', color: '#ef4444', icon: XCircle }
 ];
 
+const KNOWN_STATUSES = new Set(COLUMNS.map(c => c.id));
+// Leads whose status doesn't match any known column (null, legacy, or a
+// stray value) fall back to "new" so they stay visible instead of silently
+// disappearing from the board.
+const getColumnId = (lead) => KNOWN_STATUSES.has(lead.status) ? lead.status : 'new';
+
 export default function KanbanBoard({ onSelectLead, activeTab, onAddLead, refreshTrigger }) {
     const [leads, setLeads] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -86,35 +92,41 @@ export default function KanbanBoard({ onSelectLead, activeTab, onAddLead, refres
         e.preventDefault();
     };
 
-    const handleDrop = async (e, targetStatus) => {
+    // Shared by drag-and-drop (desktop) and the per-card status <select>
+    // (the touch/mobile fallback, since HTML5 drag-and-drop doesn't work on
+    // touch devices) so both paths get the same gating, optimistic update,
+    // and error handling.
+    const changeLeadStatus = async (leadId, targetStatus) => {
+        const lead = leads.find(l => l.id === leadId);
+        if (!lead || lead.status === targetStatus) return;
+
+        try {
+            const currentDocs = await db.getDocuments(leadId);
+            const validation = validateStatusTransition(targetStatus, currentDocs);
+            if (!validation.valid) {
+                alert(validation.error);
+                return;
+            }
+
+            // Optimistic UI update
+            setLeads(prev => prev.map(l => l.id === leadId ? { ...l, status: targetStatus } : l));
+
+            // Update in database
+            await db.updateLeadStatus(leadId, targetStatus);
+        } catch (err) {
+            console.error("Error updating lead status:", err);
+            alert("עדכון הסטטוס נכשל. הליד יוחזר למצבו הקודם, נסה שוב.");
+            // Revert state on error
+            const reFetched = await db.getLeads();
+            setLeads(reFetched);
+        }
+    };
+
+    const handleDrop = (e, targetStatus) => {
         e.preventDefault();
         const leadId = e.dataTransfer.getData('text/plain');
         if (!leadId) return;
-
-        // Find the lead in local state
-        const lead = leads.find(l => l.id === leadId);
-        if (lead && lead.status !== targetStatus) {
-            try {
-                // Fetch documents for gating validation
-                const currentDocs = await db.getDocuments(leadId);
-                const validation = validateStatusTransition(targetStatus, currentDocs);
-                if (!validation.valid) {
-                    alert(validation.error);
-                    return;
-                }
-
-                // Optimistic UI update
-                setLeads(prev => prev.map(l => l.id === leadId ? { ...l, status: targetStatus } : l));
-                
-                // Update in database
-                await db.updateLeadStatus(leadId, targetStatus);
-            } catch (err) {
-                console.error("Error updating lead status via drag & drop:", err);
-                // Revert state on error
-                const reFetched = await db.getLeads();
-                setLeads(reFetched);
-            }
-        }
+        changeLeadStatus(leadId, targetStatus);
     };
 
     if (loading) {
@@ -168,7 +180,7 @@ export default function KanbanBoard({ onSelectLead, activeTab, onAddLead, refres
             {/* Kanban columns grid */}
             <div className="kanban-container">
                 {COLUMNS.map(col => {
-                    const colLeads = leads.filter(l => l.status === col.id);
+                    const colLeads = leads.filter(l => getColumnId(l) === col.id);
                     const ColIcon = col.icon;
                     
                     return (
@@ -257,6 +269,26 @@ export default function KanbanBoard({ onSelectLead, activeTab, onAddLead, refres
                                                         {lead.source === 'survey' ? 'שאלון' : lead.source === 'chatbot' ? 'צ׳אטבוט' : 'צור קשר'}
                                                     </span>
                                                 </div>
+
+                                                {/* Status dropdown - the touch/mobile fallback for changing
+                                                    status, since HTML5 drag-and-drop doesn't work on touch devices */}
+                                                <select
+                                                    value={getColumnId(lead)}
+                                                    onClick={(e) => e.stopPropagation()}
+                                                    onChange={(e) => changeLeadStatus(lead.id, e.target.value)}
+                                                    aria-label="שנה סטטוס"
+                                                    style={{
+                                                        width: '100%', marginTop: '8px', fontSize: '10.5px',
+                                                        padding: '5px 6px', borderRadius: '5px',
+                                                        background: 'rgba(255,255,255,0.03)',
+                                                        border: '1px solid var(--border-color)',
+                                                        color: 'var(--text-secondary)', cursor: 'pointer'
+                                                    }}
+                                                >
+                                                    {COLUMNS.map(c => (
+                                                        <option key={c.id} value={c.id}>{c.title}</option>
+                                                    ))}
+                                                </select>
                                             </div>
                                         );
                                     })

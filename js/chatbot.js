@@ -31,12 +31,31 @@ export function initAIChatbot() {
     };
 
     function formatMessageText(text) {
+        if (!text || typeof text !== 'string') return '';
         let formatted = text
             .replace(/&/g, "&amp;")
             .replace(/</g, "&lt;")
             .replace(/>/g, "&gt;");
         
-        formatted = formatted.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+        // Handle markdown headers ###, ##, #
+        formatted = formatted.replace(/^###\s+(.*$)/gim, '<strong>$1</strong>');
+        formatted = formatted.replace(/^##\s+(.*$)/gim, '<strong>$1</strong>');
+        formatted = formatted.replace(/^#\s+(.*$)/gim, '<strong>$1</strong>');
+
+        // Handle multiline bold **text** across linebreaks
+        formatted = formatted.replace(/\*\*([\s\S]+?)\*\*/g, '<strong>$1</strong>');
+        
+        // Handle unclosed or stray double asterisks
+        if (formatted.includes('**')) {
+            formatted = formatted.replace(/\*\*([\s\S]+)$/, '<strong>$1</strong>');
+            formatted = formatted.replace(/\*\*/g, '');
+        }
+
+        // Handle single asterisk italics *text*
+        formatted = formatted.replace(/\*(?!\s)(.*?)(?!\s)\*/g, '<em>$1</em>');
+        formatted = formatted.replace(/\*/g, '');
+
+        // Convert linebreaks to <br>
         formatted = formatted.replace(/\n/g, '<br>');
         return formatted;
     }
@@ -189,24 +208,48 @@ export function initAIChatbot() {
     }
 
     function parseRobustJSON(text) {
-        if (typeof text !== 'string') return null;
-        try {
-            const start = text.indexOf('{');
-            const end = text.lastIndexOf('}');
-            if (start !== -1 && end !== -1 && end > start) {
-                const jsonString = text.substring(start, end + 1);
-                return JSON.parse(jsonString);
+        if (!text || typeof text !== 'string') return null;
+        let s = text.trim();
+        s = s.replace(/^```[a-zA-Z]*\s*/i, '').replace(/\s*```$/, '').trim();
+        const firstBrace = s.indexOf('{');
+        if (firstBrace !== -1) {
+            s = s.substring(firstBrace);
+            try { return JSON.parse(s); } catch (e) {}
+            let inStr = false, escaped = false, cleaned = '';
+            const stack = [];
+            for (let i = 0; i < s.length; i++) {
+                const char = s[i];
+                if (escaped) { cleaned += char; escaped = false; continue; }
+                if (char === '\\') { cleaned += char; escaped = true; continue; }
+                if (char === '"') { inStr = !inStr; cleaned += char; continue; }
+                if (inStr) {
+                    if (char === '\n') cleaned += '\\n';
+                    else if (char === '\r') cleaned += '\\r';
+                    else if (char === '\t') cleaned += '\\t';
+                    else cleaned += char;
+                    continue;
+                }
+                if (char === '{' || char === '[') { stack.push(char); cleaned += char; }
+                else if (char === '}') { if (stack[stack.length - 1] === '{') stack.pop(); cleaned += char; }
+                else if (char === ']') { if (stack[stack.length - 1] === '[') stack.pop(); cleaned += char; }
+                else { cleaned += char; }
             }
-            // Check if it looks like a JSON array or simple primitive before parsing
-            const trimmed = text.trim();
-            if (trimmed.startsWith('[') || trimmed.startsWith('"') || trimmed === 'true' || trimmed === 'false' || trimmed === 'null' || (trimmed !== '' && !isNaN(Number(trimmed)))) {
-                return JSON.parse(trimmed);
+            if (inStr) cleaned += '"';
+            cleaned = cleaned.replace(/,\s*$/g, '');
+            while (stack.length > 0) {
+                const top = stack.pop();
+                if (top === '{') cleaned += '}';
+                else if (top === '[') cleaned += ']';
             }
-            return null;
-        } catch (e) {
-            console.warn("Robust JSON parse failed:", e, text);
-            return null;
+            cleaned = cleaned.replace(/,\s*([}\]])/g, '$1');
+            try { return JSON.parse(cleaned); } catch (e) {}
         }
+        // Check if it looks like a JSON array or simple primitive before parsing
+        const trimmed = text.trim();
+        if (trimmed.startsWith('[') || trimmed.startsWith('"') || trimmed === 'true' || trimmed === 'false' || trimmed === 'null' || (trimmed !== '' && !isNaN(Number(trimmed)))) {
+            try { return JSON.parse(trimmed); } catch (e) {}
+        }
+        return null;
     }
 
     function parseResilientResponse(data) {
@@ -220,20 +263,37 @@ export function initAIChatbot() {
         // 2. If data is an object
         if (data && typeof data === 'object') {
             // Check if there's a primary text property containing stringified JSON
-            const rawText = data.reply || data.output || data.response;
-            if (typeof rawText === 'string') {
-                const parsed = parseRobustJSON(rawText);
-                if (parsed) {
+            let rawReply = data.reply || data.output || data.response;
+            if (typeof rawReply === 'string') {
+                const parsed = parseRobustJSON(rawReply);
+                if (parsed && typeof parsed === 'object') {
+                    let finalReply = parsed.reply || rawReply;
+                    if (typeof finalReply === 'string' && finalReply.trim().startsWith('{')) {
+                        const subParsed = parseRobustJSON(finalReply);
+                        if (subParsed && subParsed.reply) finalReply = subParsed.reply;
+                    }
                     return {
-                        reply: parsed.reply || rawText,
+                        reply: finalReply,
                         chips: parsed.chips || data.chips || [],
                         lead_collected: parsed.lead_collected !== undefined ? parsed.lead_collected : (data.lead_collected || false),
                         lead_data: parsed.lead_data || data.lead_data || null
                     };
                 }
+                // Check if rawReply is double-encoded JSON
+                if (rawReply.trim().startsWith('{')) {
+                    const subParsed = parseRobustJSON(rawReply);
+                    if (subParsed && subParsed.reply) {
+                        return {
+                            reply: subParsed.reply,
+                            chips: subParsed.chips || data.chips || [],
+                            lead_collected: subParsed.lead_collected !== undefined ? subParsed.lead_collected : (data.lead_collected || false),
+                            lead_data: subParsed.lead_data || data.lead_data || null
+                        };
+                    }
+                }
                 // It was just a plain text reply inside the object
                 return {
-                    reply: rawText,
+                    reply: rawReply,
                     chips: data.chips || [],
                     lead_collected: data.lead_collected || false,
                     lead_data: data.lead_data || null

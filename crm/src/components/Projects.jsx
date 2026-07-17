@@ -31,6 +31,7 @@ import {
 } from 'lucide-react';
 import { db } from '../services/db';
 import { downloadTemplate } from '../services/templates';
+import { callGeminiWithFallback } from '../services/geminiClient';
 
 const DOC_DESCRIPTIONS = {
     proposal: 'פירוט עלויות ההקמה, התחזוקה החודשית ותנאי הפיתוח של האוטומציות המתוכננות.',
@@ -93,12 +94,15 @@ const WORKFLOW_DESCRIPTIONS = {
     }
 };
 
+const isSafeMarkdownUrl = (url) => /^(https?:|mailto:)/i.test(url.trim());
+
 const renderMarkdown = (text) => {
     if (!text) return '';
     let html = text
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
         .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
         .replace(/\*(.*?)\*/g, '<em>$1</em>')
         .replace(/^### (.*?)$/gm, '<h4 style="color:var(--text-light);margin-top:12px;margin-bottom:6px;font-size:12px;font-weight:600;">$1</h4>')
@@ -112,7 +116,11 @@ const renderMarkdown = (text) => {
         .replace(/\n/g, '<br/>')
         .replace(/<br\/>\s*<li/g, '<li')
         .replace(/<\/li>\s*<br\/>/g, '</li>')
-        .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" style="color:var(--accent-cyan);text-decoration:underline;cursor:pointer;">$1</a>');
+        .replace(/\[([^\]]+)\]\(([^)]+)\)/g, (match, label, url) =>
+            isSafeMarkdownUrl(url)
+                ? `<a href="${url}" target="_blank" rel="noopener noreferrer" style="color:var(--accent-cyan);text-decoration:underline;cursor:pointer;">${label}</a>`
+                : label
+        );
         
     return `<div style="line-height:1.5;font-size:11.5px;color:var(--text-secondary);"><p style="margin-bottom:8px;line-height:1.5;">${html}</p></div>`;
 };
@@ -645,18 +653,12 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
 כתוב את התשובה בפורמט Markdown קצר וקולע.`;
 
         try {
-            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    contents: [{
-                        parts: [{ text: prompt }]
-                    }]
-                })
-            });
-            
+            const response = await callGeminiWithFallback({
+                contents: [{
+                    parts: [{ text: prompt }]
+                }]
+            }, apiKey);
+
             if (!response.ok) {
                 throw new Error(`שגיאה בפנייה ל-Gemini API: ${response.statusText}`);
             }
@@ -1073,8 +1075,8 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
                                                                         </div>
                                                                     </td>
                                                                     <td style={{ padding: '8px 12px' }}>{auto.type}</td>
-                                                                    <td style={{ padding: '8px 12px' }}>₪{auto.setup_price}</td>
-                                                                    <td style={{ padding: '8px 12px' }}>₪{auto.monthly_maintenance}</td>
+                                                                    <td style={{ padding: '8px 12px' }}>₪{(auto.setup_price || 0).toLocaleString('he-IL')}</td>
+                                                                    <td style={{ padding: '8px 12px' }}>₪{(auto.monthly_maintenance || 0).toLocaleString('he-IL')}</td>
                                                                     <td style={{ padding: '8px 12px' }}>{auto.runs_goal > 0 ? `${auto.runs_goal} הרצות` : 'ללא יעד'}</td>
                                                                     <td style={{ padding: '8px 12px', color: openBugsCount > 0 ? '#ef4444' : 'var(--text-secondary)', fontWeight: openBugsCount > 0 ? '600' : 'normal' }}>
                                                                         {openBugsCount > 0 ? `🐛 ${openBugsCount} באגים` : 'אין תקלות'}
@@ -1463,11 +1465,14 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
                                                                                             const success = runs.filter(r => r.status === 'success').length;
                                                                                             const warning = runs.filter(r => r.status === 'warning').length;
                                                                                             const error = runs.filter(r => r.status === 'error').length;
-                                                                                            const blocked = runs.filter(r => r.error_type && r.error_type.includes('נחסמה')).length;
+                                                                                            const blocked = runs.filter(r => typeof r.error_type === 'string' && r.error_type.includes('נחסמה')).length;
                                                                                             const realErrors = error - blocked;
                                                                                             
                                                                                             const activeTotal = total - blocked;
-                                                                                            const successRate = activeTotal > 0 ? Math.round((success / activeTotal) * 100) : 100;
+                                                                                            // Warning runs are not real failures (they still completed), so they
+                                                                                            // count toward success the same way blocked runs are excluded from
+                                                                                            // the denominator - only real errors should drag the rate down.
+                                                                                            const successRate = activeTotal > 0 ? Math.round(((success + warning) / activeTotal) * 100) : 100;
                                                                                             const runsWithDuration = runs.filter(r => r.duration_ms > 0);
                                                                                             const avgDuration = runsWithDuration.length > 0 ? Math.round(runsWithDuration.reduce((acc, r) => acc + r.duration_ms, 0) / runsWithDuration.length) : 0;
 
@@ -1476,7 +1481,7 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
                                                                                             let consecutiveFailures = 0;
                                                                                             for (const r of sortedRuns) {
                                                                                                 if (r.status === 'error') {
-                                                                                                    if (r.error_type && r.error_type.includes('נחסמה')) {
+                                                                                                    if (typeof r.error_type === 'string' && r.error_type.includes('נחסמה')) {
                                                                                                         continue; // Ignore blocked runs for consecutive failures
                                                                                                     }
                                                                                                     consecutiveFailures++;
@@ -1491,9 +1496,9 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
                                                                                             // Calculate Health Score (excluding blocked runs)
                                                                                             const runs30 = runs.filter(r => new Date(r.created_at) >= new Date(Date.now() - 30 * 24 * 60 * 60 * 1000));
                                                                                             const total30 = runs30.length;
-                                                                                            const blocked30 = runs30.filter(r => r.error_type && r.error_type.includes('נחסמה')).length;
+                                                                                            const blocked30 = runs30.filter(r => typeof r.error_type === 'string' && r.error_type.includes('נחסמה')).length;
                                                                                             const activeTotal30 = total30 - blocked30;
-                                                                                            const errors30 = runs30.filter(r => r.status === 'error' && !(r.error_type && r.error_type.includes('נחסמה'))).length;
+                                                                                            const errors30 = runs30.filter(r => r.status === 'error' && !(typeof r.error_type === 'string' && r.error_type.includes('נחסמה'))).length;
                                                                                             const failRate = activeTotal30 > 0 ? (errors30 / activeTotal30) : 0;
                                                                                             const healthDeductions = (failRate * 40) + Math.min(30, consecutiveFailures * 15) + Math.min(30, openBugsCount * 10);
                                                                                             const healthScore = Math.max(0, Math.min(100, Math.round(100 - healthDeductions)));
@@ -1524,7 +1529,7 @@ ${workflowInfo ? `\n${workflowInfo}` : ''}
                                                                                             const startOfMonth = new Date();
                                                                                             startOfMonth.setDate(1);
                                                                                             startOfMonth.setHours(0,0,0,0);
-                                                                                            const currentMonthRuns = runs.filter(r => new Date(r.created_at) >= startOfMonth && !(r.error_type && r.error_type.includes('נחסמה')));
+                                                                                            const currentMonthRuns = runs.filter(r => new Date(r.created_at) >= startOfMonth && !(typeof r.error_type === 'string' && r.error_type.includes('נחסמה')));
                                                                                             const currentMonthTotal = currentMonthRuns.length;
                                                                                             
                                                                                             const totalAllowed = (auto.runs_goal || 0) + (auto.extra_runs_allowance || 0);

@@ -490,6 +490,35 @@ const INITIAL_MOCK_DOCUMENTS = [
     }
 ];
 
+// Automations store their n8n workflow IDs two ways: a comma-separated
+// `n8n_workflow_id` string (legacy/single) and a `n8n_workflows` array (or its
+// JSON-string form from Supabase) of {id, name} objects. Every caller needs
+// the flattened, trimmed union of both.
+function parseWorkflowIds(auto) {
+    const workflowIds = [];
+    if (auto.n8n_workflow_id) {
+        auto.n8n_workflow_id.split(',').forEach(id => {
+            const trimmed = id.trim();
+            if (trimmed) workflowIds.push(trimmed);
+        });
+    }
+    let parsedWorkflows = [];
+    if (auto.n8n_workflows) {
+        if (Array.isArray(auto.n8n_workflows)) {
+            parsedWorkflows = auto.n8n_workflows;
+        } else if (typeof auto.n8n_workflows === 'string') {
+            try {
+                const parsed = JSON.parse(auto.n8n_workflows);
+                if (Array.isArray(parsed)) parsedWorkflows = parsed;
+            } catch (e) {}
+        }
+    }
+    parsedWorkflows.forEach(w => {
+        if (w && w.id) workflowIds.push(w.id.trim());
+    });
+    return workflowIds;
+}
+
 function synthesizeRunsFromDailyStats(dailyStats, automationId, workflowIds) {
     const synthesizedRuns = [];
     const defaultWorkflowId = workflowIds && workflowIds.length > 0 ? workflowIds[0] : '';
@@ -601,29 +630,9 @@ function simulateLocalRollup() {
         const groups = {};
 
         automations.forEach(auto => {
-            const workflowIds = [];
-            if (auto.n8n_workflow_id) {
-                auto.n8n_workflow_id.split(',').forEach(id => {
-                    const trimmed = id.trim();
-                    if (trimmed) workflowIds.push(trimmed);
-                });
-            }
-            let parsedWorkflows = [];
-            if (auto.n8n_workflows) {
-                if (Array.isArray(auto.n8n_workflows)) {
-                    parsedWorkflows = auto.n8n_workflows;
-                } else if (typeof auto.n8n_workflows === 'string') {
-                    try {
-                        const parsed = JSON.parse(auto.n8n_workflows);
-                        if (Array.isArray(parsed)) parsedWorkflows = parsed;
-                    } catch (e) {}
-                }
-            }
-            parsedWorkflows.forEach(w => {
-                if (w && w.id) workflowIds.push(w.id.trim());
-            });
+            const workflowIds = parseWorkflowIds(auto);
 
-            const autoRuns = runs.filter(r => 
+            const autoRuns = runs.filter(r =>
                 r.automation_id === auto.id || 
                 (r.n8n_workflow_id && workflowIds.includes(r.n8n_workflow_id.trim()))
             );
@@ -796,7 +805,13 @@ function getLocalData(key, defaultData) {
         localStorage.setItem(key, JSON.stringify(defaultData));
         return defaultData;
     }
-    return JSON.parse(data);
+    try {
+        return JSON.parse(data);
+    } catch (err) {
+        console.error(`Corrupted localStorage data for key "${key}", resetting to default.`, err);
+        localStorage.setItem(key, JSON.stringify(defaultData));
+        return defaultData;
+    }
 }
 
 function setLocalData(key, data) {
@@ -831,7 +846,12 @@ export const db = {
                 .select('*')
                 .eq('id', id)
                 .single();
-            if (error) throw error;
+            if (error) {
+                // PGRST116 = no row matched .single() - same "not found" case the
+                // mock branch below returns null for, not a real query error.
+                if (error.code === 'PGRST116') return null;
+                throw error;
+            }
             return data;
         } else {
             const leads = getLocalData(STORAGE_KEYS.LEADS, INITIAL_MOCK_LEADS);
@@ -877,6 +897,9 @@ export const db = {
                 .eq('id', id)
                 .select();
             if (error) throw error;
+            // A nonexistent id matches zero rows and Supabase returns [] with no
+            // error - throw so callers can't mistake this for a successful update.
+            if (!data || data.length === 0) throw new Error('Lead not found');
             return data[0];
         } else {
             const leads = getLocalData(STORAGE_KEYS.LEADS, INITIAL_MOCK_LEADS);
@@ -907,6 +930,9 @@ export const db = {
                 .eq('id', id)
                 .select();
             if (error) throw error;
+            // A nonexistent id matches zero rows and Supabase returns [] with no
+            // error - throw so callers can't mistake this for a successful update.
+            if (!data || data.length === 0) throw new Error('Lead not found');
             return data[0];
         } else {
             const leads = getLocalData(STORAGE_KEYS.LEADS, INITIAL_MOCK_LEADS);
@@ -1174,27 +1200,7 @@ export const db = {
             if (autoErr) throw autoErr;
 
             // Collect all workflow IDs associated with this automation
-            const workflowIds = [];
-            if (auto.n8n_workflow_id) {
-                auto.n8n_workflow_id.split(',').forEach(id => {
-                    const trimmed = id.trim();
-                    if (trimmed) workflowIds.push(trimmed);
-                });
-            }
-            let parsedWorkflows = [];
-            if (auto.n8n_workflows) {
-                if (Array.isArray(auto.n8n_workflows)) {
-                    parsedWorkflows = auto.n8n_workflows;
-                } else if (typeof auto.n8n_workflows === 'string') {
-                    try {
-                        const parsed = JSON.parse(auto.n8n_workflows);
-                        if (Array.isArray(parsed)) parsedWorkflows = parsed;
-                    } catch (e) {}
-                }
-            }
-            parsedWorkflows.forEach(w => {
-                if (w && w.id) workflowIds.push(w.id.trim());
-            });
+            const workflowIds = parseWorkflowIds(auto);
 
             // Calculate cutoff date (7 days ago)
             const cutoffDate = new Date();
@@ -1393,27 +1399,7 @@ export const db = {
             const auto = automations.find(a => a.id === automationId);
             if (!auto) return [];
 
-            const workflowIds = [];
-            if (auto.n8n_workflow_id) {
-                auto.n8n_workflow_id.split(',').forEach(id => {
-                    const trimmed = id.trim();
-                    if (trimmed) workflowIds.push(trimmed);
-                });
-            }
-            let parsedWorkflows = [];
-            if (auto.n8n_workflows) {
-                if (Array.isArray(auto.n8n_workflows)) {
-                    parsedWorkflows = auto.n8n_workflows;
-                } else if (typeof auto.n8n_workflows === 'string') {
-                    try {
-                        const parsed = JSON.parse(auto.n8n_workflows);
-                        if (Array.isArray(parsed)) parsedWorkflows = parsed;
-                    } catch (e) {}
-                }
-            }
-            parsedWorkflows.forEach(w => {
-                if (w && w.id) workflowIds.push(w.id.trim());
-            });
+            const workflowIds = parseWorkflowIds(auto);
 
             // Calculate cutoff date (7 days ago)
             const cutoffDate = new Date();
@@ -2111,13 +2097,12 @@ export const db = {
 
     onAuthStateChange(callback) {
         if (isSupabaseConfigured) {
-            // Initial call
-            supabase.auth.getUser().then(({ data: { user } }) => {
-                callback(user);
-            }).catch(() => {
-                callback(null);
-            });
-
+            // No separate initial getUser() call here on purpose: it's a network
+            // round-trip that can resolve AFTER a later SIGNED_OUT event and
+            // re-authenticate a user who just logged out. onAuthStateChange
+            // already fires once synchronously from the local session cache
+            // (INITIAL_SESSION) before any real auth change, so it alone is
+            // both the initial value and the ongoing subscription.
             const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
                 console.log('[Auth] Auth state changed event:', event);
                 callback(session?.user || null);
@@ -2147,7 +2132,10 @@ export const db = {
                 const { data, error } = await supabase
                     .rpc('get_server_metrics_downsampled', { timeframe_param: timeframe });
                 if (error) throw error;
-                return data && data.length > 0 ? data : this.getMockServerMetricsForTimeframe(timeframe);
+                // A real, empty result must stay empty - substituting fabricated
+                // demo data here would make a genuine monitoring outage (or a
+                // quiet period) look like normal server activity.
+                return data || [];
             } catch (err) {
                 console.warn("Supabase server_metrics downsampled RPC error, falling back to mock data:", err);
                 return this.getMockServerMetricsForTimeframe(timeframe);
@@ -2207,7 +2195,10 @@ export const db = {
                     .select('*')
                     .order('name', { ascending: true });
                 if (error) throw error;
-                return data && data.length > 0 ? data : INITIAL_MOCK_SERVER_CONTAINERS;
+                // A real, empty result (e.g. no containers reported yet) must
+                // stay empty rather than silently showing fabricated demo
+                // containers as if they were actually running.
+                return data || [];
             } catch (err) {
                 console.warn("Supabase server_containers table error, falling back to mock data:", err);
                 return INITIAL_MOCK_SERVER_CONTAINERS;

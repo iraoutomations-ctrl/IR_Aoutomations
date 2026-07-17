@@ -1,7 +1,7 @@
 /* ==========================================================================
    autoRI-studio CRM - Server & Container Monitor Component
    ========================================================================== */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
     Activity, 
     Cpu, 
@@ -34,7 +34,11 @@ const ResourceHistoryChart = ({ data, hoveredData, setHoveredData, timeframe, se
     const chartHeight = height - paddingTop - paddingBottom;
 
     const pointsCount = data.length;
-    const getX = (index) => paddingLeft + (index / (pointsCount - 1)) * chartWidth;
+    // With a single data point, index / (pointsCount - 1) divides by zero and
+    // produces NaN coordinates - center the lone point instead.
+    const getX = (index) => pointsCount > 1
+        ? paddingLeft + (index / (pointsCount - 1)) * chartWidth
+        : paddingLeft + chartWidth / 2;
     const getY = (val) => paddingTop + chartHeight - (val / 100) * chartHeight;
 
     const cpuPoints = data.map((d, i) => ({ x: getX(i), y: getY(d.cpu_usage) }));
@@ -52,6 +56,13 @@ const ResourceHistoryChart = ({ data, hoveredData, setHoveredData, timeframe, se
 
     const yGridValues = [0, 25, 50, 75, 100];
     const labelStep = Math.max(1, Math.floor(pointsCount / 6));
+
+    // Screen readers can't parse an SVG line chart's shape, so summarize it as text.
+    const latestPoint = data[data.length - 1];
+    const avgCpu = Math.round(data.reduce((sum, d) => sum + d.cpu_usage, 0) / pointsCount);
+    const avgRam = Math.round(data.reduce((sum, d) => sum + d.ram_usage, 0) / pointsCount);
+    const timeframeLabel = timeframe === '24h' ? '24 השעות האחרונות' : timeframe === '7d' ? '7 הימים האחרונים' : '30 הימים האחרונים';
+    const chartSummary = `גרף מגמות משאבים ל${timeframeLabel}: עומס מעבד נוכחי ${latestPoint.cpu_usage}% (ממוצע ${avgCpu}%), ניצול זיכרון נוכחי ${latestPoint.ram_usage}% (ממוצע ${avgRam}%).`;
 
     const handleMouseMove = (e) => {
         const svg = e.currentTarget;
@@ -73,7 +84,12 @@ const ResourceHistoryChart = ({ data, hoveredData, setHoveredData, timeframe, se
             x: getX(closestIndex),
             cpuY: getY(data[closestIndex].cpu_usage),
             ramY: getY(data[closestIndex].ram_usage),
-            index: closestIndex
+            index: closestIndex,
+            // Actual on-screen pixel position - the SVG itself auto-scales its
+            // internal viewBox units (x/cpuY/ramY above) to the rendered width,
+            // but the tooltip below is a plain HTML div and needs real pixels.
+            pixelX: (getX(closestIndex) / width) * rect.width,
+            renderedWidth: rect.width
         });
     };
 
@@ -126,13 +142,15 @@ const ResourceHistoryChart = ({ data, hoveredData, setHoveredData, timeframe, se
             </div>
 
             <div style={{ position: 'relative', width: '100%' }}>
-                <svg 
-                    viewBox={`0 0 ${width} ${height}`} 
-                    width="100%" 
+                <svg
+                    viewBox={`0 0 ${width} ${height}`}
+                    width="100%"
                     height={height}
                     style={{ overflow: 'visible', cursor: 'crosshair' }}
                     onMouseMove={handleMouseMove}
                     onMouseLeave={handleMouseLeave}
+                    role="img"
+                    aria-label={chartSummary}
                 >
                     <defs>
                         <linearGradient id="cpuAreaGrad" x1="0" y1="0" x2="0" y2="1">
@@ -255,7 +273,7 @@ const ResourceHistoryChart = ({ data, hoveredData, setHoveredData, timeframe, se
                     <div style={{
                         position: 'absolute',
                         top: '40px',
-                        left: hoveredData.x > width / 2 ? `${hoveredData.x * 0.9}px` : `${hoveredData.x * 1.1 + 40}px`,
+                        left: hoveredData.pixelX > hoveredData.renderedWidth / 2 ? `${hoveredData.pixelX * 0.9}px` : `${hoveredData.pixelX * 1.1 + 40}px`,
                         transform: 'translateX(-50%)',
                         background: 'rgba(15, 15, 25, 0.95)',
                         border: '1px solid rgba(255,255,255,0.1)',
@@ -301,22 +319,27 @@ export default function ServerMonitor() {
     const [expandedAlertId, setExpandedAlertId] = useState(null);
     const [isDesktop, setIsDesktop] = useState(window.innerWidth > 960);
     const [timeframe, setTimeframe] = useState('24h');
+    // Bumped on every fetchData call so an older, slower poll can tell it's
+    // been superseded and skip overwriting state with its now-stale result.
+    const fetchId = useRef(0);
 
     // Fetch data from DB
     const fetchData = async (showLoading = false, activeTimeframe = timeframe) => {
+        const myId = ++fetchId.current;
         if (showLoading) setLoading(true);
         try {
             const metricsData = await db.getServerMetrics(activeTimeframe);
             const containersData = await db.getContainers();
             const serverAlerts = await db.getServerAlerts();
 
+            if (myId !== fetchId.current) return; // a newer fetch superseded this one
             setMetrics(metricsData);
             setContainers(containersData);
             setAlerts(serverAlerts);
         } catch (err) {
             console.error("Error loading server metrics:", err);
         } finally {
-            if (showLoading) setLoading(false);
+            if (showLoading && myId === fetchId.current) setLoading(false);
         }
     };
 
@@ -402,6 +425,7 @@ export default function ServerMonitor() {
     
     // Format RAM bytes to human readable format (MB/GB)
     const formatRam = (bytes) => {
+        if (!Number.isFinite(bytes)) return '—';
         if (bytes < 1024 * 1024 * 1024) {
             return `${Math.round(bytes / (1024 * 1024))} MB`;
         }
@@ -436,7 +460,7 @@ export default function ServerMonitor() {
         return (
             <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '20px', borderRadius: '12px', flex: '1', minWidth: '220px', position: 'relative', overflow: 'hidden' }}>
                 <div style={{ position: 'relative', width: '120px', height: '120px', marginBottom: '14px' }}>
-                    <svg style={{ transform: 'rotate(-90deg)', width: '120px', height: '120px' }}>
+                    <svg aria-hidden="true" style={{ transform: 'rotate(-90deg)', width: '120px', height: '120px' }}>
                         <circle 
                             cx="60" cy="60" r={radius} 
                             fill="transparent" 
@@ -511,11 +535,11 @@ export default function ServerMonitor() {
                     subLabel={`${ramUsedGB.toFixed(1)} GB מתוך ${ramTotalGB.toFixed(1)} GB בשימוש`} 
                     icon={Activity} 
                 />
-                <CircularGauge 
-                    value={currentMetrics.disk_usage} 
-                    label="שטח דיסק פנוי" 
-                    subLabel={`${diskFreePct.toFixed(1)}% פנוי (${diskUsedGB.toFixed(1)} GB בשימוש)`} 
-                    icon={HardDrive} 
+                <CircularGauge
+                    value={currentMetrics.disk_usage}
+                    label="ניצול דיסק (Disk)"
+                    subLabel={`${diskUsedGB.toFixed(1)} GB בשימוש (${diskFreePct.toFixed(1)}% פנוי)`}
+                    icon={HardDrive}
                 />
             </div>
 

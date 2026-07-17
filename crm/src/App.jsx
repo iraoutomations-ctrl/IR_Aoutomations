@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 import KanbanBoard from './components/KanbanBoard';
@@ -24,6 +24,12 @@ export default function App() {
     // Key used to force re-render components on data updates
     const [refreshTrigger, setRefreshTrigger] = useState(0);
     const [alerts, setAlerts] = useState([]);
+    const [liveAnnouncement, setLiveAnnouncement] = useState('');
+    // null = no baseline established yet (still loading, or just logged in/out).
+    // Comparing against the *fetched* snapshot (not React's `alerts` state)
+    // avoids a false "new alert" announcement from the empty initial render
+    // that happens before the first fetch resolves.
+    const prevAlertIdsRef = useRef(null);
 
     // Listen to authentication changes
     useEffect(() => {
@@ -44,28 +50,62 @@ export default function App() {
         setRefreshTrigger(prev => prev + 1);
     };
 
-    // Load alerts on mount and when refreshTrigger changes
+    // Load alerts on mount and when refreshTrigger changes. Skipped while logged
+    // out so no data loads before auth resolves or after logout, and guarded
+    // against out-of-order responses so a slower, older request can't overwrite
+    // a newer one.
     useEffect(() => {
+        if (!user) {
+            setAlerts([]);
+            prevAlertIdsRef.current = null; // re-arm so the next login doesn't announce the backlog
+            return;
+        }
+        let ignore = false;
         async function loadAlerts() {
             try {
                 const data = await db.getSystemAlerts();
+                if (ignore) return;
+                if (prevAlertIdsRef.current === null) {
+                    // First load after mount/login - this is the existing backlog,
+                    // not new arrivals, so just record it as the baseline.
+                    prevAlertIdsRef.current = new Set(data.map(a => a.id));
+                } else {
+                    const currentIds = new Set(data.map(a => a.id));
+                    const newAlerts = data.filter(a => !a.read && !prevAlertIdsRef.current.has(a.id));
+                    prevAlertIdsRef.current = currentIds;
+                    if (newAlerts.length === 1) {
+                        setLiveAnnouncement(`התראה חדשה: ${newAlerts[0].title}`);
+                    } else if (newAlerts.length > 1) {
+                        setLiveAnnouncement(`${newAlerts.length} התראות חדשות התקבלו`);
+                    }
+                }
                 setAlerts(data);
             } catch (err) {
                 console.error("Error loading alerts:", err);
             }
         }
         loadAlerts();
-    }, [refreshTrigger]);
+        return () => {
+            ignore = true;
+        };
+        // Depend on user?.id (a stable primitive), not the user object itself -
+        // Supabase hands onAuthStateChange a new object reference on every auth
+        // event (including harmless token refreshes), which would otherwise
+        // retrigger this effect even though the logged-in user hasn't changed.
+    }, [user?.id, refreshTrigger]);
 
-    // Listen for real-time changes on database/local tables to sync UI instantly
+    // Listen for real-time changes on database/local tables to sync UI instantly.
+    // Only subscribed while logged in, and torn down on logout so no background
+    // reads/channels stay open for a session with no authenticated user.
     useEffect(() => {
+        if (!user) return;
         const tables = ['leads', 'tasks', 'notes', 'automations', 'bugs', 'system_alerts', 'automation_runs'];
-        const cleanups = tables.map(table => 
+        const cleanups = tables.map(table =>
             db.subscribeChanges(table, () => {
                 handleLeadUpdated();
             })
         );
-        
+
         return () => {
             cleanups.forEach(cleanup => {
                 try {
@@ -75,7 +115,10 @@ export default function App() {
                 }
             });
         };
-    }, []);
+        // Same reasoning as the alerts effect above: key off user?.id, not the
+        // user object, so a token refresh doesn't tear down and reopen every
+        // realtime channel for no reason.
+    }, [user?.id]);
 
     const handleMarkAlertRead = async (id) => {
         try {
@@ -212,6 +255,8 @@ export default function App() {
 
     return (
         <div className="app-container">
+            <div role="status" aria-live="polite" className="sr-only">{liveAnnouncement}</div>
+
             {/* Sidebar Navigation */}
             <Sidebar 
                 activeTab={activeTab} 

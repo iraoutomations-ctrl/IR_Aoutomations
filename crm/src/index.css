@@ -21,7 +21,11 @@
     
     --text-primary: #f3f4f6;
     --text-secondary: #9ca3af;
-    --text-muted: #6b7280;
+    /* Lightened from #6b7280 - the old value measured ~3.5:1 against this
+       app's card/tertiary backgrounds, below the WCAG AA 4.5:1 minimum for
+       normal-size text. #838a97 measures ~4.9:1 there (~5.7:1 on the darkest
+       background) while staying visibly more muted than --text-secondary. */
+    --text-muted: #838a97;
     --text-light: #ffffff;
     
     /* Industry specific colors */
@@ -219,6 +223,27 @@ p {
     box-shadow: 0 0 10px rgba(139, 92, 246, 0.15);
 }
 
+/* Consistent, visible keyboard-focus ring across the app (buttons, sidebar
+   links, icon-only controls, etc.) - many of these have no other focus style. */
+:focus-visible {
+    outline: 2px solid var(--accent-violet);
+    outline-offset: 2px;
+}
+
+/* Visually hides content while keeping it in the accessibility tree - used
+   for aria-live announcements that shouldn't render on screen. */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
 .form-control::placeholder {
     color: var(--text-muted);
 }
@@ -252,6 +277,64 @@ p {
     padding: 30px 20px;
     justify-content: space-between;
     z-index: 100;
+}
+
+.mobile-nav-toggle {
+    display: none;
+}
+
+.sidebar-backdrop {
+    display: none;
+}
+
+/* Below ~768px there is no room for a persistent 260px sidebar alongside
+   content - it becomes an off-canvas panel toggled by a hamburger button. */
+@media (max-width: 768px) {
+    .sidebar {
+        position: fixed;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        height: 100vh;
+        transform: translateX(100%);
+        transition: transform 0.25s ease;
+        box-shadow: -8px 0 30px rgba(0, 0, 0, 0.4);
+    }
+
+    .sidebar.mobile-open {
+        transform: translateX(0);
+    }
+
+    .main-content {
+        width: 100%;
+        padding: 20px 16px 20px 16px;
+        padding-top: 68px; /* room for the fixed hamburger toggle */
+    }
+
+    .mobile-nav-toggle {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: fixed;
+        top: 14px;
+        right: 16px;
+        width: 40px;
+        height: 40px;
+        border-radius: 8px;
+        background: rgba(17, 19, 28, 0.9);
+        border: 1px solid var(--border-color);
+        color: var(--text-light);
+        cursor: pointer;
+        z-index: 101;
+    }
+
+    .sidebar-backdrop.mobile-open {
+        display: block;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 99;
+    }
 }
 
 .sidebar-logo {
@@ -496,6 +579,18 @@ p {
     margin-top: 24px;
 }
 
+@media (max-width: 1024px) {
+    .dashboard-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 480px) {
+    .dashboard-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
 .stat-card {
     display: flex;
     align-items: center;
@@ -653,6 +748,12 @@ p {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 24px;
+}
+
+@media (max-width: 768px) {
+    .details-grid {
+        grid-template-columns: 1fr;
+    }
 }
 
 .lead-meta-info {

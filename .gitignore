@@ -25,3 +25,7 @@ crm/dist/
 node_modules/
 crm/node_modules/
 
+# Archived debug/scratch scripts - contains hardcoded API keys and tokens
+# from old debugging sessions, never meant to reach version control.
+_archive/
+
